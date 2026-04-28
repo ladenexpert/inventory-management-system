@@ -56,6 +56,7 @@ final class ProductTable extends PowerGridComponent
         return PowerGrid::fields()
             ->add('id')
             ->add('sku')
+            ->add('item_code_ierp')
             ->add('name')
             ->add('name_formatted', function (Product $model) {
                 return $model->is_active ? $model->name : '(DISCONTINUE) ' . $model->name;
@@ -97,6 +98,10 @@ final class ProductTable extends PowerGridComponent
                 ->visibleInExport(false),
 
             Column::make('SKU', 'sku')
+                ->searchable(),
+
+            Column::make('Item Code IERP', 'item_code_ierp')
+                ->sortable()
                 ->searchable(),
 
             Column::make('Name', 'name_formatted', 'name')

@@ -17,13 +17,15 @@
                         items: {{ Js::from(old('items', $purchase->items->map(function($item) {
                             return [
                                 'product_id' => $item->product_id,
+                                'batch_number' => $item->batch_number,
+                                'expiry_date' => $item->expiry_date?->format('Y-m-d'),
                                 'quantity' => $item->quantity,
                                 'unit_price' => $item->unit_price,
                                 'selling_price' => $item->selling_price,
                                 'subtotal' => $item->subtotal,
                                 'key' => Str::random(10),
                                 'product_name' => $item->product->name ?? '',
-                                'product_code' => $item->product->sku ?? ''
+                                'product_code' => $item->product->item_code_ierp ?? $item->product->sku ?? ''
                             ];
                         }))) }},
                         supplier_id: {{ Js::from(old('supplier_id', $purchase->supplier_id)) }},

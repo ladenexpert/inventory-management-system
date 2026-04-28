@@ -84,7 +84,7 @@
                         </a>
 
                         <!-- Products Dropdown -->
-                        <x-nav-dropdown active="{{ request()->routeIs(['products.*', 'categories.*', 'units.*']) }}">
+                        <x-nav-dropdown active="{{ request()->routeIs(['products.*', 'categories.*', 'units.*', 'batches.*']) }}">
                             <x-slot name="icon">
                                 <x-heroicon-o-cube class="mr-2 h-4 w-4" />
                             </x-slot>
@@ -94,6 +94,12 @@
                             <x-slot name="content">
                                 <x-dropdown-link :href="route('products.index')" :active="request()->routeIs('products.*')">
                                     Products
+                                </x-dropdown-link>
+                                <x-dropdown-link :href="route('products.import-opening-stock')" :active="request()->routeIs('products.import-opening-stock*')">
+                                    Import Opening Stock
+                                </x-dropdown-link>
+                                <x-dropdown-link :href="route('batches.index')" :active="request()->routeIs('batches.*')">
+                                    Batches
                                 </x-dropdown-link>
                                 <x-dropdown-link :href="route('categories.index')" :active="request()->routeIs('categories.*')">
                                     Categories
@@ -240,14 +246,16 @@
                         <a href="{{ route('users.index') }}" class="text-md font-semibold hover:underline border-b pb-4 {{ request()->routeIs('users.*') ? 'text-primary' : '' }}">Users</a>
 
                         <!-- Mobile Products Accordion -->
-                        <div x-data="{ expanded: {{ request()->routeIs(['products.*', 'categories.*', 'units.*']) ? 'true' : 'false' }} }" class="border-b-0">
-                            <button @click="expanded = !expanded" class="flex flex-1 items-center justify-between py-0 font-semibold transition-all hover:underline [&[data-state=open]>svg]:rotate-180 w-full text-left text-md {{ request()->routeIs(['products.*', 'categories.*', 'units.*']) ? 'text-primary' : '' }}">
+                        <div x-data="{ expanded: {{ request()->routeIs(['products.*', 'categories.*', 'units.*', 'batches.*']) ? 'true' : 'false' }} }" class="border-b-0">
+                            <button @click="expanded = !expanded" class="flex flex-1 items-center justify-between py-0 font-semibold transition-all hover:underline [&[data-state=open]>svg]:rotate-180 w-full text-left text-md {{ request()->routeIs(['products.*', 'categories.*', 'units.*', 'batches.*']) ? 'text-primary' : '' }}">
                                 Products
                                 <x-heroicon-o-chevron-down :class="{'rotate-180': expanded}" class="h-4 w-4 shrink-0 transition-transform duration-200" />
                             </button>
                             <div x-show="expanded" x-collapse>
                                 <div class="mt-2 flex flex-col gap-2 pl-4 border-l border-border ml-2">
                                     <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('products.index') ? 'text-primary' : '' }}" href="{{ route('products.index') }}">Products</a>
+                                    <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('products.import-opening-stock*') ? 'text-primary' : '' }}" href="{{ route('products.import-opening-stock') }}">Import Opening Stock</a>
+                                    <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('batches.index') ? 'text-primary' : '' }}" href="{{ route('batches.index') }}">Batches</a>
                                     <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('categories.index') ? 'text-primary' : '' }}" href="{{ route('categories.index') }}">Categories</a>
                                     <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('units.index') ? 'text-primary' : '' }}" href="{{ route('units.index') }}">Units</a>
                                 </div>

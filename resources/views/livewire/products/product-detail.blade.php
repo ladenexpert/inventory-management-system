@@ -6,6 +6,7 @@
                 <div>
                     <h3 class="text-xl font-bold text-foreground tracking-tight">{{ $product->name }}</h3>
                     <p class="text-sm text-muted-foreground font-mono">{{ $product->sku }}</p>
+                    <p class="text-xs text-muted-foreground">Item Code IERP: {{ $product->item_code_ierp ?? '-' }}</p>
                 </div>
                 <div>
                     @if($product->is_active)
@@ -73,6 +74,42 @@
                     <label class="text-sm font-medium leading-none text-muted-foreground">{{ __('Internal Notes') }}</label>
                     <div class="bg-gray-50 border border-secondary p-3 rounded-md">
                         <p class="text-sm text-foreground font-mono whitespace-pre-wrap leading-relaxed">{{ $product->notes ?: 'No notes.' }}</p>
+                    </div>
+                </div>
+
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-sm font-medium leading-none text-muted-foreground">{{ __('Active Batches') }}</label>
+                        <p class="text-xs text-muted-foreground mt-1">Batch with the nearest expiry will be consumed first during sales.</p>
+                    </div>
+
+                    <div class="overflow-x-auto rounded-md border border-gray-200">
+                        <table class="min-w-full text-sm">
+                            <thead class="bg-gray-50 text-gray-600">
+                                <tr>
+                                    <th class="px-3 py-2 text-left font-medium">Batch</th>
+                                    <th class="px-3 py-2 text-left font-medium">Expiry</th>
+                                    <th class="px-3 py-2 text-right font-medium">Available</th>
+                                    <th class="px-3 py-2 text-right font-medium">Cost</th>
+                                    <th class="px-3 py-2 text-left font-medium">Source</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200 bg-white">
+                                @forelse($product->batches->where('available_quantity', '>', 0) as $batch)
+                                    <tr>
+                                        <td class="px-3 py-2 font-medium text-gray-900">{{ $batch->batch_number }}</td>
+                                        <td class="px-3 py-2 text-gray-600">{{ $batch->expiry_date?->format('d M Y') ?? '-' }}</td>
+                                        <td class="px-3 py-2 text-right text-gray-700">{{ $batch->available_quantity }}</td>
+                                        <td class="px-3 py-2 text-right text-gray-700">@money($batch->unit_cost)</td>
+                                        <td class="px-3 py-2 text-gray-500">{{ str($batch->source)->headline() }}</td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="5" class="px-3 py-4 text-center text-sm text-gray-500">No active batch available.</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 

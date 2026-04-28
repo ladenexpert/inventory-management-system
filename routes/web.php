@@ -5,6 +5,7 @@ use App\Http\Controllers\SalesController;
 use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FinanceReportController;
+use App\Http\Controllers\ProductOpeningStockImportController;
 
 Route::middleware(['auth', 'verified'])->group(function () {
     // =========================================================================
@@ -24,7 +25,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::view('suppliers', 'suppliers.index')->name('suppliers.index');
         Route::view('categories', 'categories.index')->name('categories.index');
         Route::view('units', 'units.index')->name('units.index');
+        Route::get('products/import-opening-stock', [ProductOpeningStockImportController::class, 'index'])->name('products.import-opening-stock');
+        Route::post('products/import-opening-stock', [ProductOpeningStockImportController::class, 'store'])->name('products.import-opening-stock.store');
+        Route::get('products/import-opening-stock/template', [ProductOpeningStockImportController::class, 'downloadTemplate'])->name('products.import-opening-stock.template');
         Route::view('products', 'products.index')->name('products.index');
+        Route::view('batches', 'batches.index')->name('batches.index');
     });
 
     // =========================================================================

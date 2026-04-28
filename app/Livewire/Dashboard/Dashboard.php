@@ -15,6 +15,7 @@ class Dashboard extends Component
 
     public array $stats = [];
     public array $lowStockProducts = [];
+    public array $urgentBatches = [];
     public array $recentSales = [];
     public array $topProducts = [];
     public array $topCustomers = [];
@@ -56,6 +57,7 @@ class Dashboard extends Component
 
         // 2. Cash Flow Stats
         $cashFlowStats = $service->getCashFlowStats($startDate, $endDate, $this->dateFilter);
+        $batchAlertStats = $service->getBatchAlertStats();
 
 
         $this->stats = [
@@ -65,10 +67,13 @@ class Dashboard extends Component
             'income' => $cashFlowStats['income'],
             'expense' => $cashFlowStats['expense'],
             'net_cash_flow' => $cashFlowStats['net_cash_flow'],
+            'expired_batches' => $batchAlertStats['expired_count'],
+            'near_expiry_batches' => $batchAlertStats['near_expiry_count'],
         ];
 
         // 3. Lists
         $this->lowStockProducts = $service->getLowStockProducts(5);
+        $this->urgentBatches = $service->getUrgentBatches(5);
         $this->topProducts = $service->getTopProducts($startDate, $endDate, 5);
         $this->recentSales = $service->getRecentSales(5);
         $this->topCustomers = $service->getTopCustomers($startDate, $endDate, 5);

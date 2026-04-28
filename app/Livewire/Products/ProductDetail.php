@@ -18,7 +18,15 @@ class ProductDetail extends Component
     #[On('show-product')]
     public function show(Product $product): void
     {
-        $this->product = $product;
+        $this->product = $product->load([
+            'category',
+            'unit',
+            'batches' => fn($query) => $query
+                ->orderByRaw('CASE WHEN expiry_date IS NULL THEN 1 ELSE 0 END')
+                ->orderBy('expiry_date')
+                ->orderBy('received_at')
+                ->orderBy('id'),
+        ]);
         $this->dispatch('open-modal', name: 'product-detail-modal');
     }
 

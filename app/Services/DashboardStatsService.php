@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Batch;
 use Carbon\Carbon;
 use App\Models\Sale;
 use App\Models\Product;
@@ -30,13 +31,12 @@ class DashboardStatsService
             $totalRevenue = $salesData->total_revenue ?? 0;
             $count = $salesData->count ?? 0;
 
-            // COGS = Sum of (Sales Item Quantity * Recorded Cost Price)
-            // Using `cost_price` from sale_items ensures we use the HPP at the time of sale.
+            // COGS uses the exact allocated total_cost from batch consumption.
             $cogs = SaleItem::whereHas('sale', function ($query) use ($startDate, $endDate) {
                     $query->whereBetween('sale_date', [$startDate, $endDate])
                           ->where('status', 'completed');
                 })
-                ->sum(DB::raw('quantity * cost_price'));
+                ->sum('total_cost');
 
             $grossProfit = $totalRevenue - $cogs;
 
@@ -86,6 +86,69 @@ class DashboardStatsService
                 ->orderBy('quantity', 'asc')
                 ->limit($limit)
                 ->get()
+                ->toArray();
+        });
+    }
+
+    /**
+     * Get batch expiry alert statistics.
+     */
+    public function getBatchAlertStats(int $nearExpiryDays = 30): array
+    {
+        $today = now()->startOfDay();
+        $until = $today->copy()->addDays($nearExpiryDays)->endOfDay();
+        $cacheKey = "dashboard_batch_alerts_{$today->format('Ymd')}_{$nearExpiryDays}";
+
+        return Cache::remember($cacheKey, now()->addMinutes(30), function () use ($today, $until) {
+            $baseQuery = Batch::query()->where('available_quantity', '>', 0);
+
+            $expiredCount = (clone $baseQuery)
+                ->whereDate('expiry_date', '<', $today)
+                ->count();
+
+            $nearExpiryCount = (clone $baseQuery)
+                ->whereDate('expiry_date', '>=', $today)
+                ->whereDate('expiry_date', '<=', $until)
+                ->count();
+
+            return [
+                'expired_count' => $expiredCount,
+                'near_expiry_count' => $nearExpiryCount,
+            ];
+        });
+    }
+
+    /**
+     * Get the most urgent batches based on expiry date.
+     */
+    public function getUrgentBatches(int $limit = 5, int $nearExpiryDays = 30): array
+    {
+        $today = now()->startOfDay();
+        $until = $today->copy()->addDays($nearExpiryDays)->endOfDay();
+        $cacheKey = "dashboard_urgent_batches_{$today->format('Ymd')}_{$limit}_{$nearExpiryDays}";
+
+        return Cache::remember($cacheKey, now()->addMinutes(30), function () use ($today, $until, $limit) {
+            return Batch::query()
+                ->with('product:id,name,sku')
+                ->where('available_quantity', '>', 0)
+                ->whereNotNull('expiry_date')
+                ->whereDate('expiry_date', '<=', $until)
+                ->orderBy('expiry_date')
+                ->orderBy('received_at')
+                ->limit($limit)
+                ->get()
+                ->map(function (Batch $batch) use ($today) {
+                    $isExpired = $batch->expiry_date && $batch->expiry_date->lt($today);
+
+                    return [
+                        'batch_number' => $batch->batch_number,
+                        'product_name' => $batch->product->name ?? 'Unknown Product',
+                        'sku' => $batch->product->sku ?? '-',
+                        'available_quantity' => $batch->available_quantity,
+                        'expiry_date' => $batch->expiry_date?->format('Y-m-d'),
+                        'status' => $isExpired ? 'expired' : 'near_expiry',
+                    ];
+                })
                 ->toArray();
         });
     }

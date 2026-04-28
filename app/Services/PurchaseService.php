@@ -14,7 +14,8 @@ use App\Exceptions\PurchaseException;
 class PurchaseService
 {
     public function __construct(
-        protected FinanceTransactionService $financeService
+        protected FinanceTransactionService $financeService,
+        protected BatchService $batchService
     ) {
     }
 
@@ -132,11 +133,10 @@ class PurchaseService
 
             // Update Stock
             foreach ($purchase->items as $item) {
-                // Lock the product row for update to prevent race conditions
                 $product = Product::where('id', $item->product_id)->lockForUpdate()->first();
 
                 if ($product) {
-                    $product->increment('quantity', $item->quantity);
+                    $this->batchService->createBatchFromPurchaseItem($purchase, $item);
 
                     // Update latest purchase price and selling price
                     $updateData = ['purchase_price' => $item->unit_price];
@@ -234,6 +234,8 @@ class PurchaseService
             PurchaseItem::create([
                 'purchase_id' => $purchase->id,
                 'product_id' => $itemData->product_id,
+                'batch_number' => $itemData->batch_number,
+                'expiry_date' => $itemData->expiry_date,
                 'quantity' => $itemData->quantity,
                 'unit_price' => $itemData->unit_price,
                 'subtotal'    => $subtotal,

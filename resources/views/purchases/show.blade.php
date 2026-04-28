@@ -110,6 +110,8 @@
                                 <tr>
                                     <th class="px-6 py-3">Code</th>
                                     <th class="px-6 py-3">Product</th>
+                                    <th class="px-6 py-3">Batch No</th>
+                                    <th class="px-6 py-3">Expiry</th>
                                     <th class="px-6 py-3">Unit</th>
                                     <th class="px-6 py-3 text-center">Quantity</th>
                                     <th class="px-6 py-3 text-right">Buying Price</th>
@@ -121,10 +123,16 @@
                                 @foreach($purchase->items as $item)
                                     <tr class="bg-white hover:bg-gray-50">
                                         <td class="px-6 py-4 text-sm text-gray-500">
-                                            {{ $item->product->product_code ?? $item->product->sku ?? '-' }}
+                                            {{ $item->product->item_code_ierp ?? $item->product->sku ?? '-' }}
                                         </td>
                                         <td class="px-6 py-4 font-medium text-gray-900">
                                             {{ $item->product->name }}
+                                        </td>
+                                        <td class="px-6 py-4 text-sm text-gray-600">
+                                            {{ $item->batch?->batch_number ?? $item->batch_number ?? '-' }}
+                                        </td>
+                                        <td class="px-6 py-4 text-sm text-gray-600">
+                                            {{ $item->batch?->expiry_date?->format('d M Y') ?? $item->expiry_date?->format('d M Y') ?? '-' }}
                                         </td>
                                         <td class="px-6 py-4 text-sm text-gray-500">
                                             {{ $item->product->unit->symbol ?? $item->product->unit->name ?? '-' }}
@@ -146,7 +154,7 @@
                             </tbody>
                             <tfoot class="bg-gray-50 font-bold">
                                 <tr>
-                                    <td colspan="6" class="px-6 py-4 text-right">Total</td>
+                                    <td colspan="8" class="px-6 py-4 text-right">Total</td>
                                     <td class="px-6 py-4 text-right text-indigo-600 text-lg">
                                         @money($purchase->total)
                                     </td>

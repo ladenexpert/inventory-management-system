@@ -61,7 +61,7 @@ class SalesController extends Controller
 
     public function show(Sale $sale)
     {
-        $sale->load(['items.product.unit', 'customer', 'creator']);
+        $sale->load(['items.product.unit', 'items.saleItemBatches.batch', 'customer', 'creator']);
         return view('sales.show', compact('sale'));
     }
 
@@ -78,7 +78,7 @@ class SalesController extends Controller
 
     public function print(Sale $sale)
     {
-        $sale->load(['items.product.unit', 'customer', 'creator']);
+        $sale->load(['items.product.unit', 'items.saleItemBatches.batch', 'customer', 'creator']);
         return view('sales.print', compact('sale'));
     }
 

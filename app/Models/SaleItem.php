@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
@@ -15,6 +16,7 @@ class SaleItem extends Model
         'product_id',
         'quantity',
         'cost_price',
+        'total_cost',
         'unit_price',
         'discount',
         'final_price',
@@ -23,6 +25,7 @@ class SaleItem extends Model
 
     protected $casts = [
         'cost_price' => 'integer',
+        'total_cost' => 'integer',
         'unit_price' => 'integer',
         'discount' => 'integer',
         'final_price' => 'integer',
@@ -38,5 +41,10 @@ class SaleItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function saleItemBatches(): HasMany
+    {
+        return $this->hasMany(SaleItemBatch::class);
     }
 }

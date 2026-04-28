@@ -52,7 +52,7 @@
     </div>
 
     <!-- Stats Grid -->
-    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <!-- Total Sales -->
         <div class="rounded-xl border bg-card text-card-foreground shadow-sm">
             <div class="p-4 flex flex-row items-center justify-between space-y-0 pb-2">
@@ -118,6 +118,38 @@
                 </div>
                 <p class="text-xs text-muted-foreground mt-1">
                     Items below min stock
+                </p>
+            </div>
+        </div>
+
+        <!-- Expired Batch Alert -->
+        <div class="rounded-xl border bg-card text-card-foreground shadow-sm">
+            <div class="p-4 flex flex-row items-center justify-between space-y-0 pb-2">
+                <h3 class="tracking-tight text-sm font-medium">Expired Batches</h3>
+                <x-heroicon-o-clock class="h-4 w-4 text-red-500" />
+            </div>
+            <div class="p-4 pt-0">
+                <div class="text-xl sm:text-2xl font-bold text-red-600">
+                    {{ $stats['expired_batches'] ?? 0 }}
+                </div>
+                <p class="text-xs text-muted-foreground mt-1">
+                    Available stock past expiry date
+                </p>
+            </div>
+        </div>
+
+        <!-- Near Expiry Batch Alert -->
+        <div class="rounded-xl border bg-card text-card-foreground shadow-sm">
+            <div class="p-4 flex flex-row items-center justify-between space-y-0 pb-2">
+                <h3 class="tracking-tight text-sm font-medium">Near Expiry</h3>
+                <x-heroicon-o-beaker class="h-4 w-4 text-amber-500" />
+            </div>
+            <div class="p-4 pt-0">
+                <div class="text-xl sm:text-2xl font-bold text-amber-600">
+                    {{ $stats['near_expiry_batches'] ?? 0 }}
+                </div>
+                <p class="text-xs text-muted-foreground mt-1">
+                    Expiring within 30 days
                 </p>
             </div>
         </div>
@@ -197,7 +229,38 @@
         </div>
     </div>
 
-    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
+    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <!-- Urgent Batches -->
+        <div class="col-span-1 rounded-xl border bg-card text-card-foreground shadow-sm break-inside-avoid">
+            <div class="p-4 flex items-center justify-between border-b">
+                <div class="space-y-1.5">
+                    <h3 class="font-semibold leading-none tracking-tight">Urgent Batches</h3>
+                    <p class="text-xs text-muted-foreground">Expired or expiring within 30 days.</p>
+                </div>
+                <a href="{{ route('batches.index') }}" class="text-xs font-medium text-primary hover:underline">View all</a>
+            </div>
+             <div class="p-4 pt-4 max-h-[300px] overflow-auto">
+                <div class="space-y-4">
+                    @forelse($urgentBatches as $batch)
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="space-y-1 flex-1 min-w-0">
+                                <p class="text-sm font-medium leading-none truncate" title="{{ $batch['product_name'] }}">{{ $batch['product_name'] }}</p>
+                                <p class="text-[11px] text-muted-foreground">{{ $batch['batch_number'] }} | {{ $batch['sku'] }}</p>
+                                <p class="text-[11px] {{ $batch['status'] === 'expired' ? 'text-red-600' : 'text-amber-600' }}">
+                                    {{ $batch['status'] === 'expired' ? 'Expired' : 'Near expiry' }}: {{ $batch['expiry_date'] }}
+                                </p>
+                            </div>
+                            <div class="font-semibold text-sm px-2 py-1 rounded-md whitespace-nowrap {{ $batch['status'] === 'expired' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600' }}">
+                                {{ $batch['available_quantity'] }}
+                            </div>
+                        </div>
+                    @empty
+                         <p class="text-xs text-muted-foreground text-center py-2">No urgent batches.</p>
+                    @endforelse
+                </div>
+            </div>
+        </div>
+
         <!-- Top Selling Products -->
         <div class="col-span-1 rounded-xl border bg-card text-card-foreground shadow-sm break-inside-avoid">
             <div class="p-4 flex flex-col space-y-1.5 border-b">

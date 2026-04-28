@@ -6,6 +6,7 @@ use Exception;
 use App\Models\Sale;
 use App\DTOs\SaleData;
 use App\Models\Product;
+use App\Models\SaleItem;
 use App\Enums\SaleStatus;
 use App\Enums\PaymentMethod;
 use App\Exceptions\SaleException;
@@ -14,7 +15,8 @@ use Illuminate\Support\Facades\DB;
 class SaleService
 {
     public function __construct(
-        protected FinanceTransactionService $financeService
+        protected FinanceTransactionService $financeService,
+        protected BatchService $batchService
     ) {
     }
 
@@ -51,8 +53,6 @@ class SaleService
 
                 $totalSubtotal = 0;
                 $totalDiscount = 0;
-                $timestamp = now();
-                $saleItems = [];
 
                 foreach ($data->items as $itemData) {
                     $product = $products->get($itemData->product_id);
@@ -60,18 +60,6 @@ class SaleService
                     if (!$product) {
                         throw SaleException::productNotFound($itemData->product_id);
                     }
-
-                    if ($product->quantity < $itemData->quantity) {
-                        throw SaleException::insufficientStock(
-                            $product->name,
-                            $itemData->quantity,
-                            $product->quantity
-                        );
-                    }
-
-                    // Update stock
-                    $product->quantity -= $itemData->quantity;
-                    $product->save();
 
                     $unitPrice = $product->selling_price;
                     $quantity = $itemData->quantity;
@@ -83,27 +71,25 @@ class SaleService
 
                     $finalPrice = $unitPrice - $discount;
                     $subtotal   = $finalPrice * $quantity;
+                    $allocations = $this->batchService->reserveBatches($product, $quantity);
+                    $totalCost = collect($allocations)->sum(fn(array $allocation) => $allocation['quantity'] * $allocation['unit_cost']);
 
-                    $saleItems[] = [
+                    $saleItem = SaleItem::create([
                         'sale_id' => $sale->id,
                         'product_id' => $product->id,
                         'quantity' => $quantity,
-                        'cost_price' => $product->purchase_price,
+                        'cost_price' => $quantity > 0 ? (int) round($totalCost / $quantity) : 0,
+                        'total_cost' => $totalCost,
                         'unit_price' => $unitPrice,
                         'discount' => $discount,
                         'final_price' => $finalPrice,
                         'subtotal' => $subtotal,
-                        'created_at' => $timestamp,
-                        'updated_at' => $timestamp,
-                    ];
+                    ]);
+
+                    $this->batchService->recordSaleItemAllocations($sale, $saleItem, $allocations);
 
                     $totalSubtotal += $subtotal;
                     $totalDiscount += $discount * $quantity;
-                }
-
-                // Batch insert items
-                if (!empty($saleItems)) {
-                    \App\Models\SaleItem::insert($saleItems);
                 }
 
                 if ($data->global_discount > $totalSubtotal) {
@@ -159,11 +145,15 @@ class SaleService
 
                 // Restore stock for completed or pending sales
                 if (in_array($sale->status, [SaleStatus::COMPLETED, SaleStatus::PENDING])) {
-                    $sale->loadMissing('items.product');
+                    $sale->loadMissing('items.product', 'items.saleItemBatches.batch');
 
                     foreach ($sale->items as $item) {
                         if ($item->product) {
-                            $item->product->increment('quantity', $item->quantity);
+                            $restored = $this->batchService->restoreSaleItemBatches($sale, $item);
+
+                            if (!$restored) {
+                                $item->product->increment('quantity', $item->quantity);
+                            }
                         }
                     }
                 }
@@ -236,7 +226,7 @@ class SaleService
             }
 
             // Must re-deduct stock
-            $sale->loadMissing('items.product');
+            $sale->loadMissing('items.product', 'items.saleItemBatches.batch');
 
             foreach ($sale->items as $item) {
                 $product = $item->product()->lockForUpdate()->find($item->product_id);
@@ -245,15 +235,19 @@ class SaleService
                     throw SaleException::productNotFound($item->product_id);
                 }
 
-                if ($product->quantity < $item->quantity) {
-                    throw SaleException::insufficientStock(
-                        $product->name,
-                        $item->quantity,
-                        $product->quantity
-                    );
-                }
+                $reapplied = $this->batchService->reapplySaleItemBatches($sale, $item);
 
-                $product->decrement('quantity', $item->quantity);
+                if (!$reapplied) {
+                    if ($product->quantity < $item->quantity) {
+                        throw SaleException::insufficientStock(
+                            $product->name,
+                            $item->quantity,
+                            $product->quantity
+                        );
+                    }
+
+                    $product->decrement('quantity', $item->quantity);
+                }
             }
 
             // Restore to PENDING

@@ -363,6 +363,10 @@
                                                 <div>
                                                     <div class="font-medium text-gray-900">${escape(item.name)}</div>
                                                     <div class="text-xs text-gray-500">${escape(item.sku)}</div>
+                                                    <div class="text-[11px] text-gray-400">
+                                                        ${item.active_batch_count ? `Batches: ${escape(String(item.active_batch_count))}` : 'Legacy stock'}
+                                                        ${item.nearest_expiry_date ? ` | Nearest exp: ${escape(String(item.nearest_expiry_date))}` : ''}
+                                                    </div>
                                                 </div>
                                                 <div class="text-right">
                                                     <div class="font-bold text-indigo-600">${this.formatCurrency(item.selling_price)}</div>

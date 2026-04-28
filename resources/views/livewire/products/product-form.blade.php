@@ -31,17 +31,26 @@
                     </div>
                 @endif
 
-                <!-- Name -->
+                <!-- Item Code IERP -->
                 <x-form-input
-                    name="name"
-                    label="Product Name"
-                    placeholder="e.g. Wireless Mouse"
+                    name="item_code_ierp"
+                    label="Item Code IERP"
+                    placeholder="e.g. IERP-000123"
                     type="text"
-                    wire:model="name"
-                    required
+                    wire:model="item_code_ierp"
                     class="{{ !$isEditing ? 'col-span-2' : '' }}"
                 />
             </div>
+
+            <!-- Product Name -->
+            <x-form-input
+                name="name"
+                label="Product Name"
+                placeholder="e.g. Wireless Mouse"
+                type="text"
+                wire:model="name"
+                required
+            />
 
             <!-- Row 2: Category & Unit -->
             <div class="flex flex-col sm:flex-row gap-6">
@@ -130,6 +139,21 @@
                     placeholder="0"
                     required
                 />
+
+                @if(!$isEditing)
+                    <!-- Opening Balance Batch Number -->
+                    <div class="space-y-2">
+                        <x-input-label for="opening_batch_number" :value="__('Opening Balance Batch Number')" />
+                        <x-text-input
+                            id="opening_batch_number"
+                            name="opening_batch_number"
+                            wire:model="opening_batch_number"
+                            placeholder="Kosongkan untuk auto-generate"
+                            class="block w-full"
+                        />
+                        <x-input-error :messages="$errors->get('opening_batch_number')" />
+                    </div>
+                @endif
 
                 <!-- Is Active -->
                 <div class="flex items-center h-full pt-8">

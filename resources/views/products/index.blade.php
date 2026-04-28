@@ -4,10 +4,16 @@
             <h2 class="font-semibold text-xl text-foreground leading-tight">
                 {{ __('Products') }}
             </h2>
-            <x-primary-button x-data x-on:click="$dispatch('create-product')">
-                <x-heroicon-o-plus class="w-4 h-4 mr-2" />
-                {{ __('Create Product') }}
-            </x-primary-button>
+            <div class="flex items-center gap-2">
+                <x-secondary-button :href="route('products.import-opening-stock')">
+                    <x-heroicon-o-arrow-up-tray class="w-4 h-4 mr-2" />
+                    {{ __('Import Stok Awal') }}
+                </x-secondary-button>
+                <x-primary-button x-data x-on:click="$dispatch('create-product')">
+                    <x-heroicon-o-plus class="w-4 h-4 mr-2" />
+                    {{ __('Create Product') }}
+                </x-primary-button>
+            </div>
         </div>
     </x-slot>
 

@@ -62,7 +62,7 @@ class PurchaseController extends Controller
 
     public function show(Purchase $purchase)
     {
-        $purchase->load(['supplier', 'creator', 'items.product.unit']);
+        $purchase->load(['supplier', 'creator', 'items.product.unit', 'items.batch']);
         return view('purchases.show', compact('purchase'));
     }
 
@@ -143,8 +143,6 @@ class PurchaseController extends Controller
         if (empty($purchase->proof_image)) {
             $rules['proof_image'] = 'required|image|max:2048'; // 2MB Max
         }
-
-        $request->validate($rules);
 
         $request->validate($rules);
 

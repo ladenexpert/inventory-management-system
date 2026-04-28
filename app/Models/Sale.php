@@ -46,6 +46,11 @@ class Sale extends Model
         return $this->hasMany(SaleItem::class);
     }
 
+    public function inventoryLogs(): HasMany
+    {
+        return $this->hasMany(InventoryLog::class);
+    }
+
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);

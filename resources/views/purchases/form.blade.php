@@ -123,6 +123,10 @@
             ></select>
         </div>
 
+        <p class="text-xs text-gray-500">
+            Tambahkan produk yang sama lebih dari sekali jika datang dalam batch atau tanggal kedaluwarsa yang berbeda.
+        </p>
+
         <!-- Cart Table -->
         <div class="bg-white rounded-lg shadow border border-gray-200 overflow-hidden flex flex-col">
             <div class="overflow-x-auto">
@@ -130,6 +134,8 @@
                     <thead class="bg-gray-50 sticky top-0 z-10">
                         <tr>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch No</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expiry</th>
                             <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
                             <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Buy Price</th>
                             <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Sell Price</th>
@@ -147,6 +153,29 @@
                                     <input type="hidden" :name="`items[${index}][product_name]`" :value="item.product_name">
                                     <input type="hidden" :name="`items[${index}][product_id]`" :value="item.product_id">
                                     <input type="hidden" :name="`items[${index}][product_code]`" :value="item.product_code">
+                                </td>
+
+                                <!-- Batch Number -->
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <input
+                                        type="text"
+                                        :name="`items[${index}][batch_number]`"
+                                        x-model="item.batch_number"
+                                        class="w-40 border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm shadow-sm"
+                                        placeholder="Auto generate if empty"
+                                    >
+                                    <p x-show="hasError(`items.${index}.batch_number`)" x-text="getError(`items.${index}.batch_number`)" class="text-xs text-red-600 mt-1"></p>
+                                </td>
+
+                                <!-- Expiry Date -->
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <input
+                                        type="date"
+                                        :name="`items[${index}][expiry_date]`"
+                                        x-model="item.expiry_date"
+                                        class="w-40 border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm shadow-sm"
+                                    >
+                                    <p x-show="hasError(`items.${index}.expiry_date`)" x-text="getError(`items.${index}.expiry_date`)" class="text-xs text-red-600 mt-1"></p>
                                 </td>
 
                                 <!-- Qty -->
@@ -309,7 +338,7 @@
                         </template>
                         <template x-if="items.length === 0">
                             <tr>
-                                <td colspan="6" class="px-6 py-20 text-center text-gray-500">
+                                <td colspan="8" class="px-6 py-20 text-center text-gray-500">
                                     <div class="flex flex-col items-center justify-center">
                                         <svg class="w-12 h-12 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                                         <p class="text-base font-medium">No items added</p>
@@ -321,7 +350,7 @@
                     </tbody>
                     <tfoot class="bg-gray-50 border-t border-gray-200">
                         <tr>
-                            <td colspan="4" class="px-6 py-4 text-right font-bold text-gray-900 text-base">Total Purchase:</td>
+                            <td colspan="6" class="px-6 py-4 text-right font-bold text-gray-900 text-base">Total Purchase:</td>
                             <td class="px-6 py-4 text-right font-bold text-blue-600 text-lg">
                                 <span x-text="window.formatMoney(total)"></span>
                             </td>
@@ -356,6 +385,8 @@
             items: (initialData.items || []).map(i => ({
                 ...i,
                 key: i.key || Math.random().toString(36).substr(2, 9),
+                batch_number: i.batch_number || '',
+                expiry_date: i.expiry_date || '',
                 subtotal: parseInt(i.subtotal) || 0
             })),
             supplier_id: initialData.supplier_id || '',
@@ -449,37 +480,25 @@
 
             // Callback to add product from Master Search
             addProduct(product) {
-                let existingIndex = this.items.findIndex(i => i.product_id == product.value);
+                this.items.push({
+                    key: Math.random().toString(36).substr(2, 9),
+                    product_id: product.value,
+                    product_name: product.text,
+                    product_code: product.item_code_ierp || product.sku,
+                    batch_number: '',
+                    expiry_date: '',
+                    quantity: 1,
+                    unit_price: product.price || 0,
+                    selling_price: product.selling_price || 0,
+                    subtotal: (product.price || 0) * 1
+                });
 
-                if (existingIndex !== -1) {
-                    this.items[existingIndex].quantity += 1;
-                    this.calculateLine(existingIndex);
-
-                    window.dispatchEvent(new CustomEvent('toast', {
-                        detail: {
-                            message: 'Product already exists. Quantity updated.',
-                            type: 'info'
-                        }
-                    }));
-                } else {
-                    this.items.push({
-                        key: Math.random().toString(36).substr(2, 9),
-                        product_id: product.value,
-                        product_name: product.text,
-                        product_code: product.sku,
-                        quantity: 1,
-                        unit_price: product.price || 0,
-                        selling_price: product.selling_price || 0,
-                        subtotal: (product.price || 0) * 1
-                    });
-
-                    window.dispatchEvent(new CustomEvent('toast', {
-                        detail: {
-                            message: 'Product "' + product.text + '" added to list.',
-                            type: 'success'
-                        }
-                    }));
-                }
+                window.dispatchEvent(new CustomEvent('toast', {
+                    detail: {
+                        message: 'Product "' + product.text + '" added as a new batch row.',
+                        type: 'success'
+                    }
+                }));
             },
 
             initMasterSearch(el) {

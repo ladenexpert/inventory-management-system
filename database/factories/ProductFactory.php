@@ -25,6 +25,7 @@ class ProductFactory extends Factory
             'category_id' => !empty($categories) ? fake()->randomElement($categories) : Category::factory(),
             'unit_id' => !empty($units) ? fake()->randomElement($units) : Unit::factory(),
             'sku' => 'P.' . date('ymd') . '.' . strtoupper(fake()->unique()->lexify('????')),
+            'item_code_ierp' => fake()->optional()->bothify('IERP-######'),
             'name' => fake()->words(3, true),
             'description' => fake()->sentence(),
             'purchase_price' => fake()->numberBetween(10000, 500000),

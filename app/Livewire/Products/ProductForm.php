@@ -19,12 +19,14 @@ class ProductForm extends Component
 
     // Form Fields
     public ?string $sku = null;
+    public ?string $item_code_ierp = null;
     public string $name = '';
     public ?int $category_id = null;
     public ?int $unit_id = null;
     public int $purchase_price = 0;
     public int $selling_price = 0;
     public int $quantity = 0;
+    public ?string $opening_batch_number = null;
     public int $min_stock = 0;
     public bool $is_active = true;
     public string $description = '';
@@ -47,7 +49,7 @@ class ProductForm extends Component
     #[On('create-product')]
     public function create(): void
     {
-        $this->reset(['sku', 'name', 'category_id', 'unit_id', 'purchase_price', 'selling_price', 'quantity', 'min_stock', 'description', 'notes', 'product', 'isEditing', 'categoryName', 'unitName']);
+        $this->reset(['sku', 'item_code_ierp', 'name', 'category_id', 'unit_id', 'purchase_price', 'selling_price', 'quantity', 'opening_batch_number', 'min_stock', 'description', 'notes', 'product', 'isEditing', 'categoryName', 'unitName']);
         $this->is_active = true;
 
         $this->dispatch('open-modal', name: 'product-form-modal');
@@ -58,12 +60,14 @@ class ProductForm extends Component
     {
         $this->product = $product;
         $this->sku = $product->sku;
+        $this->item_code_ierp = $product->item_code_ierp;
         $this->name = $product->name;
         $this->category_id = $product->category_id;
         $this->unit_id = $product->unit_id;
         $this->purchase_price = $product->purchase_price;
         $this->selling_price = $product->selling_price;
         $this->quantity = $product->quantity;
+        $this->opening_batch_number = null;
         $this->min_stock = $product->min_stock;
         $this->is_active = $product->is_active;
         $this->description = $product->description ?? '';
@@ -88,11 +92,13 @@ class ProductForm extends Component
                 'max:50',
                 Rule::unique('products', 'sku')->ignore($this->product?->id)
             ],
+            'item_code_ierp' => ['nullable', 'string', 'max:100'],
             'category_id' => ['required', 'exists:categories,id'],
             'unit_id' => ['required', 'exists:units,id'],
             'purchase_price' => ['required', 'integer', 'min:0'],
             'selling_price' => ['required', 'integer', 'min:0'],
             'quantity' => ['required', 'integer', 'min:0'],
+            'opening_batch_number' => ['nullable', 'string', 'max:100', 'unique:batches,batch_number'],
             'min_stock' => ['required', 'integer', 'min:0'],
             'is_active' => ['boolean'],
             'description' => ['nullable', 'string'],
