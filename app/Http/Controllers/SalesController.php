@@ -61,12 +61,22 @@ class SalesController extends Controller
 
     public function show(Sale $sale)
     {
+        // // Authorization: Only creator can view
+        // if ($sale->created_by !== Auth::id()) {
+        //     abort(403, 'You can only view your own sales.');
+        // }
+
         $sale->load(['items.product.unit', 'items.saleItemBatches.batch', 'customer', 'creator']);
         return view('sales.show', compact('sale'));
     }
 
     public function destroy(Request $request, Sale $sale, SaleService $saleService)
     {
+        // // Authorization: Only creator can cancel
+        // if ($sale->created_by !== Auth::id()) {
+        //     abort(403, 'You can only cancel your own sales.');
+        // }
+
         try {
             $reason = $request->input('reason');
             $saleService->cancelSale($sale, $reason);
@@ -78,12 +88,22 @@ class SalesController extends Controller
 
     public function print(Sale $sale)
     {
+        // // Authorization: Only creator can print
+        // if ($sale->created_by !== Auth::id()) {
+        //     abort(403, 'You can only print your own sales.');
+        // }
+
         $sale->load(['items.product.unit', 'items.saleItemBatches.batch', 'customer', 'creator']);
         return view('sales.print', compact('sale'));
     }
 
     public function restore(Sale $sale, SaleService $saleService)
     {
+        // // Authorization: Only creator can restore
+        // if ($sale->created_by !== Auth::id()) {
+        //     abort(403, 'You can only restore your own sales.');
+        // }
+
         try {
             $saleService->restoreSale($sale);
             return redirect()->back()->with('success', 'Sale restored to Pending.');

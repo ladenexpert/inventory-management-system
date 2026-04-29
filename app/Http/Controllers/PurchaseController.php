@@ -68,6 +68,11 @@ class PurchaseController extends Controller
 
     public function edit(Purchase $purchase)
     {
+        // // Authorization: Only creator or admin can edit
+        // if ($purchase->created_by !== Auth::id()) {
+        //     abort(403, 'You can only edit your own purchases.');
+        // }
+
         if (!in_array($purchase->status, [PurchaseStatus::DRAFT, PurchaseStatus::ORDERED])) {
             abort(403, 'Only draft or ordered purchases can be edited.');
         }
@@ -83,6 +88,11 @@ class PurchaseController extends Controller
 
     public function update(UpdatePurchaseRequest $request, Purchase $purchase)
     {
+        // // Authorization: Only creator can update
+        // if ($purchase->created_by !== Auth::id()) {
+        //     abort(403, 'You can only update your own purchases.');
+        // }
+
         try {
             $proofPath = $purchase->proof_image;
             if ($request->hasFile('proof_image')) {
@@ -109,6 +119,11 @@ class PurchaseController extends Controller
 
     public function destroy(Purchase $purchase)
     {
+        // // Authorization: Only creator can delete
+        // if ($purchase->created_by !== Auth::id()) {
+        //     abort(403, 'You can only delete your own purchases.');
+        // }
+
         try {
             $this->service->deletePurchase($purchase);
             return redirect()->route('purchases.index')->with('success', 'Purchase deleted successfully.');
@@ -174,6 +189,11 @@ class PurchaseController extends Controller
 
     public function cancel(Purchase $purchase)
     {
+        // // Authorization: Only creator can cancel
+        // if ($purchase->created_by !== Auth::id()) {
+        //     abort(403, 'You can only cancel your own purchases.');
+        // }
+
         try {
             $this->service->cancelPurchase($purchase);
             return back()->with('success', 'Purchase order cancelled.');
@@ -198,6 +218,11 @@ class PurchaseController extends Controller
 
     public function restoreToDraft(Purchase $purchase)
     {
+        // // Authorization: Only creator can restore
+        // if ($purchase->created_by !== Auth::id()) {
+        //     abort(403, 'You can only restore your own purchases.');
+        // }
+
         try {
             $this->service->restoreToDraft($purchase);
             return back()->with('success', 'Purchase restored to draft.');

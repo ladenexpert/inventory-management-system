@@ -109,15 +109,15 @@ final class BatchTable extends PowerGridComponent
                 ->sortable()
                 ->searchable(),
 
-            Column::make('Status', 'expiry_status', 'expiry_date_sort')
+            Column::make('Status', 'expiry_status', 'expiry_date')
                 ->sortable()
                 ->headerAttribute('text-center')
                 ->bodyAttribute('text-center'),
 
-            Column::make('Expiry Date', 'expiry_date_formatted', 'expiry_date_sort')
+            Column::make('Expiry Date', 'expiry_date_formatted', 'expiry_date')
                 ->sortable(),
 
-            Column::make('Days Left', 'days_left', 'expiry_date_sort')
+            Column::make('Days Left', 'days_left', 'expiry_date')
                 ->sortable()
                 ->bodyAttribute('text-center'),
 

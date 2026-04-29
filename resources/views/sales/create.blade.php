@@ -32,6 +32,7 @@
                                     <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
                                     <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Disc/Unit</th>
                                     <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                                    <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Batch</th>
                                     <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
                                 </tr>
                             </thead>
@@ -71,6 +72,31 @@
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-bold text-gray-900" x-text="formatCurrency((item.price - item.discount) * item.quantity)"></td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                                            <button @click="toggleBatchMode(index)" class="text-xs font-medium px-2 py-1 rounded" :class="item.use_manual_batch ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-600'">
+                                                <span x-text="item.use_manual_batch ? 'Manual' : 'Auto FEFO'"></span>
+                                            </button>
+                                            <div x-show="item.use_manual_batch && item.batch_select_open" class="mt-2">
+                                                <div class="text-xs text-gray-500 mb-1">Select batches:</div>
+                                                <template x-for="(batch, bIdx) in item.available_batches" :key="bIdx">
+                                                    <div class="flex items-center justify-between text-xs bg-gray-50 p-2 rounded mb-1">
+                                                        <div>
+                                                            <span x-text="batch.batch_number"></span>
+                                                            <span class="ml-1" :class="batch.is_expired ? 'text-red-600' : (batch.expiry_date ? 'text-amber-600' : 'text-gray-500')">
+                                                                (<span x-text="batch.expiry_formatted"></span>)
+                                                            </span>
+                                                            <span class="ml-1 text-gray-400">Avail: <span x-text="batch.available_quantity"></span></span>
+                                                        </div>
+                                                        <input type="number" x-model="item.batch_allocations[bIdx].quantity" min="0" :max="batch.available_quantity" 
+                                                            class="w-16 text-center border-gray-300 rounded text-xs py-1"
+                                                            @input="validateBatchQty(index, bIdx)">
+                                                    </div>
+                                                </template>
+                                                <div class="text-xs mt-1" :class="getBatchTotal(index) === item.quantity ? 'text-green-600' : 'text-red-600'">
+                                                    Allocated: <span x-text="getBatchTotal(index)"></span> / <span x-text="item.quantity"></span>
+                                                </div>
+                                            </div>
+                                        </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                                             <button @click="removeFromCart(index)" class="flex items-center justify-center w-8 h-8 rounded-full bg-red-100 text-red-600 hover:bg-red-200 focus:outline-none transition-colors mx-auto">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
@@ -80,7 +106,7 @@
                                 </template>
                                 <template x-if="cart.length === 0">
                                     <tr>
-                                        <td colspan="7" class="px-6 py-20 text-center text-gray-500">
+                                        <td colspan="8" class="px-6 py-20 text-center text-gray-500">
                                             <div class="flex flex-col items-center justify-center">
                                                 <svg class="w-12 h-12 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                                                 <p class="text-base font-medium">Cart is empty</p>
@@ -487,7 +513,7 @@
                     addToCart(product) {
                         const existing = this.cart.find(item => item.id === product.id);
                         if (existing) {
-                            if (existing.quantity < product.quantity) {
+                            if (existing.quantity < product.max_stock) {
                                 existing.quantity++;
                                 this.$dispatch('toast', { message: 'Product already exists. Quantity updated.', type: 'info' });
                             } else {
@@ -503,13 +529,74 @@
                                     quantity: 1,
                                     max_stock: product.quantity,
                                     unit: product.unit ? product.unit.symbol : '',
-                                    discount: 0
+                                    discount: 0,
+                                    use_manual_batch: false,
+                                    batch_select_open: false,
+                                    available_batches: [],
+                                    batch_allocations: []
                                 });
                                 this.$dispatch('toast', { message: 'Product "' + product.name + '" added to cart.', type: 'success' });
                             } else {
                                 this.$dispatch('toast', { message: 'Out of Stock!', type: 'error' });
                             }
                         }
+                    },
+
+                    // Batch Management
+                    async toggleBatchMode(index) {
+                        const item = this.cart[index];
+                        item.use_manual_batch = !item.use_manual_batch;
+                        
+                        if (item.use_manual_batch && item.available_batches.length === 0) {
+                            await this.loadBatchesForItem(index);
+                        }
+                        
+                        if (!item.use_manual_batch) {
+                            // Reset to auto FEFO
+                            item.batch_select_open = false;
+                            item.batch_allocations = [];
+                        }
+                    },
+
+                    async loadBatchesForItem(index) {
+                        const item = this.cart[index];
+                        try {
+                            const res = await fetch('{{ route("ajax.batches.get") }}', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                                },
+                                body: JSON.stringify({ product_id: item.id })
+                            });
+                            const json = await res.json();
+                            if (json.success) {
+                                item.available_batches = json.data;
+                                // Initialize allocations with 0 quantity
+                                item.batch_allocations = json.data.map(b => ({ batch_id: b.id, quantity: 0 }));
+                                item.batch_select_open = true;
+                            }
+                        } catch (e) {
+                            console.error('Failed to load batches:', e);
+                            this.$dispatch('toast', { message: 'Failed to load batches', type: 'error' });
+                        }
+                    },
+
+                    validateBatchQty(itemIndex, batchIndex) {
+                        const item = this.cart[itemIndex];
+                        const batch = item.available_batches[batchIndex];
+                        const allocation = item.batch_allocations[batchIndex];
+                        
+                        if (allocation.quantity > batch.available_quantity) {
+                            allocation.quantity = batch.available_quantity;
+                            this.$dispatch('toast', { message: 'Max batch quantity reached', type: 'warning' });
+                        }
+                        if (allocation.quantity < 0) allocation.quantity = 0;
+                    },
+
+                    getBatchTotal(index) {
+                        const item = this.cart[index];
+                        return item.batch_allocations.reduce((sum, a) => sum + (parseInt(a.quantity) || 0), 0);
                     },
 
                     validateQty(index) {
@@ -640,12 +727,24 @@
                         this.isSubmitting = true;
 
                         try {
-                            const items = this.cart.map(item => ({
-                                product_id: item.id,
-                                quantity: item.quantity,
-                                unit_price: item.price,
-                                discount: item.discount
-                            }));
+                            const items = this.cart.map(item => {
+                                const base = {
+                                    product_id: item.id,
+                                    quantity: item.quantity,
+                                    unit_price: item.price,
+                                    discount: item.discount
+                                };
+                                
+                                // Include batch_allocations if manual mode is enabled and allocations are filled
+                                if (item.use_manual_batch && item.batch_allocations) {
+                                    const filledAllocations = item.batch_allocations.filter(a => parseInt(a.quantity) > 0);
+                                    if (filledAllocations.length > 0) {
+                                        base.batch_allocations = filledAllocations;
+                                    }
+                                }
+                                
+                                return base;
+                            });
 
                             const payload = {
                                 customer_id: this.selectedCustomer?.id,

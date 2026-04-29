@@ -91,7 +91,8 @@ class BatchService
         ?int $sellingPrice,
         string $source,
         ?string $notes = null,
-        ?string $batchNumber = null
+        ?string $batchNumber = null,
+        ?string $expiryDate = null
     ): ?Batch {
         if ($quantity <= 0) {
             return null;
@@ -108,7 +109,7 @@ class BatchService
             'purchase_id' => null,
             'purchase_item_id' => null,
             'batch_number' => $resolvedBatchNumber,
-            'expiry_date' => null,
+            'expiry_date' => $expiryDate ? \Carbon\Carbon::parse($expiryDate) : null,
             'received_at' => now(),
             'unit_cost' => $unitCost,
             'selling_price' => $sellingPrice,
@@ -179,10 +180,25 @@ class BatchService
         $this->syncProductQuantity($product);
     }
 
-    public function reserveBatches(Product $product, int $quantity): array
+    /**
+     * Reserve batches for a sale item.
+     * 
+     * @param Product $product The product to reserve batches for
+     * @param int $quantity Total quantity needed
+     * @param array<array{batch_id: int, quantity: int}>|null $manualAllocations Manual batch allocations (null = auto FEFO)
+     * @return array<array{batch: Batch, quantity: int, unit_cost: int, quantity_before: int, quantity_after: int}>
+     * @throws SaleException
+     */
+    public function reserveBatches(Product $product, int $quantity, ?array $manualAllocations = null): array
     {
         $this->ensureBatchCoverage($product);
 
+        // If manual allocations provided, use them instead of auto FEFO
+        if ($manualAllocations !== null) {
+            return $this->reserveManualBatches($product, $quantity, $manualAllocations);
+        }
+
+        // Auto FEFO - existing logic
         $batches = Batch::query()
             ->where('product_id', $product->id)
             ->where('available_quantity', '>', 0)
@@ -227,6 +243,85 @@ class BatchService
             ];
 
             $remaining -= $deducted;
+        }
+
+        $this->syncProductQuantity($product);
+
+        return $allocations;
+    }
+
+    /**
+     * Reserve batches manually selected by user.
+     * 
+     * @param Product $product The product
+     * @param int $quantity Total quantity (for validation)
+     * @param array<array{batch_id: int, quantity: int}> $manualAllocations User-selected batches
+     * @return array<array{batch: Batch, quantity: int, unit_cost: int, quantity_before: int, quantity_after: int}>
+     * @throws SaleException
+     */
+    protected function reserveManualBatches(Product $product, int $quantity, array $manualAllocations): array
+    {
+        $totalAllocated = array_sum(array_column($manualAllocations, 'quantity'));
+        
+        if ($totalAllocated !== $quantity) {
+            throw SaleException::invalidDiscount(
+                "Total batch allocation ({$totalAllocated}) must equal item quantity ({$quantity}) for product '{$product->name}'."
+            );
+        }
+
+        $batchIds = array_column($manualAllocations, 'batch_id');
+        $batches = Batch::query()
+            ->where('product_id', $product->id)
+            ->whereIn('id', $batchIds)
+            ->lockForUpdate()
+            ->get()
+            ->keyBy('id');
+
+        // Validate all batches exist and belong to this product
+        $missingBatches = array_diff($batchIds, $batches->keys()->toArray());
+        if (!empty($missingBatches)) {
+            throw SaleException::productNotFound(implode(', ', $missingBatches));
+        }
+
+        $allocations = [];
+        $allocatedQty = [];
+
+        foreach ($manualAllocations as $allocation) {
+            $batchId = $allocation['batch_id'];
+            $requestedQty = $allocation['quantity'];
+
+            if ($requestedQty <= 0) {
+                continue;
+            }
+
+            $batch = $batches->get($batchId);
+            
+            if (!$batch) {
+                throw SaleException::productNotFound($batchId);
+            }
+
+            if ($batch->available_quantity < $requestedQty) {
+                throw SaleException::insufficientStock(
+                    $product->name,
+                    $requestedQty,
+                    $batch->available_quantity
+                );
+            }
+
+            $before = $batch->available_quantity;
+            $after = $before - $requestedQty;
+
+            $batch->update(['available_quantity' => $after]);
+
+            $allocations[] = [
+                'batch' => $batch->fresh(),
+                'quantity' => $requestedQty,
+                'unit_cost' => (int) $batch->unit_cost,
+                'quantity_before' => $before,
+                'quantity_after' => $after,
+            ];
+
+            $allocatedQty[$batchId] = $requestedQty;
         }
 
         $this->syncProductQuantity($product);

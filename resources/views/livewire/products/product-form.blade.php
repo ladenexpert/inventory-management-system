@@ -153,6 +153,19 @@
                         />
                         <x-input-error :messages="$errors->get('opening_batch_number')" />
                     </div>
+
+                    <!-- Opening Expiry Date -->
+                    <div class="space-y-2">
+                        <x-input-label for="opening_expiry_date" :value="__('Expiry Date')" />
+                        <x-text-input
+                            id="opening_expiry_date"
+                            name="opening_expiry_date"
+                            type="date"
+                            wire:model="opening_expiry_date"
+                            class="block w-full"
+                        />
+                        <x-input-error :messages="$errors->get('opening_expiry_date')" />
+                    </div>
                 @endif
 
                 <!-- Is Active -->

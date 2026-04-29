@@ -71,7 +71,7 @@ class SaleService
 
                     $finalPrice = $unitPrice - $discount;
                     $subtotal   = $finalPrice * $quantity;
-                    $allocations = $this->batchService->reserveBatches($product, $quantity);
+                    $allocations = $this->batchService->reserveBatches($product, $quantity, $itemData->batch_allocations);
                     $totalCost = collect($allocations)->sum(fn(array $allocation) => $allocation['quantity'] * $allocation['unit_cost']);
 
                     $saleItem = SaleItem::create([

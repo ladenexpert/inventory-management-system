@@ -48,7 +48,8 @@ class ProductService
                         sellingPrice: $data->selling_price,
                         source: 'opening_balance',
                         notes: 'Opening balance created from initial product setup.',
-                        batchNumber: $data->opening_batch_number
+                        batchNumber: $data->opening_batch_number,
+                        expiryDate: $data->opening_expiry_date
                     );
                 }
 
