@@ -59,9 +59,22 @@ class SaleException extends Exception
         return new self("Invalid discount: {$reason}");
     }
 
+    public static function invalidBatchAllocation(string $reason): self
+    {
+        Log::warning("Invalid batch allocation: {$reason}");
+        return new self("Invalid batch allocation: {$reason}");
+    }
+
     public static function expiredBatchSelection(string $batchNumber, string $productName): self
     {
         $message = "Expired batch '{$batchNumber}' cannot be allocated manually for product '{$productName}'.";
+        Log::warning($message);
+        return new self($message);
+    }
+
+    public static function batchNotAvailableForSale(string $batchNumber, string $productName, string $statusLabel): self
+    {
+        $message = "Batch '{$batchNumber}' with status '{$statusLabel}' cannot be allocated for product '{$productName}'.";
         Log::warning($message);
         return new self($message);
     }

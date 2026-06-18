@@ -2,7 +2,9 @@
 
 namespace App\Livewire\Batches;
 
+use App\Enums\BatchStatus;
 use App\Models\Batch;
+use App\Services\BatchPolicyService;
 use Illuminate\Database\Eloquent\Builder;
 use PowerComponents\LivewirePowerGrid\Button;
 use PowerComponents\LivewirePowerGrid\Column;
@@ -45,27 +47,31 @@ final class BatchTable extends PowerGridComponent
     {
         return Batch::query()
             ->with(['product.unit', 'purchase'])
-            ->when(empty($this->sortField), fn($query) => $query->orderBy('expiry_date'));
+            ->when(empty($this->sortField), fn ($query) => $query->orderBy('expiry_date'));
     }
 
     public function fields(): PowerGridFields
     {
+        $policy = app(BatchPolicyService::class);
+        $nearExpiryDays = $policy->nearExpiryThresholdDays();
+
         return PowerGrid::fields()
             ->add('id')
             ->add('batch_number')
-            ->add('product_name', fn(Batch $model) => $model->product?->name ?? '-')
-            ->add('product_sku', fn(Batch $model) => $model->product?->sku ?? '-')
-            ->add('product_item_code_ierp', fn(Batch $model) => $model->product?->item_code_ierp ?? '-')
-            ->add('product_uom', fn(Batch $model) => $model->product?->unit?->symbol ?? $model->product?->unit?->name ?? '-')
-            ->add('purchase_invoice', fn(Batch $model) => $model->purchase?->invoice_number ?? '-')
+            ->add('product_name', fn (Batch $model) => $model->product?->name ?? '-')
+            ->add('product_sku', fn (Batch $model) => $model->product?->sku ?? '-')
+            ->add('product_item_code_ierp', fn (Batch $model) => $model->product?->item_code_ierp ?? '-')
+            ->add('product_uom', fn (Batch $model) => $model->product?->unit?->symbol ?? $model->product?->unit?->name ?? '-')
+            ->add('purchase_invoice', fn (Batch $model) => $model->purchase?->invoice_number ?? '-')
             ->add('available_quantity')
             ->add('quantity')
-            ->add('unit_cost_formatted', fn(Batch $model) => format_money($model->unit_cost))
-            ->add('selling_price_formatted', fn(Batch $model) => format_money((float) ($model->selling_price ?? 0)))
-            ->add('source_label', fn(Batch $model) => str($model->source)->headline())
-            ->add('expiry_date_formatted', fn(Batch $model) => $model->expiry_date?->format('d/m/Y') ?? 'No expiry')
-            ->add('expiry_date_sort', fn(Batch $model) => $model->expiry_date?->format('Y-m-d') ?? '9999-12-31')
-            ->add('expiry_bucket', fn() => '')
+            ->add('unit_cost_formatted', fn (Batch $model) => format_money($model->unit_cost))
+            ->add('inventory_value_formatted', fn (Batch $model) => format_money($policy->inventoryValue($model)))
+            ->add('selling_price_formatted', fn (Batch $model) => format_money((float) ($model->selling_price ?? 0)))
+            ->add('source_label', fn (Batch $model) => str($model->source)->headline())
+            ->add('expiry_date_formatted', fn (Batch $model) => $model->expiry_date?->format('d/m/Y') ?? 'No expiry')
+            ->add('expiry_date_sort', fn (Batch $model) => $model->expiry_date?->format('Y-m-d') ?? '9999-12-31')
+            ->add('expiry_bucket', fn () => '')
             ->add('days_left', function (Batch $model) {
                 if (!$model->expiry_date) {
                     return 'No expiry';
@@ -75,25 +81,25 @@ final class BatchTable extends PowerGridComponent
 
                 return $days >= 0 ? "{$days} days" : abs($days) . ' days ago';
             })
-            ->add('expiry_status', function (Batch $model) {
-                if (!$model->expiry_date) {
-                    return '<span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 border border-slate-200">No Expiry</span>';
-                }
+            ->add('lifecycle_status', function (Batch $model) use ($policy) {
+                $status = $policy->getStatus($model);
+                $badgeClass = match ($status) {
+                    BatchStatus::ACTIVE => 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                    BatchStatus::NEAR_EXPIRY => 'bg-amber-50 text-amber-700 border-amber-200',
+                    BatchStatus::EXPIRED => 'bg-red-50 text-red-700 border-red-200',
+                    BatchStatus::DEPLETED => 'bg-zinc-100 text-zinc-700 border-zinc-200',
+                    BatchStatus::QUARANTINED => 'bg-violet-50 text-violet-700 border-violet-200',
+                };
 
-                if ($model->available_quantity <= 0) {
-                    return '<span class="inline-flex items-center rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 border border-zinc-200">Depleted</span>';
-                }
-
-                if ($model->expiry_date->lt(now()->startOfDay())) {
-                    return '<span class="inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 border border-red-200">Expired</span>';
-                }
-
-                if ($model->expiry_date->lte(now()->addDays(30)->endOfDay())) {
-                    return '<span class="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 border border-amber-200">Near Expiry</span>';
-                }
-
-                return '<span class="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 border border-emerald-200">Safe</span>';
-            });
+                return sprintf(
+                    '<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border %s">%s</span>',
+                    $badgeClass,
+                    e($status->label()),
+                );
+            })
+            ->add('lifecycle_status_value', fn (Batch $model) => $policy->getStatus($model)->value)
+            ->add('near_expiry_label', fn () => "Near Expiry ({$nearExpiryDays} days)")
+            ->add('is_zero_cost', fn (Batch $model) => (int) $model->unit_cost === 0 ? 'Yes' : 'No');
     }
 
     public function columns(): array
@@ -116,7 +122,7 @@ final class BatchTable extends PowerGridComponent
 
             Column::make('UOM', 'product_uom'),
 
-            Column::make('Status', 'expiry_status', 'expiry_date')
+            Column::make('Status', 'lifecycle_status', 'expiry_date')
                 ->sortable()
                 ->headerAttribute('text-center')
                 ->bodyAttribute('text-center'),
@@ -139,6 +145,14 @@ final class BatchTable extends PowerGridComponent
             Column::make('Cost', 'unit_cost_formatted', 'unit_cost')
                 ->sortable()
                 ->bodyAttribute('text-right'),
+
+            Column::make('Inventory Value', 'inventory_value_formatted')
+                ->sortable(false)
+                ->bodyAttribute('text-right'),
+
+            Column::make('Zero Cost', 'is_zero_cost', 'unit_cost')
+                ->sortable(false)
+                ->bodyAttribute('text-center'),
 
             Column::make('Sell Price', 'selling_price_formatted', 'selling_price')
                 ->sortable()
@@ -165,6 +179,9 @@ final class BatchTable extends PowerGridComponent
 
     public function filters(): array
     {
+        $policy = app(BatchPolicyService::class);
+        $nearExpiryDays = $policy->nearExpiryThresholdDays();
+
         return [
             Filter::select('source', 'source')
                 ->dataSource([
@@ -172,37 +189,50 @@ final class BatchTable extends PowerGridComponent
                     ['label' => 'Opening Balance', 'value' => 'opening_balance'],
                     ['label' => 'Adjustment In', 'value' => 'adjustment_in'],
                     ['label' => 'Legacy Sync', 'value' => 'legacy_sync'],
+                    ['label' => 'Sale Cancel Restore', 'value' => 'sale_cancel_restore'],
+                    ['label' => 'Quarantined', 'value' => 'quarantined'],
                 ])
                 ->optionLabel('label')
                 ->optionValue('value'),
 
             Filter::select('expiry_bucket', 'expiry_bucket')
                 ->dataSource([
-                    ['label' => 'Expired', 'value' => 'expired'],
-                    ['label' => 'Near Expiry (30 days)', 'value' => 'near_expiry'],
-                    ['label' => 'Safe', 'value' => 'safe'],
+                    ['label' => 'Active', 'value' => BatchStatus::ACTIVE->value],
+                    ['label' => "Near Expiry ({$nearExpiryDays} days)", 'value' => BatchStatus::NEAR_EXPIRY->value],
+                    ['label' => 'Expired', 'value' => BatchStatus::EXPIRED->value],
+                    ['label' => 'Depleted', 'value' => BatchStatus::DEPLETED->value],
+                    ['label' => 'Quarantined', 'value' => BatchStatus::QUARANTINED->value],
                     ['label' => 'No Expiry', 'value' => 'no_expiry'],
-                    ['label' => 'Depleted', 'value' => 'depleted'],
                 ])
                 ->optionLabel('label')
                 ->optionValue('value')
-                ->builder(function (Builder $query, string $value) {
+                ->builder(function (Builder $query, string $value) use ($nearExpiryDays) {
                     $today = now()->startOfDay();
-                    $until = now()->addDays(30)->endOfDay();
+                    $until = $today->copy()->addDays($nearExpiryDays)->endOfDay();
 
                     match ($value) {
-                        'expired' => $query
+                        BatchStatus::ACTIVE->value => $query
+                            ->where('source', '!=', 'quarantined')
                             ->where('available_quantity', '>', 0)
-                            ->whereDate('expiry_date', '<', $today),
-                        'near_expiry' => $query
+                            ->where(function (Builder $builder) use ($today, $until) {
+                                $builder
+                                    ->whereNull('expiry_date')
+                                    ->orWhereDate('expiry_date', '>', $until);
+                            }),
+                        BatchStatus::NEAR_EXPIRY->value => $query
+                            ->where('source', '!=', 'quarantined')
                             ->where('available_quantity', '>', 0)
                             ->whereDate('expiry_date', '>=', $today)
                             ->whereDate('expiry_date', '<=', $until),
-                        'safe' => $query
+                        BatchStatus::EXPIRED->value => $query
+                            ->where('source', '!=', 'quarantined')
                             ->where('available_quantity', '>', 0)
-                            ->whereDate('expiry_date', '>', $until),
-                        'no_expiry' => $query->whereNull('expiry_date'),
-                        'depleted' => $query->where('available_quantity', '<=', 0),
+                            ->whereDate('expiry_date', '<', $today),
+                        BatchStatus::DEPLETED->value => $query->where('available_quantity', '<=', 0),
+                        BatchStatus::QUARANTINED->value => $query->where('source', 'quarantined'),
+                        'no_expiry' => $query
+                            ->where('available_quantity', '>', 0)
+                            ->whereNull('expiry_date'),
                         default => $query,
                     };
                 }),

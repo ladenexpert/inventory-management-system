@@ -83,16 +83,18 @@
                                             <div x-show="item.use_manual_batch && item.batch_select_open" class="mt-2">
                                                 <div class="text-xs text-gray-500 mb-1">Select batches:</div>
                                                 <template x-for="(batch, bIdx) in item.available_batches" :key="bIdx">
-                                                    <div class="flex items-center justify-between text-xs bg-gray-50 p-2 rounded mb-1">
+                                                    <div class="flex items-center justify-between text-xs p-2 rounded mb-1" :class="batch.can_be_sold ? 'bg-gray-50' : 'bg-red-50 border border-red-100'">
                                                         <div>
                                                             <span x-text="batch.batch_number"></span>
-                                                            <span class="ml-1" :class="batch.is_expired ? 'text-red-600' : (batch.expiry_date ? 'text-amber-600' : 'text-gray-500')">
+                                                            <span class="ml-1" :class="batch.status === 'expired' ? 'text-red-600' : (batch.status === 'near_expiry' ? 'text-amber-600' : 'text-gray-500')">
                                                                 (<span x-text="batch.expiry_formatted"></span>)
                                                             </span>
                                                             <span class="ml-1 text-gray-400">Avail: <span x-text="batch.available_quantity"></span></span>
+                                                            <span class="ml-1" :class="batch.can_be_sold ? 'text-sky-600' : 'text-red-600'" x-text="batch.status_label"></span>
                                                         </div>
                                                         <input type="number" x-model="item.batch_allocations[bIdx].quantity" min="0" :max="batch.available_quantity" 
-                                                            class="w-16 text-center border-gray-300 rounded text-xs py-1"
+                                                            class="w-16 text-center border-gray-300 rounded text-xs py-1 disabled:bg-gray-100 disabled:text-gray-400"
+                                                            :disabled="!batch.can_be_sold"
                                                             @input="validateBatchQty(index, bIdx)">
                                                     </div>
                                                 </template>
@@ -593,6 +595,12 @@
                         const item = this.cart[itemIndex];
                         const batch = item.available_batches[batchIndex];
                         const allocation = item.batch_allocations[batchIndex];
+
+                        if (!batch.can_be_sold) {
+                            allocation.quantity = 0;
+                            this.$dispatch('toast', { message: `Batch ${batch.batch_number} is ${batch.status_label.toLowerCase()} and cannot be sold`, type: 'warning' });
+                            return;
+                        }
                         
                         if (allocation.quantity > batch.available_quantity) {
                             allocation.quantity = batch.available_quantity;

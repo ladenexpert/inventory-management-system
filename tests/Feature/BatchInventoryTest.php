@@ -605,4 +605,170 @@ class BatchInventoryTest extends TestCase
             $this->assertSame(2, (int) Batch::where('product_id', $product->id)->sum('available_quantity'));
         }
     }
+
+    public function test_auto_fefo_ignores_expired_batches_and_uses_next_valid_layer(): void
+    {
+        $user = User::factory()->create();
+        $supplier = Supplier::factory()->create();
+        $customer = Customer::factory()->create();
+        $product = Product::factory()->create([
+            'quantity' => 0,
+            'purchase_price' => 10000,
+            'selling_price' => 18000,
+        ]);
+
+        $purchase = app(PurchaseService::class)->createPurchase(
+            PurchaseData::fromArray([
+                'supplier_id' => $supplier->id,
+                'invoice_number' => 'PO-FEFO-EXP-001',
+                'purchase_date' => now()->toDateString(),
+                'proof_image' => 'proofs/sample.jpg',
+                'status' => PurchaseStatus::DRAFT->value,
+                'items' => [
+                    [
+                        'product_id' => $product->id,
+                        'batch_number' => 'FEFO-EXPIRED',
+                        'expiry_date' => now()->subDay()->toDateString(),
+                        'quantity' => 4,
+                        'unit_price' => 10000,
+                        'selling_price' => 18000,
+                    ],
+                    [
+                        'product_id' => $product->id,
+                        'batch_number' => 'FEFO-VALID',
+                        'expiry_date' => now()->addDays(20)->toDateString(),
+                        'quantity' => 5,
+                        'unit_price' => 11000,
+                        'selling_price' => 18000,
+                    ],
+                ],
+            ]),
+            $user->id
+        );
+        app(PurchaseService::class)->markAsReceived($purchase->fresh());
+
+        $sale = app(SaleService::class)->createSale(
+            SaleData::fromArray([
+                'sale_date' => now()->toDateString(),
+                'payment_method' => PaymentMethod::CASH->value,
+                'created_by' => $user->id,
+                'customer_id' => $customer->id,
+                'status' => SaleStatus::PENDING->value,
+                'cash_received' => 0,
+                'items' => [
+                    [
+                        'product_id' => $product->id,
+                        'quantity' => 2,
+                        'unit_price' => 18000,
+                        'discount' => 0,
+                    ],
+                ],
+            ])
+        );
+
+        $saleItem = $sale->items()->with('saleItemBatches.batch')->firstOrFail();
+
+        $this->assertSame(['FEFO-VALID'], $saleItem->saleItemBatches->pluck('batch.batch_number')->all());
+        $this->assertSame(4, Batch::where('batch_number', 'FEFO-EXPIRED')->value('available_quantity'));
+        $this->assertSame(3, Batch::where('batch_number', 'FEFO-VALID')->value('available_quantity'));
+        $this->assertSame(7, $product->fresh()->quantity);
+    }
+
+    public function test_manual_batch_allocation_must_match_requested_quantity(): void
+    {
+        $user = User::factory()->create();
+        $supplier = Supplier::factory()->create();
+        $product = Product::factory()->create([
+            'quantity' => 0,
+            'purchase_price' => 10000,
+            'selling_price' => 17000,
+        ]);
+
+        $purchase = app(PurchaseService::class)->createPurchase(
+            PurchaseData::fromArray([
+                'supplier_id' => $supplier->id,
+                'invoice_number' => 'PO-MANUAL-MISMATCH-001',
+                'purchase_date' => now()->toDateString(),
+                'proof_image' => 'proofs/sample.jpg',
+                'status' => PurchaseStatus::DRAFT->value,
+                'items' => [
+                    [
+                        'product_id' => $product->id,
+                        'batch_number' => 'MANUAL-MISMATCH',
+                        'expiry_date' => now()->addDays(15)->toDateString(),
+                        'quantity' => 5,
+                        'unit_price' => 10000,
+                        'selling_price' => 17000,
+                    ],
+                ],
+            ]),
+            $user->id
+        );
+        app(PurchaseService::class)->markAsReceived($purchase->fresh());
+
+        $batch = Batch::where('batch_number', 'MANUAL-MISMATCH')->firstOrFail();
+
+        $this->expectExceptionMessage("Invalid batch allocation: Total batch allocation (2) must equal item quantity (3) for product '{$product->name}'.");
+
+        app(SaleService::class)->createSale(
+            SaleData::fromArray([
+                'sale_date' => now()->toDateString(),
+                'payment_method' => PaymentMethod::CASH->value,
+                'created_by' => $user->id,
+                'status' => SaleStatus::PENDING->value,
+                'cash_received' => 0,
+                'items' => [
+                    [
+                        'product_id' => $product->id,
+                        'quantity' => 3,
+                        'unit_price' => 17000,
+                        'discount' => 0,
+                        'batch_allocations' => [
+                            ['batch_id' => $batch->id, 'quantity' => 2],
+                        ],
+                    ],
+                ],
+            ])
+        );
+    }
+
+    public function test_zero_cost_batches_are_allowed_and_keep_batch_valuation_zero(): void
+    {
+        $user = User::factory()->create();
+        $supplier = Supplier::factory()->create();
+        $product = Product::factory()->create([
+            'quantity' => 0,
+            'purchase_price' => 5000,
+            'selling_price' => 15000,
+        ]);
+
+        $purchase = app(PurchaseService::class)->createPurchase(
+            PurchaseData::fromArray([
+                'supplier_id' => $supplier->id,
+                'invoice_number' => 'PO-ZERO-COST-001',
+                'purchase_date' => now()->toDateString(),
+                'proof_image' => 'proofs/sample.jpg',
+                'status' => PurchaseStatus::DRAFT->value,
+                'items' => [
+                    [
+                        'product_id' => $product->id,
+                        'batch_number' => 'ZERO-COST-BATCH',
+                        'expiry_date' => now()->addDays(60)->toDateString(),
+                        'quantity' => 6,
+                        'unit_price' => 0,
+                        'selling_price' => 15000,
+                    ],
+                ],
+            ]),
+            $user->id
+        );
+        app(PurchaseService::class)->markAsReceived($purchase->fresh());
+
+        $batch = Batch::where('batch_number', 'ZERO-COST-BATCH')->firstOrFail();
+
+        $this->assertSame(0, (int) $batch->unit_cost);
+        $this->assertSame(0, (int) $batch->inventory_value);
+        $this->assertSame(6, $product->fresh()->quantity);
+        $this->assertSame(0, $product->fresh()->purchase_price);
+    }
 }

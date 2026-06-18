@@ -22,5 +22,6 @@ class SettingSeeder extends Seeder
         Setting::set('currency_fraction_digits', '0');
         Setting::set('currency_thousand_separator', '.');
         Setting::set('currency_decimal_separator', ',');
+        Setting::set('batch_near_expiry_days', '30');
     }
 }

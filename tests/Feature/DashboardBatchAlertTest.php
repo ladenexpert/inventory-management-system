@@ -46,7 +46,7 @@ class DashboardBatchAlertTest extends TestCase
             'batch_number' => 'SAFE-001',
             'expiry_date' => now()->addDays(60)->toDateString(),
             'received_at' => now()->subDays(2),
-            'unit_cost' => 10000,
+            'unit_cost' => 0,
             'selling_price' => 15000,
             'quantity' => 3,
             'available_quantity' => 3,
@@ -68,11 +68,15 @@ class DashboardBatchAlertTest extends TestCase
         $service = app(DashboardStatsService::class);
         $stats = $service->getBatchAlertStats();
         $urgent = $service->getUrgentBatches(10);
+        $valuation = $service->getInventoryValuation();
 
         $this->assertSame(1, $stats['expired_count']);
         $this->assertSame(1, $stats['near_expiry_count']);
+        $this->assertSame(1, $stats['depleted_count']);
+        $this->assertSame(1, $stats['zero_cost_count']);
         $this->assertSame(['EXP-001', 'NEAR-001'], array_column($urgent, 'batch_number'));
         $this->assertSame(['expired', 'near_expiry'], array_column($urgent, 'status'));
+        $this->assertSame(90000, $valuation['cost_value']);
     }
 
     public function test_batch_monitoring_page_can_be_rendered(): void

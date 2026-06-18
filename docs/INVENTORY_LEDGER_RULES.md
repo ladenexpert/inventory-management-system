@@ -104,12 +104,20 @@ This means stock availability decreases as soon as a pending sale is created, ev
 
 ### Auto FEFO
 
+Automatic reservation is now centralized through `App\Services\FefoService`.
+
 Automatic reservation follows current batch ordering:
 
 1. batches with expiry first
 2. earliest `expiry_date`
 3. earliest `received_at`
 4. lowest `id`
+
+Automatic FEFO skips batches that are:
+
+- expired
+- depleted
+- quarantined
 
 ### Manual allocation
 
@@ -118,8 +126,32 @@ Manual batch allocation is allowed, but:
 - selected quantities must exactly match the requested sale quantity
 - selected batch quantities cannot exceed `available_quantity`
 - expired batches are blocked server-side for manual allocation
+- depleted batches are blocked server-side for manual allocation
+- quarantined batches are blocked server-side for manual allocation
 
 Frontend warnings are not the only protection.
+
+## Batch Lifecycle And Valuation
+
+Batch lifecycle is centralized through `App\Services\BatchPolicyService`.
+
+Computed lifecycle states:
+
+- `active`
+- `near_expiry`
+- `expired`
+- `depleted`
+- `quarantined`
+
+Default near-expiry threshold:
+
+- `30` days
+- configurable through setting key `batch_near_expiry_days`
+
+Batch valuation rule:
+
+- `inventory_value = available_quantity x unit_cost`
+- zero-cost batches are valid and remain sellable when otherwise eligible
 
 ## Synchronization Rule
 
@@ -135,5 +167,5 @@ This avoids drifting aggregate stock and duplicate sync logic across services.
 - `products.quantity` still duplicates batch totals by design
 - inventory logs are an audit trail, not yet the only ledger authority
 - the current schema is still single-company and single-warehouse
-- auto FEFO behavior remains compatibility-oriented and is not yet a full policy engine
+- batch policy and FEFO recommendation are now centralized service rules while preserving the existing stock authority
 - finance ledger is derivative from sales and purchases, not full double-entry accounting

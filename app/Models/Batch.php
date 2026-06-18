@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Services\BatchPolicyService;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -61,5 +63,15 @@ class Batch extends Model
     public function saleItemBatches(): HasMany
     {
         return $this->hasMany(SaleItemBatch::class);
+    }
+
+    protected function inventoryValue(): Attribute
+    {
+        return Attribute::get(fn () => app(BatchPolicyService::class)->inventoryValue($this));
+    }
+
+    protected function lifecycleStatus(): Attribute
+    {
+        return Attribute::get(fn () => app(BatchPolicyService::class)->getStatus($this)->value);
     }
 }
