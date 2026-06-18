@@ -44,7 +44,7 @@ final class BatchTable extends PowerGridComponent
     public function datasource(): Builder
     {
         return Batch::query()
-            ->with(['product', 'purchase'])
+            ->with(['product.unit', 'purchase'])
             ->when(empty($this->sortField), fn($query) => $query->orderBy('expiry_date'));
     }
 
@@ -55,6 +55,8 @@ final class BatchTable extends PowerGridComponent
             ->add('batch_number')
             ->add('product_name', fn(Batch $model) => $model->product?->name ?? '-')
             ->add('product_sku', fn(Batch $model) => $model->product?->sku ?? '-')
+            ->add('product_item_code_ierp', fn(Batch $model) => $model->product?->item_code_ierp ?? '-')
+            ->add('product_uom', fn(Batch $model) => $model->product?->unit?->symbol ?? $model->product?->unit?->name ?? '-')
             ->add('purchase_invoice', fn(Batch $model) => $model->purchase?->invoice_number ?? '-')
             ->add('available_quantity')
             ->add('quantity')
@@ -109,6 +111,11 @@ final class BatchTable extends PowerGridComponent
                 ->sortable()
                 ->searchable(),
 
+            Column::make('Item Code IERP', 'product_item_code_ierp')
+                ->searchable(),
+
+            Column::make('UOM', 'product_uom'),
+
             Column::make('Status', 'expiry_status', 'expiry_date')
                 ->sortable()
                 ->headerAttribute('text-center')
@@ -151,7 +158,7 @@ final class BatchTable extends PowerGridComponent
     public function relationSearch(): array
     {
         return [
-            'product' => ['name', 'sku'],
+            'product' => ['name', 'sku', 'item_code_ierp'],
             'purchase' => ['invoice_number'],
         ];
     }

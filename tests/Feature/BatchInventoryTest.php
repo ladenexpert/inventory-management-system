@@ -251,4 +251,145 @@ class BatchInventoryTest extends TestCase
             'available_quantity' => 4,
         ]);
     }
+
+    public function test_it_recalculates_purchase_price_from_active_batch_valuation(): void
+    {
+        $user = User::factory()->create();
+        $supplier = Supplier::factory()->create();
+        $product = Product::factory()->create([
+            'quantity' => 0,
+            'purchase_price' => 9000,
+            'selling_price' => 15000,
+        ]);
+
+        $purchaseOne = app(PurchaseService::class)->createPurchase(
+            PurchaseData::fromArray([
+                'supplier_id' => $supplier->id,
+                'invoice_number' => 'PO-AVCO-001',
+                'purchase_date' => '2026-04-25',
+                'proof_image' => 'proofs/sample.jpg',
+                'status' => PurchaseStatus::DRAFT->value,
+                'items' => [
+                    [
+                        'product_id' => $product->id,
+                        'batch_number' => 'AVCO-1',
+                        'expiry_date' => '2026-12-31',
+                        'quantity' => 10,
+                        'unit_price' => 10000,
+                        'selling_price' => 15000,
+                    ],
+                ],
+            ]),
+            $user->id
+        );
+        app(PurchaseService::class)->markAsReceived($purchaseOne->fresh());
+
+        $purchaseTwo = app(PurchaseService::class)->createPurchase(
+            PurchaseData::fromArray([
+                'supplier_id' => $supplier->id,
+                'invoice_number' => 'PO-AVCO-002',
+                'purchase_date' => '2026-04-26',
+                'proof_image' => 'proofs/sample.jpg',
+                'status' => PurchaseStatus::DRAFT->value,
+                'items' => [
+                    [
+                        'product_id' => $product->id,
+                        'batch_number' => 'AVCO-2',
+                        'expiry_date' => '2027-01-31',
+                        'quantity' => 5,
+                        'unit_price' => 16000,
+                        'selling_price' => 17000,
+                    ],
+                ],
+            ]),
+            $user->id
+        );
+        app(PurchaseService::class)->markAsReceived($purchaseTwo->fresh());
+
+        $product->refresh();
+        $this->assertSame(15, $product->quantity);
+        $this->assertSame(12000, $product->purchase_price); // (10*10000 + 5*16000) / 15
+
+        $sale = app(SaleService::class)->createSale(
+            SaleData::fromArray([
+                'sale_date' => '2026-04-27',
+                'payment_method' => PaymentMethod::CASH->value,
+                'created_by' => $user->id,
+                'status' => SaleStatus::PENDING->value,
+                'cash_received' => 0,
+                'items' => [
+                    [
+                        'product_id' => $product->id,
+                        'quantity' => 10,
+                        'unit_price' => 17000,
+                        'discount' => 0,
+                    ],
+                ],
+            ])
+        );
+
+        $this->assertNotNull($sale->id);
+        $product->refresh();
+        $this->assertSame(5, $product->quantity);
+        $this->assertSame(16000, $product->purchase_price);
+    }
+
+    public function test_it_uses_sale_line_unit_price_as_transaction_selling_price_snapshot(): void
+    {
+        $user = User::factory()->create();
+        $supplier = Supplier::factory()->create();
+        $customer = Customer::factory()->create();
+        $product = Product::factory()->create([
+            'quantity' => 0,
+            'purchase_price' => 10000,
+            'selling_price' => 20000,
+        ]);
+
+        $purchase = app(PurchaseService::class)->createPurchase(
+            PurchaseData::fromArray([
+                'supplier_id' => $supplier->id,
+                'invoice_number' => 'PO-SALE-PRICE-001',
+                'purchase_date' => '2026-04-28',
+                'proof_image' => 'proofs/sample.jpg',
+                'status' => PurchaseStatus::DRAFT->value,
+                'items' => [
+                    [
+                        'product_id' => $product->id,
+                        'batch_number' => 'SALE-PRICE-BATCH',
+                        'expiry_date' => null,
+                        'quantity' => 3,
+                        'unit_price' => 10000,
+                        'selling_price' => 20000,
+                    ],
+                ],
+            ]),
+            $user->id
+        );
+        app(PurchaseService::class)->markAsReceived($purchase->fresh());
+
+        $sale = app(SaleService::class)->createSale(
+            SaleData::fromArray([
+                'sale_date' => '2026-04-28',
+                'payment_method' => PaymentMethod::CASH->value,
+                'created_by' => $user->id,
+                'customer_id' => $customer->id,
+                'status' => SaleStatus::PENDING->value,
+                'cash_received' => 0,
+                'items' => [
+                    [
+                        'product_id' => $product->id,
+                        'quantity' => 1,
+                        'unit_price' => 18500,
+                        'discount' => 0,
+                    ],
+                ],
+            ])
+        );
+
+        $saleItem = $sale->items()->first();
+        $this->assertNotNull($saleItem);
+        $this->assertSame(18500, $saleItem->unit_price);
+        $this->assertSame(18500, $saleItem->final_price);
+        $this->assertSame(18500, $saleItem->subtotal);
+    }
 }

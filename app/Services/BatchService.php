@@ -447,8 +447,21 @@ class BatchService
 
     public function syncProductQuantity(Product $product): int
     {
-        $quantity = $this->sumAvailableQuantity($product);
-        $product->update(['quantity' => $quantity]);
+        $summary = $product->batches()
+            ->selectRaw('COALESCE(SUM(available_quantity), 0) as quantity')
+            ->selectRaw('COALESCE(SUM(available_quantity * unit_cost), 0) as inventory_cost_value')
+            ->first();
+
+        $quantity = (int) ($summary->quantity ?? 0);
+        $inventoryCostValue = (int) ($summary->inventory_cost_value ?? 0);
+        $updateData = ['quantity' => $quantity];
+
+        // Keep product purchase_price aligned with current on-hand batch valuation (AVCO style).
+        if ($quantity > 0) {
+            $updateData['purchase_price'] = (int) round($inventoryCostValue / $quantity);
+        }
+
+        $product->update($updateData);
 
         return $quantity;
     }
@@ -471,6 +484,11 @@ class BatchService
         ?SaleItem $saleItem = null,
         ?string $notes = null
     ): InventoryLog {
+        // Ensure at least one reference exists to prevent orphaned logs
+        if (!$batch && !$purchase && !$sale) {
+            throw new \Exception("Inventory log must have at least one reference (batch, purchase, or sale).");
+        }
+
         return InventoryLog::create([
             'product_id' => $product->id,
             'batch_id' => $batch?->id,

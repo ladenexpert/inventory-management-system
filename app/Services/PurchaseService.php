@@ -136,27 +136,32 @@ class PurchaseService
                 $product = Product::where('id', $item->product_id)->lockForUpdate()->first();
 
                 if ($product) {
-                    $this->batchService->createBatchFromPurchaseItem($purchase, $item);
+                    $oldBuyPrice = (int) $product->purchase_price;
+                    $oldSellPrice = (int) $product->selling_price;
 
-                    // Update latest purchase price and selling price
-                    $updateData = ['purchase_price' => $item->unit_price];
+                    $this->batchService->createBatchFromPurchaseItem($purchase, $item);
+                    $product->refresh();
+
+                    // purchase_price is synchronized from batch valuation (AVCO) by BatchService.
+                    // selling_price remains a commercial decision and follows explicit purchase line input when provided.
+                    $updateData = [];
                     $priceChangeLog = "";
                     $hasPriceChange = false;
 
-                    // Check for Purchase Price Change
-                    if ((float) $product->purchase_price !== (float) $item->unit_price) {
+                    // Check for Purchase Price Change (AVCO after receipt)
+                    if ($oldBuyPrice !== (int) $product->purchase_price) {
                         $hasPriceChange = true;
-                        $oldBuy = format_money($product->purchase_price ?? 0);
-                        $newBuy = format_money($item->unit_price);
-                        $priceChangeLog .= "\n- Buying Price: {$oldBuy} -> {$newBuy}";
+                        $oldBuy = format_money($oldBuyPrice);
+                        $newBuy = format_money((int) $product->purchase_price);
+                        $priceChangeLog .= "\n- Buying Price (AVCO): {$oldBuy} -> {$newBuy}";
                     }
 
                     // Check for Selling Price Change
-                    if ($item->selling_price) {
+                    if ($item->selling_price !== null) {
                         $updateData['selling_price'] = $item->selling_price;
-                        if ((float) $product->selling_price !== (float) $item->selling_price) {
+                        if ($oldSellPrice !== (int) $item->selling_price) {
                             $hasPriceChange = true;
-                            $oldSell = format_money($product->selling_price ?? 0);
+                            $oldSell = format_money($oldSellPrice);
                             $newSell = format_money($item->selling_price);
                             $priceChangeLog .= "\n- Selling Price: {$oldSell} -> {$newSell}";
                         }
@@ -170,7 +175,9 @@ class PurchaseService
                         $updateData['notes'] = TRIM(($product->notes ?? '') . $logHeader . $priceChangeLog);
                     }
 
-                    $product->update($updateData);
+                    if (!empty($updateData)) {
+                        $product->update($updateData);
+                    }
                 }
             }
 
@@ -229,6 +236,14 @@ class PurchaseService
         $total = 0;
 
         foreach ($items as $itemData) {
+            // Validate batch number uniqueness
+            if ($itemData->batch_number) {
+                $existingBatch = \App\Models\Batch::where('batch_number', $itemData->batch_number)->first();
+                if ($existingBatch) {
+                    throw new Exception("Batch number '{$itemData->batch_number}' has already been used.");
+                }
+            }
+
             $subtotal = $itemData->quantity * $itemData->unit_price;
 
             PurchaseItem::create([

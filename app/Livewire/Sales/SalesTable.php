@@ -50,7 +50,7 @@ final class SalesTable extends PowerGridComponent
     public function datasource(): Builder
     {
         return Sale::query()
-            ->with(['customer', 'creator']);
+            ->with(['customer', 'creator', 'items.product.unit']);
     }
 
     public function fields(): PowerGridFields
@@ -59,6 +59,24 @@ final class SalesTable extends PowerGridComponent
             ->add('id')
             ->add('invoice_number', fn(Sale $model) => $model->invoice_number ?: '-')
             ->add('customer_name', fn(Sale $model) => $model->customer ? $model->customer->name : 'Guest')
+            ->add('item_codes', function (Sale $model) {
+                $codes = $model->items
+                    ->map(fn($item) => $item->product?->item_code_ierp ?: ($item->product?->sku ?: null))
+                    ->filter()
+                    ->unique()
+                    ->values();
+
+                return $codes->isNotEmpty() ? $codes->implode(', ') : '-';
+            })
+            ->add('uom_list', function (Sale $model) {
+                $uoms = $model->items
+                    ->map(fn($item) => $item->product?->unit?->symbol ?: ($item->product?->unit?->name ?: null))
+                    ->filter()
+                    ->unique()
+                    ->values();
+
+                return $uoms->isNotEmpty() ? $uoms->implode(', ') : '-';
+            })
             ->add('sale_date_formatted', fn(Sale $model) => Carbon::parse($model->sale_date)->format('d/m/Y'))
             ->add('total_formatted', fn(Sale $model) => format_money($model->total))
             ->add('status_badge', function(Sale $model) {
@@ -83,6 +101,10 @@ final class SalesTable extends PowerGridComponent
             Column::make('Customer', 'customer_name', 'customer_id')
                 ->searchable()
                 ->sortable(),
+
+            Column::make('Item Code IERP', 'item_codes'),
+
+            Column::make('UOM', 'uom_list'),
 
             Column::make('Created By', 'creator_name', 'created_by')
                 ->sortable(),

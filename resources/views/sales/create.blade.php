@@ -41,7 +41,11 @@
                                     <tr :class="index % 2 === 0 ? 'bg-white' : 'bg-gray-50'" class="hover:bg-indigo-50 transition-colors">
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm font-medium text-gray-900" x-text="item.name"></div>
-                                            <div class="text-xs text-gray-500" x-text="item.sku"></div>
+                                            <div class="text-xs text-gray-500">
+                                                <span x-text="item.item_code_ierp || '-'"></span>
+                                                <span class="mx-1">|</span>
+                                                <span x-text="item.sku"></span>
+                                            </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500" x-text="formatCurrency(item.price)"></td>
                                         <td class="px-6 py-4 whitespace-nowrap text-center">
@@ -388,7 +392,9 @@
                                             <div class="flex justify-between items-center">
                                                 <div>
                                                     <div class="font-medium text-gray-900">${escape(item.name)}</div>
-                                                    <div class="text-xs text-gray-500">${escape(item.sku)}</div>
+                                                    <div class="text-xs text-gray-500">
+                                                        ${escape(item.item_code_ierp || '-')} | ${escape(item.sku)}
+                                                    </div>
                                                     <div class="text-[11px] text-gray-400">
                                                         ${item.active_batch_count ? `Batches: ${escape(String(item.active_batch_count))}` : 'Legacy stock'}
                                                         ${item.nearest_expiry_date ? ` | Nearest exp: ${escape(String(item.nearest_expiry_date))}` : ''}
@@ -524,6 +530,7 @@
                                 this.cart.push({
                                     id: product.id,
                                     name: product.name,
+                                    item_code_ierp: product.item_code_ierp || '',
                                     sku: product.sku,
                                     price: product.selling_price,
                                     quantity: 1,

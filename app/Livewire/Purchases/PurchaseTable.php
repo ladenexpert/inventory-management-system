@@ -50,7 +50,7 @@ final class PurchaseTable extends PowerGridComponent
     public function datasource(): Builder
     {
         return Purchase::query()
-            ->with(['supplier', 'creator']);
+            ->with(['supplier', 'creator', 'items.product.unit']);
     }
 
     public function fields(): PowerGridFields
@@ -59,6 +59,24 @@ final class PurchaseTable extends PowerGridComponent
             ->add('id')
             ->add('invoice_number', fn(Purchase $model) => $model->invoice_number ?: '<span class="italic text-gray-400">-</span>')
             ->add('supplier_name', fn(Purchase $model) => $model->supplier ? $model->supplier->name : '-')
+            ->add('item_codes', function (Purchase $model) {
+                $codes = $model->items
+                    ->map(fn($item) => $item->product?->item_code_ierp ?: ($item->product?->sku ?: null))
+                    ->filter()
+                    ->unique()
+                    ->values();
+
+                return $codes->isNotEmpty() ? $codes->implode(', ') : '-';
+            })
+            ->add('uom_list', function (Purchase $model) {
+                $uoms = $model->items
+                    ->map(fn($item) => $item->product?->unit?->symbol ?: ($item->product?->unit?->name ?: null))
+                    ->filter()
+                    ->unique()
+                    ->values();
+
+                return $uoms->isNotEmpty() ? $uoms->implode(', ') : '-';
+            })
             ->add('purchase_date_formatted', fn(Purchase $model) => Carbon::parse($model->purchase_date)->format('d/m/Y'))
             ->add('total_formatted', fn(Purchase $model) => format_money((float) $model->total))
             ->add('status_badge', function(Purchase $model) {
@@ -81,6 +99,10 @@ final class PurchaseTable extends PowerGridComponent
             Column::make('Supplier', 'supplier_name', 'supplier_id')
                 ->searchable()
                 ->sortable(),
+
+            Column::make('Item Code IERP', 'item_codes'),
+
+            Column::make('UOM', 'uom_list'),
 
             Column::make('Purchase Date', 'purchase_date_formatted', 'purchase_date')
                 ->sortable(),

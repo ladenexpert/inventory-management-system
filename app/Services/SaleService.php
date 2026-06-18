@@ -61,7 +61,8 @@ class SaleService
                         throw SaleException::productNotFound($itemData->product_id);
                     }
 
-                    $unitPrice = $product->selling_price;
+                    // Use the line unit price from request snapshot (POS line), fallback to master product price.
+                    $unitPrice = $itemData->unit_price > 0 ? $itemData->unit_price : $product->selling_price;
                     $quantity = $itemData->quantity;
                     $discount = $itemData->discount;
 
@@ -111,7 +112,7 @@ class SaleService
                 }
 
                 $sale->update([
-                    'subtotal' => $totalSubtotal + $totalDiscount,
+                    'subtotal' => $totalSubtotal,
                     'total_discount' => $totalDiscount + $data->global_discount,
                     'global_discount' => $data->global_discount,
                     'total' => $total,

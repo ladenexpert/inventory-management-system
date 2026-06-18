@@ -108,11 +108,11 @@
                         <table class="w-full text-sm text-left">
                             <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                                 <tr>
-                                    <th class="px-6 py-3">Code</th>
+                                    <th class="px-6 py-3">Item Code IERP</th>
                                     <th class="px-6 py-3">Product</th>
                                     <th class="px-6 py-3">Batch No</th>
                                     <th class="px-6 py-3">Expiry</th>
-                                    <th class="px-6 py-3">Unit</th>
+                                    <th class="px-6 py-3">UOM</th>
                                     <th class="px-6 py-3 text-center">Quantity</th>
                                     <th class="px-6 py-3 text-right">Buying Price</th>
                                     <th class="px-6 py-3 text-right">Selling Price</th>

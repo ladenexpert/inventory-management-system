@@ -52,7 +52,7 @@
     </div>
 
     <!-- Stats Grid -->
-    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-8">
         <!-- Total Sales -->
         <div class="rounded-xl border bg-card text-card-foreground shadow-sm">
             <div class="p-4 flex flex-row items-center justify-between space-y-0 pb-2">
@@ -103,6 +103,38 @@
                         <x-heroicon-s-arrow-down class="w-3 h-3" /> @money($stats['expense'] ?? 0)
                     </span>
                 </div>
+            </div>
+        </div>
+
+        <!-- Inventory Cost Value -->
+        <div class="rounded-xl border bg-card text-card-foreground shadow-sm">
+            <div class="p-4 flex flex-row items-center justify-between space-y-0 pb-2">
+                <h3 class="tracking-tight text-sm font-medium">Inventory Value</h3>
+                <x-heroicon-o-banknotes class="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div class="p-4 pt-0">
+                <div class="text-xl sm:text-2xl font-bold">
+                    @money($stats['inventory_cost_value'] ?? 0)
+                </div>
+                <p class="text-xs text-muted-foreground mt-1">
+                    Batch-based cost valuation
+                </p>
+            </div>
+        </div>
+
+        <!-- Inventory Potential Margin -->
+        <div class="rounded-xl border bg-card text-card-foreground shadow-sm">
+            <div class="p-4 flex flex-row items-center justify-between space-y-0 pb-2">
+                <h3 class="tracking-tight text-sm font-medium">Potential Margin</h3>
+                <x-heroicon-o-arrow-trending-up class="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div class="p-4 pt-0">
+                <div class="text-xl sm:text-2xl font-bold {{ ($stats['inventory_potential_margin'] ?? 0) >= 0 ? 'text-emerald-600' : 'text-red-600' }}">
+                    @money($stats['inventory_potential_margin'] ?? 0)
+                </div>
+                <p class="text-xs text-muted-foreground mt-1">
+                    Sell value: @money($stats['inventory_selling_value'] ?? 0)
+                </p>
             </div>
         </div>
 

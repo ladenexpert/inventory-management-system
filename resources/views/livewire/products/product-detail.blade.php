@@ -1,5 +1,10 @@
 <x-modal name="product-detail-modal" focusable>
     @if($product)
+        @php
+            $activeBatches = $product->batches->where('available_quantity', '>', 0);
+            $inventoryCostValue = (int) $activeBatches->sum(fn($batch) => (int) $batch->available_quantity * (int) $batch->unit_cost);
+            $inventorySellingValue = (int) $activeBatches->sum(fn($batch) => (int) $batch->available_quantity * (int) ($batch->selling_price ?? $product->selling_price));
+        @endphp
         <div class="p-6 space-y-6">
             <!-- Header -->
             <div class="flex items-center justify-between border-b border-border pb-4">
@@ -60,6 +65,16 @@
                     <div class="space-y-1">
                         <label class="text-sm font-medium leading-none text-muted-foreground">{{ __('Min Stock Alert') }}</label>
                         <p class="text-sm text-foreground font-medium">{{ $product->min_stock }}</p>
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-sm font-medium leading-none text-muted-foreground">{{ __('Inventory Cost Value') }}</label>
+                        <p class="text-sm text-foreground font-medium">@money($inventoryCostValue)</p>
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-sm font-medium leading-none text-muted-foreground">{{ __('Inventory Selling Value') }}</label>
+                        <p class="text-sm text-foreground font-medium">@money($inventorySellingValue)</p>
                     </div>
                 </div>
 

@@ -58,6 +58,7 @@ class Dashboard extends Component
         // 2. Cash Flow Stats
         $cashFlowStats = $service->getCashFlowStats($startDate, $endDate, $this->dateFilter);
         $batchAlertStats = $service->getBatchAlertStats();
+        $inventoryValuation = $service->getInventoryValuation();
 
 
         $this->stats = [
@@ -67,6 +68,9 @@ class Dashboard extends Component
             'income' => $cashFlowStats['income'],
             'expense' => $cashFlowStats['expense'],
             'net_cash_flow' => $cashFlowStats['net_cash_flow'],
+            'inventory_cost_value' => $inventoryValuation['cost_value'],
+            'inventory_selling_value' => $inventoryValuation['selling_value'],
+            'inventory_potential_margin' => $inventoryValuation['potential_margin'],
             'expired_batches' => $batchAlertStats['expired_count'],
             'near_expiry_batches' => $batchAlertStats['near_expiry_count'],
         ];

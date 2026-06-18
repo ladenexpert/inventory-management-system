@@ -169,12 +169,13 @@
             height: 20px; /* Minimum height for lines */
         }
 
-        .col-name { width: 43%; text-align: left; }
-        .col-name { width: 43%; text-align: left; }
+        .col-code { width: 14%; text-align: left; }
+        .col-uom { width: 8%; text-align: center; }
+        .col-name { width: 28%; text-align: left; }
         .col-qty { width: 8%; text-align: center; }
-        .col-price { width: 16%; text-align: right; }
-        .col-disc { width: 15%; text-align: right; }
-        .col-total { width: 18%; text-align: right; }
+        .col-price { width: 14%; text-align: right; }
+        .col-disc { width: 12%; text-align: right; }
+        .col-total { width: 16%; text-align: right; }
 
         /* FOOTER GRID */
         .footer {
@@ -273,6 +274,8 @@
         <table>
             <thead>
                 <tr>
+                    <th class="col-code">Kode IERP</th>
+                    <th class="col-uom">UOM</th>
                     <th class="col-name">Nama Barang</th>
                     <th class="col-qty">Qty</th>
                     <th class="col-price">Harga</th>
@@ -286,6 +289,8 @@
                     $finalPrice = $item->unit_price - $item->discount;
                 @endphp
                 <tr>
+                    <td class="col-code">{{ $item->product->item_code_ierp ?? $item->product->sku ?? '-' }}</td>
+                    <td class="col-uom">{{ $item->product->unit->symbol ?? $item->product->unit->name ?? '-' }}</td>
                     <td class="col-name">{{ $item->product->name }}</td>
                     <td class="col-qty">{{ $item->quantity }}</td>
                     <td class="col-price">@money($item->unit_price)</td>
@@ -298,6 +303,8 @@
                 @for($i = 0; $i < max(0, 8 - count($sale->items)); $i++)
                 <tr>
                     <td>&nbsp;</td>
+                    <td></td>
+                    <td></td>
                     <td></td>
                     <td></td>
                     <td></td>

@@ -75,6 +75,31 @@ class DashboardStatsService
     }
 
     /**
+     * Get current inventory valuation based on active batch layers.
+     */
+    public function getInventoryValuation(): array
+    {
+        return Cache::remember('dashboard_inventory_valuation', now()->addMinutes(5), function () {
+            $costValue = (int) Batch::query()
+                ->where('available_quantity', '>', 0)
+                ->selectRaw('COALESCE(SUM(available_quantity * unit_cost), 0) as total')
+                ->value('total');
+
+            $sellingValue = (int) Batch::query()
+                ->join('products', 'products.id', '=', 'batches.product_id')
+                ->where('batches.available_quantity', '>', 0)
+                ->selectRaw('COALESCE(SUM(batches.available_quantity * COALESCE(batches.selling_price, products.selling_price)), 0) as total')
+                ->value('total');
+
+            return [
+                'cost_value' => $costValue,
+                'selling_value' => $sellingValue,
+                'potential_margin' => $sellingValue - $costValue,
+            ];
+        });
+    }
+
+    /**
      * Get Low Stock Products
      */
     public function getLowStockProducts(int $limit = 5): array
