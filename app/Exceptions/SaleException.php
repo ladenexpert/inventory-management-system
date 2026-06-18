@@ -59,6 +59,13 @@ class SaleException extends Exception
         return new self("Invalid discount: {$reason}");
     }
 
+    public static function expiredBatchSelection(string $batchNumber, string $productName): self
+    {
+        $message = "Expired batch '{$batchNumber}' cannot be allocated manually for product '{$productName}'.";
+        Log::warning($message);
+        return new self($message);
+    }
+
     public static function insufficientPayment(float $total, float $received): self
     {
         $message = "Insufficient payment. Total: {$total}, Received: {$received}";

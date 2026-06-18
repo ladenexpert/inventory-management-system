@@ -16,6 +16,10 @@ use Illuminate\Support\Str;
 
 class BatchService
 {
+    /**
+     * Keep aggregate product quantity synchronized with the operational stock authority:
+     * SUM(batches.available_quantity).
+     */
     public function ensureBatchCoverage(Product $product): void
     {
         $batchQuantity = $this->sumAvailableQuantity($product);
@@ -37,12 +41,16 @@ class BatchService
             return;
         }
 
-        $product->update(['quantity' => $batchQuantity]);
+        $this->syncProductQuantity($product, $batchQuantity);
     }
 
     public function createBatchFromPurchaseItem(Purchase $purchase, PurchaseItem $item): Batch
     {
         $product = $item->product()->lockForUpdate()->firstOrFail();
+        $this->ensureBatchCoverage($product);
+
+        $productQuantityBefore = $this->sumAvailableQuantity($product);
+        $productQuantityAfter = $productQuantityBefore + $item->quantity;
         $batchNumber = trim((string) ($item->batch_number ?: $this->generateBatchNumber($product, 'PO')));
 
         if (Batch::where('batch_number', $batchNumber)->exists()) {
@@ -72,14 +80,14 @@ class BatchService
             batch: $batch,
             movementType: 'purchase_receive',
             quantity: $item->quantity,
-            quantityBefore: 0,
-            quantityAfter: $item->quantity,
+            quantityBefore: $productQuantityBefore,
+            quantityAfter: $productQuantityAfter,
             purchase: $purchase,
             purchaseItem: $item,
-            notes: "Batch received via purchase #{$purchase->id}."
+            notes: "Batch {$batch->batch_number} received via purchase #{$purchase->id}. Batch availability: 0 -> {$item->quantity}."
         );
 
-        $this->syncProductQuantity($product);
+        $this->syncProductQuantity($product, $productQuantityAfter);
 
         return $batch;
     }
@@ -98,6 +106,10 @@ class BatchService
             return null;
         }
 
+        $this->ensureBatchCoverage($product);
+
+        $productQuantityBefore = $this->sumAvailableQuantity($product);
+        $productQuantityAfter = $productQuantityBefore + $quantity;
         $resolvedBatchNumber = trim((string) ($batchNumber ?: $this->generateBatchNumber($product, $source)));
 
         if (Batch::where('batch_number', $resolvedBatchNumber)->exists()) {
@@ -124,12 +136,12 @@ class BatchService
             batch: $batch,
             movementType: $source,
             quantity: $quantity,
-            quantityBefore: 0,
-            quantityAfter: $quantity,
-            notes: $notes
+            quantityBefore: $productQuantityBefore,
+            quantityAfter: $productQuantityAfter,
+            notes: trim("Batch {$batch->batch_number} created with availability 0 -> {$quantity}. " . ($notes ?? ''))
         );
 
-        $this->syncProductQuantity($product);
+        $this->syncProductQuantity($product, $productQuantityAfter);
 
         return $batch;
     }
@@ -171,13 +183,16 @@ class BatchService
                 batch: $allocation['batch'],
                 movementType: 'adjustment_out',
                 quantity: -$allocation['quantity'],
-                quantityBefore: $allocation['quantity_before'],
-                quantityAfter: $allocation['quantity_after'],
-                notes: $notes ?: 'Stock reduced from manual product adjustment.'
+                quantityBefore: $allocation['product_quantity_before'],
+                quantityAfter: $allocation['product_quantity_after'],
+                notes: trim(
+                    "Batch {$allocation['batch']->batch_number} availability: {$allocation['batch_quantity_before']} -> {$allocation['batch_quantity_after']}. "
+                    . ($notes ?: 'Stock reduced from manual product adjustment.')
+                )
             );
         }
 
-        $this->syncProductQuantity($product);
+        $this->syncProductQuantity($product, $targetQuantity);
     }
 
     /**
@@ -186,7 +201,15 @@ class BatchService
      * @param Product $product The product to reserve batches for
      * @param int $quantity Total quantity needed
      * @param array<array{batch_id: int, quantity: int}>|null $manualAllocations Manual batch allocations (null = auto FEFO)
-     * @return array<array{batch: Batch, quantity: int, unit_cost: int, quantity_before: int, quantity_after: int}>
+     * @return array<array{
+     *   batch: Batch,
+     *   quantity: int,
+     *   unit_cost: int,
+     *   batch_quantity_before: int,
+     *   batch_quantity_after: int,
+     *   product_quantity_before: int,
+     *   product_quantity_after: int
+     * }>
      * @throws SaleException
      */
     public function reserveBatches(Product $product, int $quantity, ?array $manualAllocations = null): array
@@ -217,6 +240,7 @@ class BatchService
 
         $remaining = $quantity;
         $allocations = [];
+        $productQuantityRunning = $available;
 
         foreach ($batches as $batch) {
             if ($remaining <= 0) {
@@ -231,6 +255,17 @@ class BatchService
 
             $before = $batch->available_quantity;
             $after = $before - $deducted;
+            $this->assertNonNegativeQuantity($after, 'batch available quantity', [
+                'batch_id' => $batch->id,
+                'movement_type' => 'sale_out',
+            ]);
+
+            $productQuantityBefore = $productQuantityRunning;
+            $productQuantityAfter = $productQuantityRunning - $deducted;
+            $this->assertNonNegativeQuantity($productQuantityAfter, 'product quantity', [
+                'product_id' => $product->id,
+                'movement_type' => 'sale_out',
+            ]);
 
             $batch->update(['available_quantity' => $after]);
 
@@ -238,14 +273,17 @@ class BatchService
                 'batch' => $batch->fresh(),
                 'quantity' => $deducted,
                 'unit_cost' => (int) $batch->unit_cost,
-                'quantity_before' => $before,
-                'quantity_after' => $after,
+                'batch_quantity_before' => $before,
+                'batch_quantity_after' => $after,
+                'product_quantity_before' => $productQuantityBefore,
+                'product_quantity_after' => $productQuantityAfter,
             ];
 
             $remaining -= $deducted;
+            $productQuantityRunning = $productQuantityAfter;
         }
 
-        $this->syncProductQuantity($product);
+        $this->syncProductQuantity($product, $productQuantityRunning);
 
         return $allocations;
     }
@@ -256,7 +294,15 @@ class BatchService
      * @param Product $product The product
      * @param int $quantity Total quantity (for validation)
      * @param array<array{batch_id: int, quantity: int}> $manualAllocations User-selected batches
-     * @return array<array{batch: Batch, quantity: int, unit_cost: int, quantity_before: int, quantity_after: int}>
+     * @return array<array{
+     *   batch: Batch,
+     *   quantity: int,
+     *   unit_cost: int,
+     *   batch_quantity_before: int,
+     *   batch_quantity_after: int,
+     *   product_quantity_before: int,
+     *   product_quantity_after: int
+     * }>
      * @throws SaleException
      */
     protected function reserveManualBatches(Product $product, int $quantity, array $manualAllocations): array
@@ -284,7 +330,7 @@ class BatchService
         }
 
         $allocations = [];
-        $allocatedQty = [];
+        $productQuantityRunning = $this->sumAvailableQuantity($product);
 
         foreach ($manualAllocations as $allocation) {
             $batchId = $allocation['batch_id'];
@@ -300,6 +346,8 @@ class BatchService
                 throw SaleException::productNotFound($batchId);
             }
 
+            $this->assertBatchCanBeManuallyAllocated($batch, $product);
+
             if ($batch->available_quantity < $requestedQty) {
                 throw SaleException::insufficientStock(
                     $product->name,
@@ -310,6 +358,17 @@ class BatchService
 
             $before = $batch->available_quantity;
             $after = $before - $requestedQty;
+            $this->assertNonNegativeQuantity($after, 'batch available quantity', [
+                'batch_id' => $batch->id,
+                'movement_type' => 'sale_out_manual',
+            ]);
+
+            $productQuantityBefore = $productQuantityRunning;
+            $productQuantityAfter = $productQuantityRunning - $requestedQty;
+            $this->assertNonNegativeQuantity($productQuantityAfter, 'product quantity', [
+                'product_id' => $product->id,
+                'movement_type' => 'sale_out_manual',
+            ]);
 
             $batch->update(['available_quantity' => $after]);
 
@@ -317,14 +376,16 @@ class BatchService
                 'batch' => $batch->fresh(),
                 'quantity' => $requestedQty,
                 'unit_cost' => (int) $batch->unit_cost,
-                'quantity_before' => $before,
-                'quantity_after' => $after,
+                'batch_quantity_before' => $before,
+                'batch_quantity_after' => $after,
+                'product_quantity_before' => $productQuantityBefore,
+                'product_quantity_after' => $productQuantityAfter,
             ];
 
-            $allocatedQty[$batchId] = $requestedQty;
+            $productQuantityRunning = $productQuantityAfter;
         }
 
-        $this->syncProductQuantity($product);
+        $this->syncProductQuantity($product, $productQuantityRunning);
 
         return $allocations;
     }
@@ -352,11 +413,11 @@ class BatchService
                 batch: $allocation['batch'],
                 movementType: 'sale_out',
                 quantity: -$allocation['quantity'],
-                quantityBefore: $allocation['quantity_before'],
-                quantityAfter: $allocation['quantity_after'],
+                quantityBefore: $allocation['product_quantity_before'],
+                quantityAfter: $allocation['product_quantity_after'],
                 sale: $sale,
                 saleItem: $saleItem,
-                notes: "Batch consumed by sale #{$sale->invoice_number}."
+                notes: "Batch {$allocation['batch']->batch_number} consumed by sale #{$sale->invoice_number}. Batch availability: {$allocation['batch_quantity_before']} -> {$allocation['batch_quantity_after']}."
             );
         }
     }
@@ -369,6 +430,8 @@ class BatchService
             return false;
         }
 
+        $productQuantityRunning = $this->sumAvailableQuantity($saleItem->product);
+
         foreach ($allocations as $allocation) {
             $batch = $allocation->batch()->lockForUpdate()->first();
 
@@ -378,6 +441,12 @@ class BatchService
 
             $before = $batch->available_quantity;
             $after = $before + $allocation->quantity;
+            $productQuantityBefore = $productQuantityRunning;
+            $productQuantityAfter = $productQuantityRunning + $allocation->quantity;
+            $this->assertNonNegativeQuantity($productQuantityAfter, 'product quantity', [
+                'product_id' => $saleItem->product_id,
+                'movement_type' => 'sale_cancel_restore',
+            ]);
 
             $batch->update(['available_quantity' => $after]);
 
@@ -386,15 +455,17 @@ class BatchService
                 batch: $batch->fresh(),
                 movementType: 'sale_cancel_restore',
                 quantity: $allocation->quantity,
-                quantityBefore: $before,
-                quantityAfter: $after,
+                quantityBefore: $productQuantityBefore,
+                quantityAfter: $productQuantityAfter,
                 sale: $sale,
                 saleItem: $saleItem,
-                notes: "Stock restored after cancelling sale #{$sale->invoice_number}."
+                notes: "Stock restored after cancelling sale #{$sale->invoice_number}. Batch {$batch->batch_number} availability: {$before} -> {$after}."
             );
+
+            $productQuantityRunning = $productQuantityAfter;
         }
 
-        $this->syncProductQuantity($saleItem->product);
+        $this->syncProductQuantity($saleItem->product, $productQuantityRunning);
 
         return true;
     }
@@ -406,6 +477,8 @@ class BatchService
         if ($allocations->isEmpty()) {
             return false;
         }
+
+        $productQuantityRunning = $this->sumAvailableQuantity($saleItem->product);
 
         foreach ($allocations as $allocation) {
             $batch = $allocation->batch()->lockForUpdate()->first();
@@ -424,6 +497,17 @@ class BatchService
 
             $before = $batch->available_quantity;
             $after = $before - $allocation->quantity;
+            $this->assertNonNegativeQuantity($after, 'batch available quantity', [
+                'batch_id' => $batch->id,
+                'movement_type' => 'sale_restore_out',
+            ]);
+
+            $productQuantityBefore = $productQuantityRunning;
+            $productQuantityAfter = $productQuantityRunning - $allocation->quantity;
+            $this->assertNonNegativeQuantity($productQuantityAfter, 'product quantity', [
+                'product_id' => $saleItem->product_id,
+                'movement_type' => 'sale_restore_out',
+            ]);
 
             $batch->update(['available_quantity' => $after]);
 
@@ -432,20 +516,36 @@ class BatchService
                 batch: $batch->fresh(),
                 movementType: 'sale_restore_out',
                 quantity: -$allocation->quantity,
-                quantityBefore: $before,
-                quantityAfter: $after,
+                quantityBefore: $productQuantityBefore,
+                quantityAfter: $productQuantityAfter,
                 sale: $sale,
                 saleItem: $saleItem,
-                notes: "Stock re-reserved while restoring sale #{$sale->invoice_number}."
+                notes: "Stock re-reserved while restoring sale #{$sale->invoice_number}. Batch {$batch->batch_number} availability: {$before} -> {$after}."
             );
+
+            $productQuantityRunning = $productQuantityAfter;
         }
 
-        $this->syncProductQuantity($saleItem->product);
+        $this->syncProductQuantity($saleItem->product, $productQuantityRunning);
 
         return true;
     }
 
-    public function syncProductQuantity(Product $product): int
+    public function restoreSaleItemWithoutRecordedAllocations(Sale $sale, SaleItem $saleItem): Batch
+    {
+        $product = $saleItem->product()->lockForUpdate()->firstOrFail();
+
+        return $this->createManualInboundBatch(
+            product: $product,
+            quantity: $saleItem->quantity,
+            unitCost: (int) ($saleItem->cost_price ?: $product->purchase_price),
+            sellingPrice: (int) ($saleItem->unit_price ?: $product->selling_price),
+            source: 'sale_cancel_restore',
+            notes: "Restored stock for sale #{$sale->invoice_number} without original batch allocation history."
+        );
+    }
+
+    public function syncProductQuantity(Product $product, ?int $expectedQuantity = null): int
     {
         $summary = $product->batches()
             ->selectRaw('COALESCE(SUM(available_quantity), 0) as quantity')
@@ -454,6 +554,14 @@ class BatchService
 
         $quantity = (int) ($summary->quantity ?? 0);
         $inventoryCostValue = (int) ($summary->inventory_cost_value ?? 0);
+        $this->assertNonNegativeQuantity($quantity, 'product quantity', ['product_id' => $product->id]);
+
+        if ($expectedQuantity !== null && $quantity !== $expectedQuantity) {
+            throw new \RuntimeException(
+                "Product quantity sync mismatch for product #{$product->id}. Expected {$expectedQuantity}, calculated {$quantity}."
+            );
+        }
+
         $updateData = ['quantity' => $quantity];
 
         // Keep product purchase_price aligned with current on-hand batch valuation (AVCO style).
@@ -468,7 +576,10 @@ class BatchService
 
     public function sumAvailableQuantity(Product $product): int
     {
-        return (int) $product->batches()->sum('available_quantity');
+        $quantity = (int) $product->batches()->sum('available_quantity');
+        $this->assertNonNegativeQuantity($quantity, 'product quantity', ['product_id' => $product->id]);
+
+        return $quantity;
     }
 
     protected function logInventoryMovement(
@@ -489,6 +600,15 @@ class BatchService
             throw new \Exception("Inventory log must have at least one reference (batch, purchase, or sale).");
         }
 
+        $this->assertNonNegativeQuantity($quantityBefore, 'inventory log quantity_before', [
+            'product_id' => $product->id,
+            'movement_type' => $movementType,
+        ]);
+        $this->assertNonNegativeQuantity($quantityAfter, 'inventory log quantity_after', [
+            'product_id' => $product->id,
+            'movement_type' => $movementType,
+        ]);
+
         return InventoryLog::create([
             'product_id' => $product->id,
             'batch_id' => $batch?->id,
@@ -502,6 +622,21 @@ class BatchService
             'quantity_after' => $quantityAfter,
             'notes' => $notes,
         ]);
+    }
+
+    protected function assertBatchCanBeManuallyAllocated(Batch $batch, Product $product): void
+    {
+        if ($batch->expiry_date && $batch->expiry_date->lt(now()->startOfDay())) {
+            throw SaleException::expiredBatchSelection($batch->batch_number, $product->name);
+        }
+    }
+
+    protected function assertNonNegativeQuantity(int $quantity, string $label, array $context = []): void
+    {
+        if ($quantity < 0) {
+            $details = empty($context) ? '' : ' Context: ' . json_encode($context);
+            throw new \RuntimeException("{$label} cannot be negative. Received {$quantity}.{$details}");
+        }
     }
 
     protected function generateBatchNumber(Product $product, string $prefix): string

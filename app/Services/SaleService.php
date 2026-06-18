@@ -21,7 +21,9 @@ class SaleService
     }
 
     /**
-     * Create a new sale with items and deduction of stock.
+     * Create a new sale with items and reserve stock immediately.
+     *
+     * Pending sales still reserve stock. Completion only controls finance income creation.
      */
     public function createSale(SaleData $data): Sale
     {
@@ -134,7 +136,9 @@ class SaleService
     }
 
     /**
-     * Cancel a sale and restore stock.
+     * Cancel a sale and restore reserved stock.
+     *
+     * Pending and completed sales both return stock because both states reserve stock.
      */
     public function cancelSale(Sale $sale, ?string $reason = null): Sale
     {
@@ -153,7 +157,7 @@ class SaleService
                             $restored = $this->batchService->restoreSaleItemBatches($sale, $item);
 
                             if (!$restored) {
-                                $item->product->increment('quantity', $item->quantity);
+                                $this->batchService->restoreSaleItemWithoutRecordedAllocations($sale, $item);
                             }
                         }
                     }
@@ -182,6 +186,8 @@ class SaleService
 
     /**
      * Mark a pending sale as completed.
+     *
+     * Completion does not change stock reservation. It only finalizes finance income.
      */
     public function completeSale(Sale $sale, array $paymentData = []): Sale
     {
@@ -217,7 +223,7 @@ class SaleService
     }
 
     /**
-     * Restore a cancelled sale to pending (must reserve stock again).
+     * Restore a cancelled sale to pending and reserve stock again.
      */
     public function restoreSale(Sale $sale): Sale
     {
@@ -239,15 +245,8 @@ class SaleService
                 $reapplied = $this->batchService->reapplySaleItemBatches($sale, $item);
 
                 if (!$reapplied) {
-                    if ($product->quantity < $item->quantity) {
-                        throw SaleException::insufficientStock(
-                            $product->name,
-                            $item->quantity,
-                            $product->quantity
-                        );
-                    }
-
-                    $product->decrement('quantity', $item->quantity);
+                    $allocations = $this->batchService->reserveBatches($product, $item->quantity);
+                    $this->batchService->recordSaleItemAllocations($sale, $item, $allocations);
                 }
             }
 

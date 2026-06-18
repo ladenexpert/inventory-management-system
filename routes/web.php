@@ -80,7 +80,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('categories', [\App\Http\Controllers\Api\CategoryController::class, 'search'])->name('categories.search');
         Route::post('units', [\App\Http\Controllers\Api\UnitController::class, 'search'])->name('units.search');
         Route::post('users', [\App\Http\Controllers\Api\UserController::class, 'search'])->name('users.search');
-        Route::post('finance-categories', [\App\Http\Http\Controllers\Api\FinanceCategoryController::class, 'search'])->name('finance-categories.search');
+        Route::post('finance-categories', [\App\Http\Controllers\Api\FinanceCategoryController::class, 'search'])->name('finance-categories.search');
         Route::post('batches', [\App\Http\Controllers\Api\BatchController::class, 'getBatches'])->name('batches.get');
     });
 });
