@@ -8,7 +8,7 @@ use Illuminate\Support\Carbon;
 class PurchaseData
 {
     public function __construct(
-        public int $supplier_id,
+        public ?int $supplier_id,
         public Carbon $purchase_date,
         public array $items,
         public ?string $invoice_number = null,
@@ -26,7 +26,7 @@ class PurchaseData
         );
 
         return new self(
-            supplier_id: (int) $data['supplier_id'],
+            supplier_id: isset($data['supplier_id']) && $data['supplier_id'] !== '' ? (int) $data['supplier_id'] : null,
             purchase_date: Carbon::parse($data['purchase_date']),
             items: $items,
             invoice_number: !empty($data['invoice_number']) ? $data['invoice_number'] : null,

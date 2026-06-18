@@ -13,7 +13,7 @@ class ProductController extends Controller
         $query = $request->input('q') ?? $request->input('search');
 
         $products = Product::query()
-            ->with(['unit'])
+            ->with(['unit', 'supplier'])
             ->withCount([
                 'batches as active_batch_count' => fn($q) => $q->where('available_quantity', '>', 0),
             ])
@@ -43,6 +43,9 @@ class ProductController extends Controller
                     'selling_price' => $product->selling_price,
                     'sku' => $product->sku,
                     'item_code_ierp' => $product->item_code_ierp,
+                    'physical_form' => $product->physical_form,
+                    'physical_form_label' => $product->physical_form_label,
+                    'supplier_name' => $product->supplier?->name,
                     'quantity' => $product->quantity,
                     'active_batch_count' => $product->active_batch_count,
                     'nearest_expiry_date' => $product->nearest_expiry_date,

@@ -10,6 +10,18 @@ class InventoryLog extends Model
 {
     use HasFactory;
 
+    public const MOVEMENT_TYPE_LABELS = [
+        'purchase_receive' => 'Purchase / Material Receipt',
+        'opening_balance' => 'Opening Balance',
+        'adjustment_in' => 'Stock Adjustment In',
+        'adjustment_out' => 'Stock Adjustment Out',
+        'sale_out' => 'Material Usage',
+        'sale_cancel_restore' => 'Cancellation / Restore',
+        'sale_restore_out' => 'Restore Reservation',
+        'legacy_sync' => 'Legacy Sync',
+        'quarantined' => 'Quarantined',
+    ];
+
     protected $fillable = [
         'product_id',
         'batch_id',
@@ -64,5 +76,15 @@ class InventoryLog extends Model
     public function saleItem(): BelongsTo
     {
         return $this->belongsTo(SaleItem::class);
+    }
+
+    public static function movementTypeOptions(): array
+    {
+        return self::MOVEMENT_TYPE_LABELS;
+    }
+
+    public function getMovementTypeLabelAttribute(): string
+    {
+        return self::MOVEMENT_TYPE_LABELS[$this->movement_type] ?? str($this->movement_type)->headline()->toString();
     }
 }

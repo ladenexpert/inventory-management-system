@@ -48,7 +48,7 @@ final class ProductTable extends PowerGridComponent
     public function datasource(): Builder
     {
         return Product::query()
-            ->with(['category', 'unit']);
+            ->with(['category', 'unit', 'supplier']);
     }
 
     public function fields(): PowerGridFields
@@ -61,6 +61,9 @@ final class ProductTable extends PowerGridComponent
             ->add('name_formatted', function (Product $model) {
                 return $model->is_active ? $model->name : '(DISCONTINUE) ' . $model->name;
             })
+            ->add('physical_form', fn(Product $model) => $model->physical_form)
+            ->add('physical_form_label', fn(Product $model) => $model->physical_form_label)
+            ->add('supplier_name', fn(Product $model) => $model->supplier?->name ?? '-')
             ->add('description')
             ->add('category_slug', fn(Product $model) => $model->category ? $model->category->slug : '-')
             ->add('category_name', fn(Product $model) => $model->category ? $model->category->name : '-')
@@ -122,6 +125,14 @@ final class ProductTable extends PowerGridComponent
                 ->hidden()
                 ->visibleInExport(true),
 
+            Column::make('Physical Form', 'physical_form_label', 'physical_form')
+                ->sortable()
+                ->searchable(),
+
+            Column::make('Supplier', 'supplier_name', 'supplier_id')
+                ->sortable()
+                ->searchable(),
+
             Column::make('Unit', 'unit_symbol', 'unit_id')
                 ->sortable()
                 ->searchable(),
@@ -161,6 +172,14 @@ final class ProductTable extends PowerGridComponent
                 ->hidden()
                 ->visibleInExport(true),
 
+            Column::make('Physical Form', 'physical_form')
+                ->hidden()
+                ->visibleInExport(true),
+
+            Column::make('Supplier', 'supplier_name')
+                ->hidden()
+                ->visibleInExport(true),
+
             Column::make('Created At', 'created_at_formatted', 'created_at')
                 ->hidden()
                 ->visibleInExport(true),
@@ -182,6 +201,20 @@ final class ProductTable extends PowerGridComponent
                 ->optionValue('value')
                 ->optionLabel('text'),
 
+            Filter::multiSelectAsync('supplier_name', 'supplier_id')
+                ->url(route('ajax.suppliers.search'))
+                ->method('POST')
+                ->optionValue('value')
+                ->optionLabel('text'),
+
+            Filter::select('physical_form_label', 'physical_form')
+                ->dataSource(collect(Product::physicalFormOptions())->map(fn (string $label, string $value) => [
+                    'value' => $value,
+                    'text' => $label,
+                ])->values())
+                ->optionValue('value')
+                ->optionLabel('text'),
+
             Filter::multiSelect('is_active_label', 'is_active')
                 ->dataSource(collect([
                     ['value' => 1, 'text' => 'Active'],
@@ -189,6 +222,15 @@ final class ProductTable extends PowerGridComponent
                 ]))
                 ->optionValue('value')
                 ->optionLabel('text'),
+        ];
+    }
+
+    public function relationSearch(): array
+    {
+        return [
+            'category' => ['name', 'slug'],
+            'unit' => ['name', 'symbol'],
+            'supplier' => ['name'],
         ];
     }
 

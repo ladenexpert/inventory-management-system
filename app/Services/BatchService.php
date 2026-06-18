@@ -75,6 +75,7 @@ class BatchService
             'batch_number' => $batchNumber,
             'expiry_date' => $item->expiry_date,
             'received_at' => $purchase->purchase_date?->copy()->startOfDay() ?? now(),
+            'storage_location' => $item->storage_location,
             'unit_cost' => $item->unit_price,
             'selling_price' => $item->selling_price ?? $product->selling_price,
             'quantity' => $item->quantity,
@@ -109,6 +110,7 @@ class BatchService
         ?string $notes = null,
         ?string $batchNumber = null,
         ?string $expiryDate = null,
+        ?string $storageLocation = null,
     ): ?Batch {
         if ($quantity <= 0) {
             return null;
@@ -131,6 +133,7 @@ class BatchService
             'batch_number' => $resolvedBatchNumber,
             'expiry_date' => $expiryDate ? \Carbon\Carbon::parse($expiryDate) : null,
             'received_at' => now(),
+            'storage_location' => $storageLocation,
             'unit_cost' => $unitCost,
             'selling_price' => $sellingPrice,
             'quantity' => $quantity,

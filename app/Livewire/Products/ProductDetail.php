@@ -21,6 +21,7 @@ class ProductDetail extends Component
         $this->product = $product->load([
             'category',
             'unit',
+            'supplier',
             'batches' => fn($query) => $query
                 ->orderByRaw('CASE WHEN expiry_date IS NULL THEN 1 ELSE 0 END')
                 ->orderBy('expiry_date')

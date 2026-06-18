@@ -24,6 +24,7 @@ class RouteSmokeTest extends TestCase
             'products.index',
             'batches.index',
             'reports.inventory',
+            'reports.inventory-movement-history',
             'reports.usage-history',
             'reports.expiry',
         ];

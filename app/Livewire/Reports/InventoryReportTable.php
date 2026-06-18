@@ -40,7 +40,7 @@ final class InventoryReportTable extends PowerGridComponent
 
     public function datasource(): Builder
     {
-        return Batch::query()->with('product');
+        return Batch::query()->with(['product.unit', 'product.supplier', 'purchase.supplier']);
     }
 
     public function fields(): PowerGridFields
@@ -50,7 +50,12 @@ final class InventoryReportTable extends PowerGridComponent
         return PowerGrid::fields()
             ->add('id')
             ->add('rm_name', fn (Batch $model) => $model->product?->name ?? '-')
+            ->add('rm_code', fn (Batch $model) => $model->product?->item_code_ierp ?: ($model->product?->sku ?? '-'))
             ->add('batch_number')
+            ->add('uom', fn (Batch $model) => $model->product?->unit?->symbol ?? $model->product?->unit?->name ?? '-')
+            ->add('physical_form', fn (Batch $model) => $model->product?->physical_form_label ?? '-')
+            ->add('supplier_name', fn (Batch $model) => $model->purchase?->supplier?->name ?? $model->product?->supplier?->name ?? '-')
+            ->add('storage_location', fn (Batch $model) => $model->storage_location ?? '-')
             ->add('quantity', fn (Batch $model) => (int) $model->available_quantity)
             ->add('expiry', fn (Batch $model) => $model->expiry_date?->format('d/m/Y') ?? 'No expiry')
             ->add('value', fn (Batch $model) => format_money($policy->inventoryValue($model)))
@@ -61,7 +66,12 @@ final class InventoryReportTable extends PowerGridComponent
     {
         return [
             Column::make('RM', 'rm_name')->searchable()->sortable(),
+            Column::make('RM Code', 'rm_code')->searchable()->sortable(),
             Column::make('Batch', 'batch_number')->searchable()->sortable(),
+            Column::make('Unit', 'uom'),
+            Column::make('Physical Form', 'physical_form')->searchable()->sortable(),
+            Column::make('Supplier', 'supplier_name')->searchable(),
+            Column::make('Storage Location', 'storage_location')->searchable()->sortable(),
             Column::make('Qty', 'quantity', 'available_quantity')->sortable()->bodyAttribute('text-center'),
             Column::make('Expiry', 'expiry', 'expiry_date')->sortable(),
             Column::make('Value', 'value')->bodyAttribute('text-right'),
@@ -79,6 +89,13 @@ final class InventoryReportTable extends PowerGridComponent
                     'altInput' => true,
                     'altFormat' => 'd/m/Y',
                 ]),
+        ];
+    }
+
+    public function relationSearch(): array
+    {
+        return [
+            'product' => ['name', 'sku', 'item_code_ierp', 'physical_form'],
         ];
     }
 }

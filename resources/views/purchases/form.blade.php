@@ -8,7 +8,7 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
         <!-- Supplier -->
         <div class="space-y-2">
-            <x-input-label for="supplier_id" :value="__('Supplier')" required />
+            <x-input-label for="supplier_id" :value="$isMaterialReceipt ? __('Supplier (Optional)') : __('Supplier')" :required="!$isMaterialReceipt" />
             <div class="w-full">
                 <select id="supplier_id" name="supplier_id"
                         x-init="initSupplierSelect($el)"
@@ -21,6 +21,9 @@
                 </select>
             </div>
             <x-input-error :messages="$errors->get('supplier_id')" />
+            @if($isMaterialReceipt)
+                <p class="text-xs text-gray-500">Leave blank for RNI sample, internal, or unknown-source receipts.</p>
+            @endif
         </div>
 
         <!-- Invoice (Optional) -->
@@ -134,6 +137,7 @@
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ $isMaterialReceipt ? 'Raw Material' : 'Product' }}</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch No</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expiry</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Storage</th>
                             <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
                             <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ $isMaterialReceipt ? 'Unit Cost' : 'Buy Price' }}</th>
                             <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ $isMaterialReceipt ? 'Reference Price' : 'Sell Price' }}</th>
@@ -174,6 +178,18 @@
                                         class="w-40 border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm shadow-sm"
                                     >
                                     <p x-show="hasError(`items.${index}.expiry_date`)" x-text="getError(`items.${index}.expiry_date`)" class="text-xs text-red-600 mt-1"></p>
+                                </td>
+
+                                <!-- Qty -->
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <input
+                                        type="text"
+                                        :name="`items[${index}][storage_location]`"
+                                        x-model="item.storage_location"
+                                        class="w-40 border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm shadow-sm"
+                                        placeholder="Rack / room / shelf"
+                                    >
+                                    <p x-show="hasError(`items.${index}.storage_location`)" x-text="getError(`items.${index}.storage_location`)" class="text-xs text-red-600 mt-1"></p>
                                 </td>
 
                                 <!-- Qty -->
@@ -336,7 +352,7 @@
                         </template>
                         <template x-if="items.length === 0">
                             <tr>
-                                <td colspan="8" class="px-6 py-20 text-center text-gray-500">
+                                <td colspan="9" class="px-6 py-20 text-center text-gray-500">
                                     <div class="flex flex-col items-center justify-center">
                                         <svg class="w-12 h-12 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                                         <p class="text-base font-medium">No items added</p>
@@ -348,7 +364,7 @@
                     </tbody>
                     <tfoot class="bg-gray-50 border-t border-gray-200">
                         <tr>
-                            <td colspan="6" class="px-6 py-4 text-right font-bold text-gray-900 text-base">{{ $isMaterialReceipt ? 'Total Receipt Value:' : 'Total Purchase:' }}</td>
+                            <td colspan="7" class="px-6 py-4 text-right font-bold text-gray-900 text-base">{{ $isMaterialReceipt ? 'Total Receipt Value:' : 'Total Purchase:' }}</td>
                             <td class="px-6 py-4 text-right font-bold text-blue-600 text-lg">
                                 <span x-text="window.formatMoney(total)"></span>
                             </td>
@@ -385,6 +401,7 @@
                 key: i.key || Math.random().toString(36).substr(2, 9),
                 batch_number: i.batch_number || '',
                 expiry_date: i.expiry_date || '',
+                storage_location: i.storage_location || '',
                 subtotal: parseInt(i.subtotal) || 0
             })),
             supplier_id: initialData.supplier_id || '',
@@ -485,6 +502,7 @@
                     product_code: product.item_code_ierp || product.sku,
                     batch_number: '',
                     expiry_date: '',
+                    storage_location: '',
                     quantity: 1,
                     unit_price: product.price || 0,
                     selling_price: product.selling_price || 0,

@@ -5,20 +5,32 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Product extends Model
 {
     use HasFactory, SoftDeletes;
 
+    public const PHYSICAL_FORM_OPTIONS = [
+        'powder' => 'Powder',
+        'liquid' => 'Liquid',
+        'wax' => 'Wax',
+        'paste' => 'Paste',
+        'granule' => 'Granule',
+        'other' => 'Other',
+    ];
+
     protected $table = 'products';
 
     protected $fillable = [
         'category_id',
         'unit_id',
+        'supplier_id',
         'sku',
         'item_code_ierp',
         'name',
+        'physical_form',
         'purchase_price',
         'selling_price',
         'quantity',
@@ -29,6 +41,7 @@ class Product extends Model
     ];
 
     protected $casts = [
+        'supplier_id' => 'integer',
         'purchase_price' => 'integer',
         'selling_price' => 'integer',
         'quantity' => 'integer',
@@ -44,6 +57,11 @@ class Product extends Model
     public function unit()
     {
         return $this->belongsTo(Unit::class)->withTrashed();
+    }
+
+    public function supplier(): BelongsTo
+    {
+        return $this->belongsTo(Supplier::class)->withTrashed();
     }
 
     public function purchaseItems()
@@ -64,5 +82,15 @@ class Product extends Model
     public function inventoryLogs(): HasMany
     {
         return $this->hasMany(InventoryLog::class);
+    }
+
+    public static function physicalFormOptions(): array
+    {
+        return self::PHYSICAL_FORM_OPTIONS;
+    }
+
+    public function getPhysicalFormLabelAttribute(): string
+    {
+        return self::PHYSICAL_FORM_OPTIONS[$this->physical_form] ?? '-';
     }
 }

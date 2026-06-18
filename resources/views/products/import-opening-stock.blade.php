@@ -29,8 +29,10 @@
                 <ul class="list-disc pl-5 text-sm text-muted-foreground space-y-1">
                     <li>Use the <strong>Download Template</strong> file so the import columns stay valid.</li>
                     <li>Required columns: <code>name</code>, <code>category</code>, <code>unit</code>, <code>purchase_price</code>, <code>selling_price</code>, <code>opening_quantity</code>.</li>
+                    <li>RNI columns now supported: <code>physical_form</code>, optional <code>supplier</code>, and optional <code>storage_location</code>.</li>
                     <li><code>category</code> may use an existing category name, slug, or ID.</li>
                     <li><code>unit</code> may use an existing unit name, symbol, or ID.</li>
+                    <li>Legacy templates without the new RNI columns still remain valid.</li>
                     <li>Rows starting with <code>#</code> are ignored during import.</li>
                 </ul>
             </div>

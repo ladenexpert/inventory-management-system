@@ -37,7 +37,7 @@
                     <!-- Content Grid -->
                     <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                         <!-- Supplier -->
-                        <x-detail-item label="Supplier" :value="$purchase->supplier->name">
+                        <x-detail-item label="Supplier" :value="$purchase->supplier?->name ?? '-'">
                             <x-heroicon-o-building-storefront class="w-4 h-4 text-gray-400" />
                         </x-detail-item>
 
@@ -113,6 +113,7 @@
                                     <th class="px-6 py-3">Product</th>
                                     <th class="px-6 py-3">Batch No</th>
                                     <th class="px-6 py-3">Expiry</th>
+                                    <th class="px-6 py-3">Storage Location</th>
                                     <th class="px-6 py-3">UOM</th>
                                     <th class="px-6 py-3 text-center">Quantity</th>
                                     <th class="px-6 py-3 text-right">Buying Price</th>
@@ -135,6 +136,9 @@
                                         <td class="px-6 py-4 text-sm text-gray-600">
                                             {{ $item->batch?->expiry_date?->format('d M Y') ?? $item->expiry_date?->format('d M Y') ?? '-' }}
                                         </td>
+                                        <td class="px-6 py-4 text-sm text-gray-600">
+                                            {{ $item->batch?->storage_location ?? $item->storage_location ?? '-' }}
+                                        </td>
                                         <td class="px-6 py-4 text-sm text-gray-500">
                                             {{ $item->product->unit->symbol ?? $item->product->unit->name ?? '-' }}
                                         </td>
@@ -155,7 +159,7 @@
                             </tbody>
                             <tfoot class="bg-gray-50 font-bold">
                                 <tr>
-                                    <td colspan="8" class="px-6 py-4 text-right">Total</td>
+                                    <td colspan="9" class="px-6 py-4 text-right">Total</td>
                                     <td class="px-6 py-4 text-right text-indigo-600 text-lg">
                                         @money($purchase->total)
                                     </td>

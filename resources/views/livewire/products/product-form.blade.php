@@ -52,6 +52,39 @@
                 required
             />
 
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="space-y-2">
+                    <x-input-label for="physical_form" :value="__('Physical Form')" />
+                    <select
+                        id="physical_form"
+                        wire:model="physical_form"
+                        class="block w-full rounded-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                    >
+                        <option value="">Select physical form</option>
+                        @foreach($physicalFormOptions as $value => $label)
+                            <option value="{{ $value }}">{{ $label }}</option>
+                        @endforeach
+                    </select>
+                    <x-input-error :messages="$errors->get('physical_form')" />
+                </div>
+
+                <div class="space-y-2">
+                    <x-input-label for="supplier_id" :value="__('Default Supplier')" />
+                    <div wire:ignore>
+                        <x-tom-select
+                            id="supplier_id"
+                            name="supplier_id"
+                            wire:model="supplier_id"
+                            :url="route('ajax.suppliers.search')"
+                            method="POST"
+                            placeholder="Optional supplier"
+                            data-initial-label="{{ $supplierName }}"
+                        />
+                    </div>
+                    <x-input-error :messages="$errors->get('supplier_id')" />
+                </div>
+            </div>
+
             <!-- Row 2: Category & Unit -->
             <div class="flex flex-col sm:flex-row gap-6">
                 <!-- Category -->
@@ -116,7 +149,6 @@
                 </div>
             </div>
 
-            <!-- Row 5: Qty, Min Stock, Active -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <!-- Quantity -->
                 <x-form-input
@@ -140,34 +172,6 @@
                     required
                 />
 
-                @if(!$isEditing)
-                    <!-- Opening Balance Batch Number -->
-                    <div class="space-y-2">
-                        <x-input-label for="opening_batch_number" :value="__('Opening Balance Batch Number')" />
-                        <x-text-input
-                            id="opening_batch_number"
-                            name="opening_batch_number"
-                            wire:model="opening_batch_number"
-                            placeholder="Kosongkan untuk auto-generate"
-                            class="block w-full"
-                        />
-                        <x-input-error :messages="$errors->get('opening_batch_number')" />
-                    </div>
-
-                    <!-- Opening Expiry Date -->
-                    <div class="space-y-2">
-                        <x-input-label for="opening_expiry_date" :value="__('Expiry Date')" />
-                        <x-text-input
-                            id="opening_expiry_date"
-                            name="opening_expiry_date"
-                            type="date"
-                            wire:model="opening_expiry_date"
-                            class="block w-full"
-                        />
-                        <x-input-error :messages="$errors->get('opening_expiry_date')" />
-                    </div>
-                @endif
-
                 <!-- Is Active -->
                 <div class="flex items-center h-full pt-8">
                     <label class="inline-flex items-center cursor-pointer">
@@ -182,6 +186,46 @@
                     </label>
                 </div>
             </div>
+
+            @if(!$isEditing)
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="space-y-2">
+                        <x-input-label for="opening_batch_number" :value="__('Opening Balance Batch Number')" />
+                        <x-text-input
+                            id="opening_batch_number"
+                            name="opening_batch_number"
+                            wire:model="opening_batch_number"
+                            placeholder="Kosongkan untuk auto-generate"
+                            class="block w-full"
+                        />
+                        <x-input-error :messages="$errors->get('opening_batch_number')" />
+                    </div>
+
+                    <div class="space-y-2">
+                        <x-input-label for="opening_expiry_date" :value="__('Expiry Date')" />
+                        <x-text-input
+                            id="opening_expiry_date"
+                            name="opening_expiry_date"
+                            type="date"
+                            wire:model="opening_expiry_date"
+                            class="block w-full"
+                        />
+                        <x-input-error :messages="$errors->get('opening_expiry_date')" />
+                    </div>
+
+                    <div class="space-y-2">
+                        <x-input-label for="opening_storage_location" :value="__('Opening Storage Location')" />
+                        <x-text-input
+                            id="opening_storage_location"
+                            name="opening_storage_location"
+                            wire:model="opening_storage_location"
+                            placeholder="Optional rack / room / shelf"
+                            class="block w-full"
+                        />
+                        <x-input-error :messages="$errors->get('opening_storage_location')" />
+                    </div>
+                </div>
+            @endif
 
             <!-- Description -->
             <div class="space-y-2">

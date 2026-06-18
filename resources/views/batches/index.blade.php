@@ -39,7 +39,7 @@
                 <h2 class="font-semibold text-xl text-foreground leading-tight">
                     {{ __('Batch Monitoring') }}
                 </h2>
-                <p class="text-sm text-muted-foreground mt-1">Track expired and near-expiry inventory by batch number.</p>
+                <p class="text-sm text-muted-foreground mt-1">Track expiry, physical form, and storage location by batch number.</p>
             </div>
             <x-secondary-button href="{{ route('products.index') }}">
                 {{ __('Back to Products') }}

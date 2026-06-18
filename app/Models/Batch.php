@@ -20,6 +20,7 @@ class Batch extends Model
         'batch_number',
         'expiry_date',
         'received_at',
+        'storage_location',
         'unit_cost',
         'selling_price',
         'quantity',

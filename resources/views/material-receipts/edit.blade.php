@@ -21,6 +21,7 @@
                         'product_code' => $item->product->item_code_ierp ?: $item->product->sku,
                         'batch_number' => $item->batch_number,
                         'expiry_date' => optional($item->expiry_date)->format('Y-m-d'),
+                        'storage_location' => $item->storage_location,
                         'quantity' => $item->quantity,
                         'unit_price' => $item->unit_price,
                         'selling_price' => $item->selling_price,

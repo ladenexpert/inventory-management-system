@@ -29,9 +29,11 @@ class ProductService
                 $product = Product::create([
                     'category_id' => $data->category_id,
                     'unit_id' => $data->unit_id,
+                    'supplier_id' => $data->supplier_id,
                     'sku' => $sku,
                     'item_code_ierp' => $data->item_code_ierp,
                     'name' => $data->name,
+                    'physical_form' => $data->physical_form,
                     'purchase_price' => $data->purchase_price,
                     'selling_price' => $data->selling_price,
                     'quantity' => 0,
@@ -50,7 +52,8 @@ class ProductService
                         source: 'opening_balance',
                         notes: 'Opening balance created from initial product setup.',
                         batchNumber: $data->opening_batch_number,
-                        expiryDate: $data->opening_expiry_date
+                        expiryDate: $data->opening_expiry_date,
+                        storageLocation: $data->opening_storage_location,
                     );
                 }
 
@@ -78,9 +81,11 @@ class ProductService
                 $lockedProduct->update([
                     'category_id' => $data->category_id,
                     'unit_id' => $data->unit_id,
+                    'supplier_id' => $data->supplier_id,
                     'sku' => $data->sku ?? $lockedProduct->sku,
                     'item_code_ierp' => $data->item_code_ierp,
                     'name' => $data->name,
+                    'physical_form' => $data->physical_form,
                     'purchase_price' => $data->purchase_price,
                     'selling_price' => $data->selling_price,
                     'min_stock' => $data->min_stock,

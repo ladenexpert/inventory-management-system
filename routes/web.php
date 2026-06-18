@@ -5,6 +5,7 @@ use App\Http\Controllers\SalesController;
 use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FinanceReportController;
+use App\Http\Controllers\InventoryMovementHistoryController;
 use App\Http\Controllers\MaterialUsageController;
 use App\Http\Controllers\MaterialReceiptController;
 use App\Http\Controllers\ProductOpeningStockImportController;
@@ -101,6 +102,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware(['role:admin_rni,formulator', 'module:reports'])->prefix('reports')->name('reports.')->group(function () {
         Route::view('current-inventory', 'reports.inventory')->name('inventory');
+        Route::get('inventory-movement-history', [InventoryMovementHistoryController::class, 'index'])->name('inventory-movement-history');
+        Route::get('inventory-movement-history/export/{format}', [InventoryMovementHistoryController::class, 'export'])->name('inventory-movement-history.export');
         Route::view('usage-history', 'reports.usage-history')->name('usage-history');
         Route::view('expiry', 'reports.expiry')->name('expiry');
     });

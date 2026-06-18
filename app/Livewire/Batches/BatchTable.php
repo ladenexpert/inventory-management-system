@@ -61,8 +61,10 @@ final class BatchTable extends PowerGridComponent
             ->add('product_name', fn (Batch $model) => $model->product?->name ?? '-')
             ->add('product_sku', fn (Batch $model) => $model->product?->sku ?? '-')
             ->add('product_item_code_ierp', fn (Batch $model) => $model->product?->item_code_ierp ?? '-')
+            ->add('physical_form_label', fn (Batch $model) => $model->product?->physical_form_label ?? '-')
             ->add('product_uom', fn (Batch $model) => $model->product?->unit?->symbol ?? $model->product?->unit?->name ?? '-')
             ->add('purchase_invoice', fn (Batch $model) => $model->purchase?->invoice_number ?? '-')
+            ->add('storage_location', fn (Batch $model) => $model->storage_location ?? '-')
             ->add('available_quantity')
             ->add('quantity')
             ->add('unit_cost_formatted', fn (Batch $model) => format_money($model->unit_cost))
@@ -120,7 +122,15 @@ final class BatchTable extends PowerGridComponent
             Column::make('Item Code IERP', 'product_item_code_ierp')
                 ->searchable(),
 
+            Column::make('Physical Form', 'physical_form_label')
+                ->sortable()
+                ->searchable(),
+
             Column::make('UOM', 'product_uom'),
+
+            Column::make('Storage Location', 'storage_location')
+                ->sortable()
+                ->searchable(),
 
             Column::make('Status', 'lifecycle_status', 'expiry_date')
                 ->sortable()
@@ -172,7 +182,7 @@ final class BatchTable extends PowerGridComponent
     public function relationSearch(): array
     {
         return [
-            'product' => ['name', 'sku', 'item_code_ierp'],
+            'product' => ['name', 'sku', 'item_code_ierp', 'physical_form'],
             'purchase' => ['invoice_number'],
         ];
     }

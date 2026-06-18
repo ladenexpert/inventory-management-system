@@ -251,6 +251,7 @@ class PurchaseService
                 'product_id' => $itemData->product_id,
                 'batch_number' => $itemData->batch_number,
                 'expiry_date' => $itemData->expiry_date,
+                'storage_location' => $itemData->storage_location,
                 'quantity' => $itemData->quantity,
                 'unit_price' => $itemData->unit_price,
                 'subtotal'    => $subtotal,

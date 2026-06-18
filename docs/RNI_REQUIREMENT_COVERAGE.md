@@ -19,7 +19,7 @@ Status legend:
 | Admin add raw material | implemented | Raw materials are created through `Materials` master data and product form workflow. | None for pilot. |
 | Admin stock in | implemented | `Material Receipt` wraps the purchase receiving engine and creates batches on receipt. | Keep RNI naming on receipt screens. |
 | Admin edit raw material | implemented | Product/material edit flow exists and updates stock via the existing batch adjustment logic. | None for pilot. |
-| Admin view transaction history | partially implemented | Usage history report is available and inventory movements are written to `inventory_logs`, but there is no dedicated unified stock in/out/adjustment history screen yet. | Add a dedicated inventory movement history page backed by `inventory_logs`. |
+| Admin view transaction history | implemented | `Reports -> Inventory Movement History` now reads directly from `inventory_logs` with RNI filters and export. | Keep transaction-type labels aligned with future movement codes. |
 | Admin stock adjustment | implemented | Product quantity edits flow through `BatchService::adjustProductQuantity()`. | None for pilot. |
 | Admin generate/export stock report | implemented | Current inventory, expiry, batch, and usage history tables support export. | Keep export smoke tests in regression pack. |
 | Formulator view stock availability | implemented | Formulators can access materials, batches, reports, and dashboard views. | None for pilot. |
@@ -35,9 +35,9 @@ Status legend:
 | Lot Number | implemented | Stored per batch as `batches.batch_number`. | None for pilot. |
 | Expiry Date | implemented | Stored per batch and enforced in FEFO/manual allocation rules. | None for pilot. |
 | Stock | implemented | Stored per batch and synchronized back to `products.quantity`. | None for pilot. |
-| Supplier optional | partially implemented | Supplier records exist, but material receipt/purchase validation still requires `supplier_id`, and product master does not own a nullable supplier field. | Make receipt supplier nullable or add a separate optional supplier association strategy for RNI. |
-| Storage Location | missing | No storage-location field is currently stored on product or batch records. | Add `storage_location` to the RNI material/batch model and expose it in forms/import/reporting. |
-| Physical Form | missing | No `physical_form` field exists in current master data or imports. | Add `physical_form` to material master and import/report flows. |
+| Supplier optional | implemented | `products.supplier_id` is nullable for default supplier reference, and material receipt validation now allows blank supplier only in RNI receipt context while legacy purchase flow stays strict. | Keep nullable supplier limited to RNI receipt routes unless the shared purchase policy changes. |
+| Storage Location | implemented | `purchase_items.storage_location` captures receipt-stage location and `batches.storage_location` persists active lot location for monitoring/reporting. | Revisit only when a warehouse/bin hierarchy is needed. |
+| Physical Form | implemented | `products.physical_form` is stored on material master and shown in forms, detail, dashboard, and reports. | None for pilot. |
 
 ## Workflow and Input Coverage
 
@@ -49,9 +49,9 @@ Status legend:
 | Manual lot selection | implemented | Material usage allows switching each line from auto FEFO to manual batch allocation. | None for pilot. |
 | Low stock alert | implemented | Dashboard and reports surface low stock based on `min_stock`. | None for pilot. |
 | Near expiry alert | partially implemented | Batch policy, reports, and dashboard surface near-expiry stock, but the threshold is a single configurable setting and does not yet separate the PDF's dashboard-vs-monitoring windows. | Align business policy for dashboard threshold vs operational threshold and document the chosen rule. |
-| Transaction history filters | partially implemented | Search and date filtering exist, but there is no dedicated filter set for every PDF field on a single unified transaction-history screen. | Add inventory-log reporting with explicit filters for user, RM code, RM name, lot, and transaction type. |
+| Transaction history filters | implemented | Inventory movement history supports date range, user, transaction type, RM code, RM name, and lot number filters. | None for pilot. |
 | Current inventory report | implemented | `Reports -> Current Inventory` exists and exports. | None for pilot. |
-| Transaction report | partially implemented | Usage-history reporting exists, but there is no single Excel export combining stock in, stock out, and stock adjustment from `inventory_logs`. | Add a consolidated transaction report powered by `inventory_logs`. |
+| Transaction report | implemented | Inventory movement history exports XLSX/CSV from consolidated `inventory_logs` data. | None for pilot. |
 
 ## Opening Stock Import vs PDF
 
@@ -63,12 +63,12 @@ Status legend:
 | Expiry Date | implemented | Added to opening stock import as `opening_expiry_date` / `expiry_date` alias. | Keep template and tests aligned. |
 | Stock Quantity | implemented | Present as `opening_quantity`. | None. |
 | Unit | implemented | Present as `unit`. | None. |
-| Physical Form | missing | Not stored anywhere yet. | Add schema + UI/import support. |
-| Supplier optional | missing | Not part of opening stock import today. | Add nullable supplier resolution if required for pilot. |
-| Storage Location | missing | Not part of opening stock import today. | Add when storage-location model is introduced. |
+| Physical Form | implemented | Present as `physical_form` with backward-compatible aliases. | None. |
+| Supplier optional | implemented | Present as nullable `supplier` / `supplier_name` / `supplier_id` mapping to the optional material master supplier. | None. |
+| Storage Location | implemented | Present as `storage_location` and stored on the opening batch record. | None. |
 
 ## Summary
 
-- Pilot-critical RNI flows are now in place for material receipt, material usage, FEFO/manual lot allocation, reporting, and formulator self-history access.
-- The biggest remaining requirement gaps are `storage_location`, `physical_form`, and a consolidated inventory movement history/report.
-- Supplier optionality is still not fully aligned with the PDF because receipt creation currently requires a supplier.
+- Pilot-critical RNI flows now cover material receipt, material usage, FEFO/manual lot allocation, opening stock import, batch monitoring, dashboard insights, and consolidated inventory reporting.
+- The former pilot blockers around `storage_location`, `physical_form`, optional supplier handling, and unified inventory movement history are now implemented.
+- Remaining pilot caveat: near-expiry policy still uses a single operational threshold for dashboard and monitoring instead of separate windows from the PDF.

@@ -50,13 +50,15 @@ Steps:
 
 1. Download the opening stock template.
 2. Fill the RM master data and opening quantities.
-3. Include opening batch numbers whenever opening quantity is greater than zero.
-4. Upload the file.
-5. Review the import summary for created, skipped, and failed rows.
+3. Fill `physical_form`, optional `supplier`, and optional `storage_location` when available.
+4. Include opening batch numbers whenever opening quantity is greater than zero.
+5. Upload the file.
+6. Review the import summary for created, skipped, and failed rows.
 
 Notes:
 
 - Rows starting with `#` are ignored.
+- Legacy templates without the new RNI columns remain valid.
 - Existing inventory rules still validate categories, units, and batch uniqueness.
 - Zero-cost opening batches remain valid when operationally needed.
 
@@ -69,9 +71,9 @@ Menu path:
 Steps:
 
 1. Create a new material receipt.
-2. Select supplier and receipt date.
+2. Select supplier and receipt date. Supplier can be left blank for sample/internal RNI receipts.
 3. Add one or more RM lines.
-4. Enter batch number, expiry date, quantity, and unit cost for each received line.
+4. Enter batch number, expiry date, storage location, quantity, and unit cost for each received line.
 5. Save the receipt as draft or continue the receipt lifecycle.
 6. Confirm receipt from the detail page to move stock into active batches.
 
@@ -128,6 +130,8 @@ The table includes:
 
 - batch
 - RM
+- physical form
+- storage location
 - quantity
 - expiry
 - inventory value
@@ -146,11 +150,40 @@ Menu path:
 Columns:
 
 - RM
+- RM Code
 - Batch
+- Unit
+- Physical Form
+- Supplier
+- Storage Location
 - Qty
 - Expiry
 - Value
 - Status
+
+### Inventory Movement History
+
+Columns:
+
+- Date & Time
+- User
+- Transaction Type
+- RM Name
+- RM Code
+- Lot Number
+- Quantity
+- Remaining Stock
+- Reference
+- Notes
+
+Filters:
+
+- date range
+- user
+- transaction type
+- RM code
+- RM name
+- lot number
 
 ### Usage History Report
 
@@ -190,6 +223,7 @@ The RNI dashboard surfaces:
 - zero-cost batch
 - recent material usage
 - urgent batches
+- physical form mix
 - top batch valuation
 
 Use the dashboard as the daily starting point for monitoring pilot operations.

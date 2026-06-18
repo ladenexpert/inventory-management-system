@@ -14,6 +14,7 @@ class Dashboard extends Component
     public array $recentUsage = [];
     public array $topUsedMaterials = [];
     public array $nearExpiryRisks = [];
+    public array $physicalFormBreakdown = [];
 
     public function mount(DashboardStatsService $service)
     {
@@ -29,6 +30,7 @@ class Dashboard extends Component
         $this->recentUsage = $service->getRecentMaterialUsage(8);
         $this->topUsedMaterials = $service->getTopUsedMaterialsThisMonth(5);
         $this->nearExpiryRisks = $service->getNearExpiryMaterialRisks(5);
+        $this->physicalFormBreakdown = $service->getPhysicalFormBreakdown();
     }
 
     public function render()

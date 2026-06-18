@@ -136,6 +136,7 @@
                             <div class="space-y-1 flex-1 min-w-0">
                                 <p class="text-sm font-medium leading-none truncate" title="{{ $batch['product_name'] }}">{{ $batch['product_name'] }}</p>
                                 <p class="text-[11px] text-muted-foreground">{{ $batch['batch_number'] }} | {{ $batch['sku'] }}</p>
+                                <p class="text-[11px] text-muted-foreground">Location: {{ $batch['storage_location'] }}</p>
                                 <p class="text-[11px] {{ $batch['status'] === 'expired' ? 'text-red-600' : 'text-amber-600' }}">
                                     {{ $batch['status_label'] }}: {{ $batch['expiry_date'] }}
                                 </p>
@@ -220,6 +221,30 @@
                         </div>
                     @empty
                          <p class="text-xs text-muted-foreground text-center py-2">No low stock alerts.</p>
+                 @endforelse
+                </div>
+            </div>
+        </div>
+
+        <div class="col-span-1 rounded-xl border bg-card text-card-foreground shadow-sm break-inside-avoid">
+            <div class="p-4 flex flex-col space-y-1.5 border-b">
+                <h3 class="font-semibold leading-none tracking-tight">Physical Form Mix</h3>
+                <p class="text-xs text-muted-foreground">Active material count by physical form.</p>
+            </div>
+            <div class="p-4 pt-4 max-h-[300px] overflow-auto">
+                <div class="space-y-4">
+                    @forelse($physicalFormBreakdown as $form)
+                        <div class="flex items-center justify-between">
+                            <div class="space-y-1 flex-1">
+                                <p class="text-sm font-medium leading-none">{{ $form['label'] }}</p>
+                                <p class="text-[11px] text-muted-foreground">{{ str($form['physical_form'])->headline() }}</p>
+                            </div>
+                            <div class="font-semibold text-sm bg-slate-100 text-slate-700 px-2 py-1 rounded-md">
+                                {{ number_format($form['total']) }}
+                            </div>
+                        </div>
+                    @empty
+                        <p class="text-xs text-muted-foreground text-center py-2">No physical-form breakdown yet.</p>
                     @endforelse
                 </div>
             </div>

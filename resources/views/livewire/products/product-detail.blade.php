@@ -46,6 +46,16 @@
                     </div>
 
                     <div class="space-y-1">
+                        <label class="text-sm font-medium leading-none text-muted-foreground">{{ __('Physical Form') }}</label>
+                        <p class="text-sm text-foreground font-medium">{{ $product->physical_form_label }}</p>
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-sm font-medium leading-none text-muted-foreground">{{ __('Default Supplier') }}</label>
+                        <p class="text-sm text-foreground font-medium">{{ $product->supplier?->name ?? '-' }}</p>
+                    </div>
+
+                    <div class="space-y-1">
                         <label class="text-sm font-medium leading-none text-muted-foreground">{{ __('Selling Price') }}</label>
                         <p class="text-sm text-foreground font-medium">@money($product->selling_price)</p>
                     </div>
@@ -104,6 +114,7 @@
                                 <tr>
                                     <th class="px-3 py-2 text-left font-medium">Batch</th>
                                     <th class="px-3 py-2 text-left font-medium">Expiry</th>
+                                    <th class="px-3 py-2 text-left font-medium">Storage</th>
                                     <th class="px-3 py-2 text-right font-medium">Available</th>
                                     <th class="px-3 py-2 text-right font-medium">Cost</th>
                                     <th class="px-3 py-2 text-left font-medium">Source</th>
@@ -114,13 +125,14 @@
                                     <tr>
                                         <td class="px-3 py-2 font-medium text-gray-900">{{ $batch->batch_number }}</td>
                                         <td class="px-3 py-2 text-gray-600">{{ $batch->expiry_date?->format('d M Y') ?? '-' }}</td>
+                                        <td class="px-3 py-2 text-gray-600">{{ $batch->storage_location ?? '-' }}</td>
                                         <td class="px-3 py-2 text-right text-gray-700">{{ $batch->available_quantity }}</td>
                                         <td class="px-3 py-2 text-right text-gray-700">@money($batch->unit_cost)</td>
                                         <td class="px-3 py-2 text-gray-500">{{ str($batch->source)->headline() }}</td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="5" class="px-3 py-4 text-center text-sm text-gray-500">No active batch available.</td>
+                                        <td colspan="6" class="px-3 py-4 text-center text-sm text-gray-500">No active batch available.</td>
                                     </tr>
                                 @endforelse
                             </tbody>

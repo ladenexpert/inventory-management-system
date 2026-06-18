@@ -6,6 +6,7 @@ use App\DTOs\ProductData;
 use App\Models\Batch;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\Supplier;
 use App\Models\Unit;
 use DateTimeInterface;
 use RuntimeException;
@@ -30,11 +31,14 @@ class ProductOpeningStockImportService
         'name' => ['name', 'product_name'],
         'category' => ['category', 'category_name', 'category_slug', 'category_id'],
         'unit' => ['unit', 'unit_name', 'unit_symbol', 'unit_id'],
+        'supplier_id' => ['supplier', 'supplier_name', 'supplier_id', 'vendor'],
         'purchase_price' => ['purchase_price', 'buy_price', 'cost_price', 'harga_beli'],
         'selling_price' => ['selling_price', 'sale_price', 'harga_jual'],
         'opening_quantity' => ['opening_quantity', 'quantity', 'qty', 'stock_awal'],
         'opening_batch_number' => ['opening_batch_number', 'batch_number', 'opening_batch', 'batch'],
         'opening_expiry_date' => ['opening_expiry_date', 'expiry_date', 'exp_date'],
+        'opening_storage_location' => ['storage_location', 'opening_storage_location', 'location', 'storage'],
+        'physical_form' => ['physical_form', 'form_fisik', 'material_form', 'form'],
         'min_stock' => ['min_stock', 'minimum_stock', 'min_qty'],
         'is_active' => ['is_active', 'active'],
         'description' => ['description'],
@@ -168,6 +172,7 @@ class ProductOpeningStockImportService
 
         $categoryId = $this->resolveCategoryId($row['category'] ?? null);
         $unitId = $this->resolveUnitId($row['unit'] ?? null);
+        $supplierId = $this->resolveSupplierId($row['supplier_id'] ?? null);
         $purchasePrice = $this->parseInteger($row['purchase_price'] ?? null, 'Purchase price tidak valid.', true);
         $sellingPrice = $this->parseInteger($row['selling_price'] ?? null, 'Selling price tidak valid.', true);
         $quantity = $this->parseInteger($row['opening_quantity'] ?? null, 'Opening quantity tidak valid.', true);
@@ -175,8 +180,10 @@ class ProductOpeningStockImportService
         $isActive = $this->parseBoolean($row['is_active'] ?? null);
         $description = $this->cleanString($row['description'] ?? null);
         $notes = $this->cleanString($row['notes'] ?? null);
+        $physicalForm = $this->normalizePhysicalForm($row['physical_form'] ?? null);
         $openingBatchNumber = $this->cleanString($row['opening_batch_number'] ?? null);
         $openingExpiryDate = $this->parseDate($row['opening_expiry_date'] ?? null, 'Opening expiry date tidak valid.');
+        $openingStorageLocation = $this->cleanString($row['opening_storage_location'] ?? null);
 
         if ($purchasePrice < 0 || $sellingPrice < 0 || $quantity < 0 || $minStock < 0) {
             throw new RuntimeException('Nilai numerik tidak boleh negatif.');
@@ -185,6 +192,7 @@ class ProductOpeningStockImportService
         if ($quantity === 0) {
             $openingBatchNumber = null;
             $openingExpiryDate = null;
+            $openingStorageLocation = null;
         }
 
         if ($sku !== null) {
@@ -223,14 +231,17 @@ class ProductOpeningStockImportService
         return [
             'category_id' => $categoryId,
             'unit_id' => $unitId,
+            'supplier_id' => $supplierId,
             'sku' => $sku,
             'item_code_ierp' => $itemCodeIerp,
             'name' => $name,
+            'physical_form' => $physicalForm,
             'purchase_price' => $purchasePrice,
             'selling_price' => $sellingPrice,
             'quantity' => $quantity,
             'opening_batch_number' => $openingBatchNumber,
             'opening_expiry_date' => $openingExpiryDate,
+            'opening_storage_location' => $openingStorageLocation,
             'min_stock' => $minStock,
             'is_active' => $isActive,
             'description' => $description,
@@ -295,6 +306,54 @@ class ProductOpeningStockImportService
         }
 
         return $unit->id;
+    }
+
+    private function resolveSupplierId(mixed $value): ?int
+    {
+        $raw = $this->cleanString($value);
+
+        if ($raw === null) {
+            return null;
+        }
+
+        if (ctype_digit($raw)) {
+            $supplier = Supplier::find((int) $raw);
+            if ($supplier) {
+                return $supplier->id;
+            }
+        }
+
+        $supplier = Supplier::query()
+            ->where('name', $raw)
+            ->orWhereRaw('LOWER(name) = ?', [Str::lower($raw)])
+            ->first();
+
+        if (!$supplier) {
+            throw new RuntimeException("Supplier '{$raw}' tidak ditemukan.");
+        }
+
+        return $supplier->id;
+    }
+
+    private function normalizePhysicalForm(mixed $value): ?string
+    {
+        $raw = $this->cleanString($value);
+
+        if ($raw === null) {
+            return null;
+        }
+
+        $normalized = Str::of($raw)
+            ->trim()
+            ->lower()
+            ->replace([' ', '-'], '_')
+            ->toString();
+
+        if (!array_key_exists($normalized, Product::physicalFormOptions())) {
+            throw new RuntimeException("Physical form '{$raw}' tidak valid.");
+        }
+
+        return $normalized;
     }
 
     private function parseInteger(mixed $value, string $errorMessage, bool $required): ?int

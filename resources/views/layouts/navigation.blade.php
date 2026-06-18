@@ -152,6 +152,9 @@
                                 <x-dropdown-link :href="route('reports.inventory')" :active="request()->routeIs('reports.inventory')">
                                     Current Inventory
                                 </x-dropdown-link>
+                                <x-dropdown-link :href="route('reports.inventory-movement-history')" :active="request()->routeIs('reports.inventory-movement-history*')">
+                                    Inventory Movement History
+                                </x-dropdown-link>
                                 <x-dropdown-link :href="route('reports.usage-history')" :active="request()->routeIs('reports.usage-history')">
                                     Usage History
                                 </x-dropdown-link>
@@ -345,6 +348,7 @@
                             <div x-show="expanded" x-collapse>
                                 <div class="mt-2 flex flex-col gap-2 pl-4 border-l border-border ml-2">
                                     <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('reports.inventory') ? 'text-primary' : '' }}" href="{{ route('reports.inventory') }}">Current Inventory</a>
+                                    <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('reports.inventory-movement-history*') ? 'text-primary' : '' }}" href="{{ route('reports.inventory-movement-history') }}">Inventory Movement History</a>
                                     <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('reports.usage-history') ? 'text-primary' : '' }}" href="{{ route('reports.usage-history') }}">Usage History</a>
                                     <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('reports.expiry') ? 'text-primary' : '' }}" href="{{ route('reports.expiry') }}">Expiry Report</a>
                                 </div>

@@ -191,6 +191,7 @@ class DashboardStatsService
                         'product_name' => $batch->product->name ?? 'Unknown Product',
                         'sku' => $batch->product->sku ?? '-',
                         'available_quantity' => $batch->available_quantity,
+                        'storage_location' => $batch->storage_location ?? '-',
                         'expiry_date' => $batch->expiry_date?->format('Y-m-d'),
                         'status' => $status->value,
                         'status_label' => $status->label(),
@@ -533,6 +534,24 @@ class DashboardStatsService
                         ? Carbon::parse($batch->nearest_expiry_date)->format('Y-m-d')
                         : null,
                     'at_risk_quantity' => (int) $batch->at_risk_quantity,
+                ])
+                ->toArray();
+        });
+    }
+
+    public function getPhysicalFormBreakdown(): array
+    {
+        return Cache::remember('dashboard_physical_form_breakdown', now()->addMinutes(5), function () {
+            return Product::query()
+                ->select('physical_form', DB::raw('COUNT(*) as total'))
+                ->where('is_active', true)
+                ->groupBy('physical_form')
+                ->orderByDesc('total')
+                ->get()
+                ->map(fn (Product $product) => [
+                    'physical_form' => $product->physical_form ?: 'unspecified',
+                    'label' => Product::physicalFormOptions()[$product->physical_form] ?? 'Unspecified',
+                    'total' => (int) $product->total,
                 ])
                 ->toArray();
         });

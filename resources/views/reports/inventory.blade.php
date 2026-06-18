@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div>
             <h2 class="font-semibold text-xl text-foreground leading-tight">{{ __('Current Inventory Report') }}</h2>
-            <p class="text-sm text-muted-foreground mt-1">RM, batch, quantity, expiry, value, and lifecycle status in one exportable view.</p>
+            <p class="text-sm text-muted-foreground mt-1">RM code, batch, physical form, supplier, storage location, quantity, expiry, value, and status in one exportable view.</p>
         </div>
     </x-slot>
 

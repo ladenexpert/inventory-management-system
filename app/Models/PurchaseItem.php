@@ -16,6 +16,7 @@ class PurchaseItem extends Model
         'product_id',
         'batch_number',
         'expiry_date',
+        'storage_location',
         'quantity',
         'unit_price',
         'subtotal',
