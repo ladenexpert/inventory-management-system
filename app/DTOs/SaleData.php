@@ -4,6 +4,7 @@ namespace App\DTOs;
 
 use App\Enums\PaymentMethod;
 use App\Enums\SaleStatus;
+use App\Enums\SaleTransactionType;
 use Carbon\Carbon;
 
 readonly class SaleData
@@ -16,8 +17,15 @@ readonly class SaleData
         public PaymentMethod $payment_method,
         public int $created_by,
         public array $items,
+        public SaleTransactionType $transaction_type = SaleTransactionType::SALE,
         public ?int $customer_id = null,
         public SaleStatus $status = SaleStatus::COMPLETED,
+        public ?Carbon $usage_date = null,
+        public ?string $purpose = null,
+        public ?string $formula = null,
+        public ?string $project = null,
+        public ?string $requested_by = null,
+        public ?int $issued_by = null,
         public ?string $notes = null,
         public int $cash_received = 0,
         public int $change = 0,
@@ -31,8 +39,15 @@ readonly class SaleData
             payment_method: PaymentMethod::from($data['payment_method']),
             created_by: (int) $data['created_by'],
             items: array_map(fn($item) => SaleItemData::fromArray($item), $data['items']),
+            transaction_type: isset($data['transaction_type']) ? SaleTransactionType::from($data['transaction_type']) : SaleTransactionType::SALE,
             customer_id: isset($data['customer_id']) ? (int) $data['customer_id'] : null,
             status: isset($data['status']) ? SaleStatus::from($data['status']) : SaleStatus::COMPLETED,
+            usage_date: !empty($data['usage_date']) ? Carbon::parse($data['usage_date']) : null,
+            purpose: $data['purpose'] ?? null,
+            formula: $data['formula'] ?? null,
+            project: $data['project'] ?? null,
+            requested_by: $data['requested_by'] ?? null,
+            issued_by: isset($data['issued_by']) ? (int) $data['issued_by'] : null,
             notes: $data['notes'] ?? null,
             cash_received: (int) ($data['cash_received'] ?? 0),
             change: (int) ($data['change'] ?? 0),
@@ -47,8 +62,15 @@ readonly class SaleData
             'payment_method' => $this->payment_method->value,
             'created_by' => $this->created_by,
             'items' => array_map(fn($item) => $item->toArray(), $this->items),
+            'transaction_type' => $this->transaction_type->value,
             'customer_id' => $this->customer_id,
             'status' => $this->status->value,
+            'usage_date' => $this->usage_date?->toDateTimeString(),
+            'purpose' => $this->purpose,
+            'formula' => $this->formula,
+            'project' => $this->project,
+            'requested_by' => $this->requested_by,
+            'issued_by' => $this->issued_by,
             'notes' => $this->notes,
             'cash_received' => $this->cash_received,
             'change' => $this->change,

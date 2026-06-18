@@ -1,3 +1,4 @@
+@php($isMaterialReceipt = ($context ?? null) === 'material_receipt')
 <div class="space-y-6">
     <!-- Header Input Section -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
@@ -27,7 +28,7 @@
 
         <!-- Invoice (Optional) -->
         <div class="space-y-2">
-            <x-input-label for="invoice_number" :value="__('Invoice Number (Optional)')" />
+            <x-input-label for="invoice_number" :value="$isMaterialReceipt ? __('Receipt Reference (Optional)') : __('Invoice Number (Optional)')" />
             <x-text-input
                 id="invoice_number"
                 type="text"
@@ -41,7 +42,7 @@
 
         <!-- Proof Image -->
         <div class="space-y-2">
-            <x-input-label for="proof_image" :value="__('Proof of Receipt')" />
+            <x-input-label for="proof_image" :value="$isMaterialReceipt ? __('Receipt Evidence') : __('Proof of Receipt')" />
             <input
                 id="proof_image"
                 type="file"
@@ -66,7 +67,7 @@
         <!-- Dates -->
         <div class="grid grid-cols-2 gap-4">
             <div class="space-y-2">
-                <x-input-label for="purchase_date" :value="__('Purchase Date')" required />
+                <x-input-label for="purchase_date" :value="$isMaterialReceipt ? __('Receipt Date') : __('Purchase Date')" required />
                 <x-text-input
                     id="purchase_date"
                     type="date"
@@ -117,14 +118,14 @@
         <div class="relative z-20">
              <select
                 id="master_product_search"
-                x-init="initMasterSearch($el)"
-                placeholder="Search Product to Add..."
-                autocomplete="off"
+                        x-init="initMasterSearch($el)"
+                        placeholder="{{ $isMaterialReceipt ? 'Search RM to Add...' : 'Search Product to Add...' }}"
+                        autocomplete="off"
             ></select>
         </div>
 
         <p class="text-xs text-gray-500">
-            Tambahkan produk yang sama lebih dari sekali jika datang dalam batch atau tanggal kedaluwarsa yang berbeda.
+            {{ $isMaterialReceipt ? 'Tambahkan RM yang sama lebih dari sekali jika datang dalam batch atau tanggal kedaluwarsa yang berbeda.' : 'Tambahkan produk yang sama lebih dari sekali jika datang dalam batch atau tanggal kedaluwarsa yang berbeda.' }}
         </p>
 
         <!-- Cart Table -->
@@ -350,7 +351,7 @@
                     </tbody>
                     <tfoot class="bg-gray-50 border-t border-gray-200">
                         <tr>
-                            <td colspan="6" class="px-6 py-4 text-right font-bold text-gray-900 text-base">Total Purchase:</td>
+                            <td colspan="6" class="px-6 py-4 text-right font-bold text-gray-900 text-base">{{ $isMaterialReceipt ? 'Total Receipt Value:' : 'Total Purchase:' }}</td>
                             <td class="px-6 py-4 text-right font-bold text-blue-600 text-lg">
                                 <span x-text="window.formatMoney(total)"></span>
                             </td>
@@ -364,7 +365,7 @@
 
     <!-- Actions -->
     <div class="flex items-center justify-end gap-x-4 pt-6 border-t border-gray-200">
-        <a href="{{ route('purchases.index') }}" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
+        <a href="{{ $isMaterialReceipt ? route('material-receipts.index') : route('purchases.index') }}" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
             {{ __('Cancel') }}
         </a>
 
@@ -373,7 +374,7 @@
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <span x-text="loading ? 'Processing...' : ({{ isset($purchase->id) ? '`Update Purchase`' : '`Create Purchase`' }})"></span>
+            <span x-text="loading ? 'Processing...' : ({{ isset($purchase->id) ? ($isMaterialReceipt ? '`Update Material Receipt`' : '`Update Purchase`') : ($isMaterialReceipt ? '`Create Material Receipt`' : '`Create Purchase`') }})"></span>
         </x-primary-button>
     </div>
 </div>

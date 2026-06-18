@@ -1,15 +1,16 @@
-<x-app-layout title="Purchase Details">
+@php($isMaterialReceipt = ($context ?? null) === 'material_receipt')
+<x-app-layout title="{{ $isMaterialReceipt ? 'Material Receipt Details' : 'Purchase Details' }}">
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-foreground leading-tight">
-                {{ __('Purchase Details') }} #{{ $purchase->invoice_number ?: $purchase->id }}
+                {{ $isMaterialReceipt ? __('Material Receipt Details') : __('Purchase Details') }} #{{ $purchase->invoice_number ?: $purchase->id }}
             </h2>
             <div class="flex items-center gap-2">
-                <x-secondary-button href="{{ route('purchases.index') }}">
+                <x-secondary-button href="{{ route($indexRoute ?? 'purchases.index') }}">
                     &larr; {{ __('Back to List') }}
                 </x-secondary-button>
                 @if(in_array($purchase->status, [\App\Enums\PurchaseStatus::DRAFT, \App\Enums\PurchaseStatus::ORDERED]))
-                    <x-secondary-button href="{{ route('purchases.edit', $purchase) }}">
+                    <x-secondary-button href="{{ route($editRoute ?? 'purchases.edit', $purchase) }}">
                         {{ __('Edit') }}
                     </x-secondary-button>
                 @endif
@@ -25,8 +26,8 @@
                     <!-- Header Info -->
                     <div class="flex items-start justify-between border-b border-gray-100 pb-4 mb-6">
                         <div>
-                            <h3 class="text-lg font-medium text-gray-900">{{ __('Purchase Information') }}</h3>
-                            <p class="text-sm text-gray-500">{{ __('Details of the purchase transaction') }}</p>
+                            <h3 class="text-lg font-medium text-gray-900">{{ $isMaterialReceipt ? __('Material Receipt Information') : __('Purchase Information') }}</h3>
+                            <p class="text-sm text-gray-500">{{ $isMaterialReceipt ? __('Details of the material receipt transaction') : __('Details of the purchase transaction') }}</p>
                         </div>
                         <div class="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs font-medium border border-slate-200">
                             ID: #{{ $purchase->id }}
@@ -46,7 +47,7 @@
                         </x-detail-item>
 
                         <!-- Purchase Date -->
-                        <x-detail-item label="Purchase Date" :value="$purchase->purchase_date->format('d M Y')">
+                        <x-detail-item :label="$isMaterialReceipt ? 'Receipt Date' : 'Purchase Date'" :value="$purchase->purchase_date->format('d M Y')">
                             <x-heroicon-o-calendar class="w-4 h-4 text-gray-400" />
                         </x-detail-item>
 
@@ -78,7 +79,7 @@
                         <!-- Proof Image -->
                         @if($purchase->proof_image)
                             <div>
-                                <label class="text-sm font-medium leading-none text-gray-500">Proof of Receipt</label>
+                                <label class="text-sm font-medium leading-none text-gray-500">{{ $isMaterialReceipt ? 'Receipt Evidence' : 'Proof of Receipt' }}</label>
                                 <div class="mt-1">
                                     <a href="{{ Storage::url($purchase->proof_image) }}" target="_blank" class="text-indigo-600 hover:underline text-sm flex items-center gap-1">
                                         <x-heroicon-o-paper-clip class="w-4 h-4" />
@@ -87,7 +88,7 @@
                                 </div>
                             </div>
                         @else
-                            <x-detail-item label="Proof of Receipt" value="-" />
+                            <x-detail-item :label="$isMaterialReceipt ? 'Receipt Evidence' : 'Proof of Receipt'" value="-" />
                         @endif
                     </div>
 
@@ -203,7 +204,7 @@
                         class="!bg-sky-600 hover:!bg-sky-700 focus:!ring-sky-500"
                         @click="confirmAction('{{ route('purchases.mark-ordered', $purchase) }}', 'PATCH', 'Mark as Ordered', 'Are you sure you want to mark this purchase as ordered? The stock will not be updated until items are received.', 'Mark as Ordered', '!bg-sky-600 hover:!bg-sky-700 focus:!ring-sky-500')"
                     >
-                        {{ __('Mark as Ordered') }}
+                            {{ $isMaterialReceipt ? __('Mark as Planned') : __('Mark as Ordered') }}
                     </x-primary-button>
 
                 @elseif($purchase->status === \App\Enums\PurchaseStatus::ORDERED)
@@ -236,7 +237,7 @@
                                  class="relative bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
 
                                 <h3 class="text-lg font-medium text-gray-900 mb-4">
-                                    Receive Purchase #{{ $purchase->invoice_number ?? $purchase->id }}
+                                    {{ $isMaterialReceipt ? 'Receive Material Receipt #' : 'Receive Purchase #' }}{{ $purchase->invoice_number ?? $purchase->id }}
                                 </h3>
 
                                 <form
@@ -281,7 +282,7 @@
                                             </div>
                                         @else
                                             <div class="space-y-2">
-                                                <x-input-label for="proof_image" :value="__('Upload Proof of Receipt')" required />
+                                                <x-input-label for="proof_image" :value="$isMaterialReceipt ? __('Upload Receipt Evidence') : __('Upload Proof of Receipt')" required />
                                                 <input
                                                     id="proof_image"
                                                     type="file"
@@ -321,7 +322,7 @@
                                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                             </svg>
-                                            {{ __('Confirm Receipt') }}
+                                                {{ $isMaterialReceipt ? __('Confirm Material Receipt') : __('Confirm Receipt') }}
                                         </x-primary-button>
                                     </div>
                                 </form>

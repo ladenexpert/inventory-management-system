@@ -7,6 +7,7 @@ use App\DTOs\SaleData;
 use Illuminate\Http\Request;
 use App\Services\SaleService;
 use App\Exceptions\SaleException;
+use App\Enums\SaleTransactionType;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Requests\StoreSaleRequest;
 
@@ -27,6 +28,8 @@ class SalesController extends Controller
         try {
             $validated = $request->validated();
             $validated['created_by'] = Auth::id();
+            $validated['transaction_type'] = SaleTransactionType::SALE->value;
+            $validated['issued_by'] = Auth::id();
 
             $saleData = SaleData::fromArray($validated);
 
@@ -61,13 +64,23 @@ class SalesController extends Controller
 
     public function show(Sale $sale)
     {
+        abort_unless($sale->transaction_type === SaleTransactionType::SALE, 404);
+
         // // Authorization: Only creator can view
         // if ($sale->created_by !== Auth::id()) {
         //     abort(403, 'You can only view your own sales.');
         // }
 
-        $sale->load(['items.product.unit', 'items.saleItemBatches.batch', 'customer', 'creator']);
-        return view('sales.show', compact('sale'));
+        $sale->load(['items.product.unit', 'items.saleItemBatches.batch', 'customer', 'creator', 'issuer']);
+        return view('sales.show', [
+            'sale' => $sale,
+            'context' => 'sale',
+            'indexRoute' => 'sales.index',
+            'printRoute' => 'sales.print',
+            'completeRoute' => 'sales.complete',
+            'destroyRoute' => 'sales.destroy',
+            'restoreRoute' => 'sales.restore',
+        ]);
     }
 
     public function destroy(Request $request, Sale $sale, SaleService $saleService)
@@ -88,13 +101,18 @@ class SalesController extends Controller
 
     public function print(Sale $sale)
     {
+        abort_unless($sale->transaction_type === SaleTransactionType::SALE, 404);
+
         // // Authorization: Only creator can print
         // if ($sale->created_by !== Auth::id()) {
         //     abort(403, 'You can only print your own sales.');
         // }
 
-        $sale->load(['items.product.unit', 'items.saleItemBatches.batch', 'customer', 'creator']);
-        return view('sales.print', compact('sale'));
+        $sale->load(['items.product.unit', 'items.saleItemBatches.batch', 'customer', 'creator', 'issuer']);
+        return view('sales.print', [
+            'sale' => $sale,
+            'context' => 'sale',
+        ]);
     }
 
     public function restore(Sale $sale, SaleService $saleService)

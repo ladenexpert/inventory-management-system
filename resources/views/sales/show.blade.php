@@ -1,16 +1,17 @@
-<x-app-layout title="Sale Details">
+@php($isMaterialUsage = ($context ?? 'sale') === 'material_usage')
+<x-app-layout title="{{ $isMaterialUsage ? 'Material Usage Details' : 'Sale Details' }}">
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-foreground leading-tight">
-                {{ __('Sale Details') }} #{{ $sale->invoice_number ?: $sale->id }}
+                {{ $isMaterialUsage ? __('Material Usage Details') : __('Sale Details') }} #{{ $sale->invoice_number ?: $sale->id }}
             </h2>
             <div class="flex items-center gap-2">
-                <x-secondary-button href="{{ route('sales.index') }}">
+                <x-secondary-button href="{{ route($indexRoute ?? 'sales.index') }}">
                     &larr; {{ __('Back to List') }}
                 </x-secondary-button>
-                <x-primary-button href="{{ route('sales.print', $sale) }}" target="_blank">
+                <x-primary-button href="{{ route($printRoute ?? 'sales.print', $sale) }}" target="_blank">
                     <x-heroicon-o-printer class="w-4 h-4 mr-2" />
-                    {{ __('Print Invoice') }}
+                    {{ $isMaterialUsage ? __('Print Usage Slip') : __('Print Invoice') }}
                 </x-primary-button>
             </div>
         </div>
@@ -24,8 +25,8 @@
                     <!-- Header Info -->
                     <div class="flex items-start justify-between border-b border-gray-100 pb-4 mb-6">
                         <div>
-                            <h3 class="text-lg font-medium text-gray-900">{{ __('Sale Information') }}</h3>
-                            <p class="text-sm text-gray-500">{{ __('Details of the sales transaction') }}</p>
+                            <h3 class="text-lg font-medium text-gray-900">{{ $isMaterialUsage ? __('Material Usage Information') : __('Sale Information') }}</h3>
+                            <p class="text-sm text-gray-500">{{ $isMaterialUsage ? __('Details of the issued raw material transaction') : __('Details of the sales transaction') }}</p>
                         </div>
                         <div class="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs font-medium border border-slate-200">
                             ID: #{{ $sale->id }}
@@ -35,24 +36,50 @@
                     <!-- Content Grid -->
                     <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                         <!-- Customer -->
+                        @if(!$isMaterialUsage)
                         <x-detail-item label="Customer" :value="$sale->customer->name ?? 'Guest'">
                             <x-heroicon-o-user class="w-4 h-4 text-gray-400" />
                         </x-detail-item>
+                        @endif
 
                         <!-- Invoice -->
-                        <x-detail-item label="Invoice Number" :value="$sale->invoice_number ?? '-'">
+                        <x-detail-item :label="$isMaterialUsage ? 'Usage Number' : 'Invoice Number'" :value="$sale->invoice_number ?? '-'">
                             <x-heroicon-o-document-text class="w-4 h-4 text-gray-400" />
                         </x-detail-item>
 
                         <!-- Sale Date -->
-                        <x-detail-item label="Sale Date" :value="$sale->sale_date->format('d M Y')">
+                        <x-detail-item :label="$isMaterialUsage ? 'Usage Date' : 'Sale Date'" :value="($sale->usage_date ?? $sale->sale_date)->format('d M Y')">
                             <x-heroicon-o-calendar class="w-4 h-4 text-gray-400" />
                         </x-detail-item>
 
                         <!-- Payment Method -->
+                        @if(!$isMaterialUsage)
                         <x-detail-item label="Payment Method" :value="$sale->payment_method->label()">
                             <x-heroicon-o-credit-card class="w-4 h-4 text-gray-400" />
                         </x-detail-item>
+                        @endif
+
+                        @if($isMaterialUsage)
+                        <x-detail-item label="Purpose" :value="$sale->purpose ?? '-'">
+                            <x-heroicon-o-clipboard-document-list class="w-4 h-4 text-gray-400" />
+                        </x-detail-item>
+
+                        <x-detail-item label="Formula" :value="$sale->formula ?? '-'">
+                            <x-heroicon-o-beaker class="w-4 h-4 text-gray-400" />
+                        </x-detail-item>
+
+                        <x-detail-item label="Project" :value="$sale->project ?? '-'">
+                            <x-heroicon-o-briefcase class="w-4 h-4 text-gray-400" />
+                        </x-detail-item>
+
+                        <x-detail-item label="Requested By" :value="$sale->requested_by ?? '-'">
+                            <x-heroicon-o-user class="w-4 h-4 text-gray-400" />
+                        </x-detail-item>
+
+                        <x-detail-item label="Issued By" :value="$sale->issuer->name ?? $sale->creator->name ?? 'Unknown'">
+                            <x-heroicon-o-user class="w-4 h-4 text-gray-400" />
+                        </x-detail-item>
+                        @endif
 
                         <!-- Status -->
                         <div>
@@ -211,9 +238,9 @@
                     {{-- Complete / Pay Action --}}
                     <x-primary-button
                         class="!bg-green-600 hover:!bg-green-700 focus:!ring-green-500"
-                        @click="confirmAction('{{ route('sales.complete', $sale) }}', 'PATCH', 'Complete Sale', 'Mark this sale as Completed? This confirms payment has been received.', 'Complete Sale', '!bg-green-600 hover:!bg-green-700 focus:!ring-green-500')"
+                        @click="confirmAction('{{ route($completeRoute ?? 'sales.complete', $sale) }}', 'PATCH', '{{ $isMaterialUsage ? 'Complete Material Usage' : 'Complete Sale' }}', '{{ $isMaterialUsage ? 'Mark this material usage as completed?' : 'Mark this sale as Completed? This confirms payment has been received.' }}', '{{ $isMaterialUsage ? 'Complete Usage' : 'Complete Sale' }}', '!bg-green-600 hover:!bg-green-700 focus:!ring-green-500')"
                     >
-                        {{ __('Complete Sale') }}
+                        {{ $isMaterialUsage ? __('Complete Usage') : __('Complete Sale') }}
                     </x-primary-button>
 
                     {{-- Cancel Pending Action (Modal) --}}
@@ -233,13 +260,13 @@
                                  class="relative bg-white rounded-lg max-w-md w-full p-6 shadow-xl text-left">
 
                                 <h3 class="text-lg font-medium text-gray-900 mb-2">
-                                    {{ __('Cancel Pending Sale') }}
+                                    {{ $isMaterialUsage ? __('Cancel Pending Usage') : __('Cancel Pending Sale') }}
                                 </h3>
                                 <p class="text-sm text-gray-500 mb-4">
-                                    {{ __('Are you sure you want to cancel this pending sale? Please provide a reason.') }}
+                                    {{ $isMaterialUsage ? __('Are you sure you want to cancel this pending usage? Please provide a reason.') : __('Are you sure you want to cancel this pending sale? Please provide a reason.') }}
                                 </p>
 
-                                <form action="{{ route('sales.destroy', $sale) }}" method="POST">
+                                <form action="{{ route($destroyRoute ?? 'sales.destroy', $sale) }}" method="POST">
                                     @csrf
                                     @method('DELETE')
 
@@ -250,7 +277,7 @@
                                             id="reason"
                                             rows="3"
                                             class="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                                            placeholder="Customer changed mind..."
+                                            placeholder="{{ $isMaterialUsage ? 'Reason for cancelling this usage...' : 'Customer changed mind...' }}"
                                             required
                                         ></textarea>
                                     </div>
@@ -260,7 +287,7 @@
                                             {{ __('Back') }}
                                         </x-secondary-button>
                                         <x-danger-button type="submit">
-                                            {{ __('Cancel Sale') }}
+                                            {{ $isMaterialUsage ? __('Cancel Usage') : __('Cancel Sale') }}
                                         </x-danger-button>
                                     </div>
                                 </form>
@@ -273,9 +300,9 @@
                     {{-- Cancel Action --}}
                     <x-secondary-button
                         class="text-red-600 hover:bg-red-50 border-red-200"
-                        @click="confirmAction('{{ route('sales.destroy', $sale) }}', 'DELETE', 'Cancel Sale', 'Are you sure you want to cancel (VOID) this sale? Stocks will be returned.', 'Yes, Cancel Sale', '!bg-red-600 hover:!bg-red-700 focus:!ring-red-500')"
+                        @click="confirmAction('{{ route($destroyRoute ?? 'sales.destroy', $sale) }}', 'DELETE', '{{ $isMaterialUsage ? 'Cancel Material Usage' : 'Cancel Sale' }}', '{{ $isMaterialUsage ? 'Are you sure you want to cancel this material usage? Stock will be returned.' : 'Are you sure you want to cancel (VOID) this sale? Stocks will be returned.' }}', '{{ $isMaterialUsage ? 'Yes, Cancel Usage' : 'Yes, Cancel Sale' }}', '!bg-red-600 hover:!bg-red-700 focus:!ring-red-500')"
                     >
-                        {{ __('Cancel Sale') }}
+                        {{ $isMaterialUsage ? __('Cancel Usage') : __('Cancel Sale') }}
                     </x-secondary-button>
                 @endif
 
@@ -283,7 +310,7 @@
                     {{-- Restore Action --}}
                     <x-secondary-button
                         class="bg-gray-800 text-white hover:bg-gray-700 focus:ring-gray-500"
-                        @click="confirmAction('{{ route('sales.restore', $sale) }}', 'PATCH', 'Restore Sale', 'Restore this sale to Pending status? You can then complete it again.', 'Restore to Pending', '!bg-gray-800 hover:!bg-gray-700 text-white')"
+                        @click="confirmAction('{{ route($restoreRoute ?? 'sales.restore', $sale) }}', 'PATCH', '{{ $isMaterialUsage ? 'Restore Material Usage' : 'Restore Sale' }}', '{{ $isMaterialUsage ? 'Restore this usage to pending status?' : 'Restore this sale to Pending status? You can then complete it again.' }}', 'Restore to Pending', '!bg-gray-800 hover:!bg-gray-700 text-white')"
                     >
                         {{ __('Restore to Pending') }}
                     </x-secondary-button>

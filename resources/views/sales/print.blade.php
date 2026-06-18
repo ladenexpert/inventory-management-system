@@ -237,6 +237,7 @@
 
     </style>
 </head>
+@php($isMaterialUsage = ($context ?? 'sale') === 'material_usage')
 <body>
 
     <div class="container">
@@ -246,7 +247,7 @@
                 <div class="logo-box">TB</div>
                 <div class="company-info">
                     <div class="company-name">{{ \App\Models\Setting::get('store_name', config('app.name')) }}</div>
-                    <div class="company-desc">Menjual: Bahan Bangunan, Alat Teknik, Cat, Dll.</div>
+                    <div class="company-desc">{{ $isMaterialUsage ? 'Usage Slip - Raw Material Issuance' : 'Menjual: Bahan Bangunan, Alat Teknik, Cat, Dll.' }}</div>
                     <div class="company-address">
                         {{ \App\Models\Setting::get('store_address', 'Jl. Default No. 1') }}<br>
                         HP. {{ \App\Models\Setting::get('store_phone', '-') }}
@@ -255,20 +256,27 @@
             </div>
             <div class="header-right">
                 <div class="header-row">
-                    <span>{{ $sale->sale_date->locale('id')->isoFormat('dddd, D MMMM Y') }}</span>
+                    <span>{{ ($sale->usage_date ?? $sale->sale_date)->locale('id')->isoFormat('dddd, D MMMM Y') }}</span>
                 </div>
                 <div class="header-row">
-                    <span class="header-label">Kepada Yth,</span>
-                    <span class="header-value">{{ $sale->customer->name ?? 'Guest' }}</span>
+                    <span class="header-label">{{ $isMaterialUsage ? 'Issued By,' : 'Kepada Yth,' }}</span>
+                    <span class="header-value">{{ $isMaterialUsage ? ($sale->issuer->name ?? $sale->creator->name ?? 'Unknown') : ($sale->customer->name ?? 'Guest') }}</span>
                 </div>
             </div>
         </div>
 
         <!-- Invoice No Line -->
         <div class="invoice-row">
-            <span class="invoice-label">FAKTUR / BON / KONTAN No.</span>
+            <span class="invoice-label">{{ $isMaterialUsage ? 'MATERIAL USAGE SLIP No.' : 'FAKTUR / BON / KONTAN No.' }}</span>
             <span class="invoice-value">{{ $sale->invoice_number }}</span>
         </div>
+
+        @if($isMaterialUsage)
+        <div class="invoice-row" style="font-weight: normal;">
+            <span class="invoice-label">Purpose</span>
+            <span class="invoice-value">{{ $sale->purpose ?? '-' }}</span>
+        </div>
+        @endif
 
         <!-- Table -->
         <table>
@@ -276,11 +284,11 @@
                 <tr>
                     <th class="col-code">Kode IERP</th>
                     <th class="col-uom">UOM</th>
-                    <th class="col-name">Nama Barang</th>
+                    <th class="col-name">{{ $isMaterialUsage ? 'Raw Material' : 'Nama Barang' }}</th>
                     <th class="col-qty">Qty</th>
-                    <th class="col-price">Harga</th>
-                    <th class="col-disc">Diskon</th>
-                    <th class="col-total">Jumlah</th>
+                    <th class="col-price">{{ $isMaterialUsage ? 'Batch' : 'Harga' }}</th>
+                    <th class="col-disc">{{ $isMaterialUsage ? 'Expiry' : 'Diskon' }}</th>
+                    <th class="col-total">{{ $isMaterialUsage ? 'Purpose' : 'Jumlah' }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -293,9 +301,21 @@
                     <td class="col-uom">{{ $item->product->unit->symbol ?? $item->product->unit->name ?? '-' }}</td>
                     <td class="col-name">{{ $item->product->name }}</td>
                     <td class="col-qty">{{ $item->quantity }}</td>
-                    <td class="col-price">@money($item->unit_price)</td>
-                    <td class="col-disc">{!! $item->discount > 0 ? "<span>" . format_money($item->discount) . "</span>" : '-' !!}</td>
-                    <td class="col-total">@money($item->subtotal)</td>
+                    <td class="col-price">
+                        @if($isMaterialUsage)
+                            {{ $item->saleItemBatches->pluck('batch.batch_number')->filter()->implode(', ') ?: '-' }}
+                        @else
+                            @money($item->unit_price)
+                        @endif
+                    </td>
+                    <td class="col-disc">
+                        @if($isMaterialUsage)
+                            {{ $item->saleItemBatches->map(fn($allocation) => $allocation->batch?->expiry_date?->format('d/m/Y') ?? 'No expiry')->implode(', ') ?: '-' }}
+                        @else
+                            {!! $item->discount > 0 ? "<span>" . format_money($item->discount) . "</span>" : '-' !!}
+                        @endif
+                    </td>
+                    <td class="col-total">{{ $isMaterialUsage ? ($sale->purpose ?? '-') : format_money($item->subtotal) }}</td>
                 </tr>
                 @endforeach
 
@@ -317,18 +337,19 @@
         <!-- Footer -->
         <div class="footer">
             <div class="footer-left">
-                <div>Tanda Terima</div>
+                <div>{{ $isMaterialUsage ? 'Requested / Received By' : 'Tanda Terima' }}</div>
                 <div class="signature-space"></div>
                 <div>( .................................... )</div>
             </div>
 
             <div class="footer-center">
                 <div class="disclaimer-box">
-                    Mohon diperiksa bahwa barang dalam keadaan baik pada waktu diterima, barang yang sudah dibeli tidak dapat dikembalikan
+                    {{ $isMaterialUsage ? 'Purpose: ' . ($sale->purpose ?? '-') . '. Formula: ' . ($sale->formula ?? '-') . '. Project: ' . ($sale->project ?? '-') : 'Mohon diperiksa bahwa barang dalam keadaan baik pada waktu diterima, barang yang sudah dibeli tidak dapat dikembalikan' }}
                 </div>
             </div>
 
             <div class="footer-right">
+                @if(!$isMaterialUsage)
                 <div class="amount-row">
                     <span class="amount-label">Subtotal</span>
                     <span class="amount-value">@money($sale->total + $sale->global_discount)</span>
@@ -351,6 +372,20 @@
                     <span class="amount-label">Kembalian</span>
                     <span class="amount-value">@money($sale->change)</span>
                 </div>
+                @else
+                <div class="amount-row">
+                    <span class="amount-label">Issued By</span>
+                    <span class="amount-value">{{ $sale->issuer->name ?? $sale->creator->name ?? '-' }}</span>
+                </div>
+                <div class="amount-row">
+                    <span class="amount-label">Requested By</span>
+                    <span class="amount-value">{{ $sale->requested_by ?? '-' }}</span>
+                </div>
+                <div class="amount-row">
+                    <span class="amount-label">Project</span>
+                    <span class="amount-value">{{ $sale->project ?? '-' }}</span>
+                </div>
+                @endif
             </div>
         </div>
     </div>

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\BatchStatus;
+use App\Enums\SaleTransactionType;
 use App\Models\Batch;
 use App\Models\FinanceTransaction;
 use App\Models\Product;
@@ -27,7 +28,8 @@ class DashboardStatsService
         $cacheKey = "dashboard_sales_{$periodKey}_{$startDate->format('Ymd')}_{$endDate->format('Ymd')}";
 
         return Cache::remember($cacheKey, now()->addMinutes(15), function () use ($startDate, $endDate) {
-            $salesData = Sale::whereBetween('sale_date', [$startDate, $endDate])
+            $salesData = $this->commercialSalesQuery()
+                ->whereBetween('sale_date', [$startDate, $endDate])
                 ->where('status', 'completed')
                 ->selectRaw('COUNT(*) as count, SUM(total) as total_revenue')
                 ->first();
@@ -37,6 +39,7 @@ class DashboardStatsService
 
             $cogs = SaleItem::whereHas('sale', function ($query) use ($startDate, $endDate) {
                 $query->whereBetween('sale_date', [$startDate, $endDate])
+                    ->where('transaction_type', SaleTransactionType::SALE->value)
                     ->where('status', 'completed');
             })->sum('total_cost');
 
@@ -238,6 +241,7 @@ class DashboardStatsService
             return SaleItem::select('product_id', DB::raw('SUM(quantity) as total_qty'))
                 ->whereHas('sale', function ($query) use ($startDate, $endDate) {
                     $query->whereBetween('sale_date', [$startDate, $endDate])
+                        ->where('transaction_type', SaleTransactionType::SALE->value)
                         ->where('status', 'completed');
                 })
                 ->with('product:id,name,sku')
@@ -262,7 +266,8 @@ class DashboardStatsService
     public function getRecentSales(int $limit = 5): array
     {
         return Cache::remember('dashboard_recent_sales', now()->addMinutes(1), function () use ($limit) {
-            return Sale::with('customer:id,name')
+            return $this->commercialSalesQuery()
+                ->with('customer:id,name')
                 ->orderByDesc('sale_date')
                 ->limit($limit)
                 ->get()
@@ -278,7 +283,8 @@ class DashboardStatsService
         $cacheKey = "dashboard_sales_trend_{$startDate->format('Ymd')}_{$endDate->format('Ymd')}";
 
         return Cache::remember($cacheKey, now()->addMinutes(30), function () use ($startDate, $endDate) {
-            $data = Sale::selectRaw('DATE(sale_date) as date, SUM(total) as total')
+            $data = $this->commercialSalesQuery()
+                ->selectRaw('DATE(sale_date) as date, SUM(total) as total')
                 ->whereBetween('sale_date', [$startDate, $endDate])
                 ->where('status', 'completed')
                 ->groupBy('date')
@@ -343,7 +349,8 @@ class DashboardStatsService
         $cacheKey = "dashboard_top_customers_{$startDate->format('Ymd')}_{$endDate->format('Ymd')}";
 
         return Cache::remember($cacheKey, now()->addMinutes(30), function () use ($startDate, $endDate, $limit) {
-            return Sale::select('customer_id', DB::raw('SUM(total) as total_spent'))
+            return $this->commercialSalesQuery()
+                ->select('customer_id', DB::raw('SUM(total) as total_spent'))
                 ->whereBetween('sale_date', [$startDate, $endDate])
                 ->where('status', 'completed')
                 ->whereNotNull('customer_id')
@@ -388,5 +395,58 @@ class DashboardStatsService
                 })
                 ->toArray();
         });
+    }
+
+    public function getRniOverviewStats(): array
+    {
+        $batchAlerts = $this->getBatchAlertStats();
+
+        return [
+            'total_rm' => Product::query()->where('is_active', true)->count(),
+            'total_batch' => Batch::query()->count(),
+            'low_stock' => Product::query()
+                ->whereColumn('quantity', '<=', 'min_stock')
+                ->where('is_active', true)
+                ->count(),
+            'near_expiry' => $batchAlerts['near_expiry_count'],
+            'expired' => $batchAlerts['expired_count'],
+            'zero_cost_batch' => $batchAlerts['zero_cost_count'],
+        ];
+    }
+
+    public function getRecentMaterialUsage(int $limit = 8): array
+    {
+        return Cache::remember("dashboard_recent_material_usage_{$limit}", now()->addMinutes(1), function () use ($limit) {
+            return $this->materialUsageQuery()
+                ->with(['creator:id,name', 'issuer:id,name', 'items.product:id,name'])
+                ->orderByDesc('usage_date')
+                ->orderByDesc('sale_date')
+                ->limit($limit)
+                ->get()
+                ->map(function (Sale $sale) {
+                    return [
+                        'id' => $sale->id,
+                        'usage_number' => $sale->invoice_number,
+                        'usage_date' => optional($sale->usage_date ?? $sale->sale_date)?->format('Y-m-d'),
+                        'purpose' => $sale->purpose ?? '-',
+                        'formula' => $sale->formula ?? '-',
+                        'project' => $sale->project ?? '-',
+                        'issued_by' => $sale->issuer->name ?? $sale->creator->name ?? '-',
+                        'line_count' => $sale->items->count(),
+                        'total_qty' => (int) $sale->items->sum('quantity'),
+                    ];
+                })
+                ->toArray();
+        });
+    }
+
+    protected function commercialSalesQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return Sale::query()->where('transaction_type', SaleTransactionType::SALE->value);
+    }
+
+    protected function materialUsageQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return Sale::query()->where('transaction_type', SaleTransactionType::MATERIAL_USAGE->value);
     }
 }

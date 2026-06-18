@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Users;
 
+use App\Enums\UserRole;
 use App\Models\User;
 use Livewire\Component;
 use Livewire\Attributes\On;
@@ -17,6 +18,7 @@ class UserForm extends Component
     public $name;
     public $username;
     public $email;
+    public $role;
     public $password;
     public $password_confirmation;
 
@@ -26,6 +28,7 @@ class UserForm extends Component
             'name' => ['required', 'string', 'max:255'],
             'username' => ['required', 'string', 'max:255', Rule::unique('users', 'username')->ignore($this->user?->id)],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($this->user?->id)],
+            'role' => ['required', Rule::enum(UserRole::class)],
             'password' => [$this->isEditing ? 'nullable' : 'required', 'string', 'min:8', 'confirmed'],
         ];
     }
@@ -41,6 +44,7 @@ class UserForm extends Component
     public function create(): void
     {
         $this->reset(['user', 'isEditing', 'name', 'username', 'email', 'password', 'password_confirmation']);
+        $this->role = UserRole::FORMULATOR->value;
         $this->dispatch('open-modal', name: 'user-form-modal');
     }
 
@@ -53,6 +57,7 @@ class UserForm extends Component
         $this->name = $user->name;
         $this->username = $user->username;
         $this->email = $user->email;
+        $this->role = $user->role?->value;
         $this->password = '';
         $this->password_confirmation = '';
 
@@ -67,6 +72,7 @@ class UserForm extends Component
             name: $this->name,
             username: $this->username,
             email: $this->email,
+            role: UserRole::from($this->role),
             password: $this->password ?: null, // Pass null if empty in edit mode
         );
 
@@ -84,7 +90,7 @@ class UserForm extends Component
             $this->dispatch('toast', message: $message, type: 'success');
 
             // Reset after save
-            $this->reset(['user', 'isEditing', 'name', 'username', 'email', 'password', 'password_confirmation']);
+            $this->reset(['user', 'isEditing', 'name', 'username', 'email', 'password', 'password_confirmation', 'role']);
 
         } catch (\Exception $e) {
             $this->dispatch('toast', message: 'Error: ' . $e->getMessage(), type: 'error');

@@ -1,18 +1,20 @@
-<x-app-layout title="Products">
+<x-app-layout title="Materials">
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-foreground leading-tight">
-                {{ __('Products') }}
+                {{ __('Materials') }}
             </h2>
             <div class="flex items-center gap-2">
-                <x-secondary-button :href="route('products.import-opening-stock')">
-                    <x-heroicon-o-arrow-up-tray class="w-4 h-4 mr-2" />
-                    {{ __('Import Stok Awal') }}
-                </x-secondary-button>
-                <x-primary-button x-data x-on:click="$dispatch('create-product')">
-                    <x-heroicon-o-plus class="w-4 h-4 mr-2" />
-                    {{ __('Create Product') }}
-                </x-primary-button>
+                @if(Auth::user()->isAdminRni())
+                    <x-secondary-button :href="route('products.import-opening-stock')">
+                        <x-heroicon-o-arrow-up-tray class="w-4 h-4 mr-2" />
+                        {{ __('Upload Opening Stock') }}
+                    </x-secondary-button>
+                    <x-primary-button x-data x-on:click="$dispatch('create-product')">
+                        <x-heroicon-o-plus class="w-4 h-4 mr-2" />
+                        {{ __('Create Material') }}
+                    </x-primary-button>
+                @endif
             </div>
         </div>
     </x-slot>

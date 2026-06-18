@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.3.0-rni-pilot-ready
+
+- added RNI-focused `Material Usage` workflow on top of the existing stock deduction engine
+- added usage metadata fields: `usage_date`, `purpose`, `formula`, `project`, `requested_by`, `issued_by`, and typed internal usage transactions
+- preserved FEFO allocation, batch validation, inventory ledger behavior, and zero-cost batch support
+- exposed `Material Receipt` terminology and wrappers for the existing receiving workflow
+- added exportable RNI report pages for current inventory, usage history, and expiry monitoring
+- refocused the dashboard on RNI operating metrics and recent material usage activity
+- added minimal role separation with `Admin RNI` and `Formulator`
+- added `docs/RNI_PILOT_GUIDE.md`
+- added pilot coverage for material usage, reports, roles, and dashboard metrics
+
 ## v0.2.0-batch-fefo-stable
 
 - standardized computed batch lifecycle states: `active`, `near_expiry`, `expired`, `depleted`, and `quarantined`

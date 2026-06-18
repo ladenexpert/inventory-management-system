@@ -1,0 +1,24 @@
+<x-app-layout title="Material Receipt">
+    <x-slot name="header">
+        <div class="flex justify-between items-center">
+            <div>
+                <h2 class="font-semibold text-xl text-foreground leading-tight">
+                    {{ __('Material Receipt') }}
+                </h2>
+                <p class="text-sm text-muted-foreground mt-1">Receive raw materials into batch stock without changing the underlying receipt rules.</p>
+            </div>
+            <x-primary-button x-data x-on:click="window.location.href = '{{ route('material-receipts.create') }}'">
+                <x-heroicon-o-plus class="w-4 h-4 mr-2" />
+                {{ __('Create Receipt') }}
+            </x-primary-button>
+        </div>
+    </x-slot>
+
+    <div class="py-4">
+        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            <livewire:purchases.purchase-table />
+        </div>
+    </div>
+
+    <livewire:components.delete-modal />
+</x-app-layout>

@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\SaleItem;
 use App\Enums\SaleStatus;
 use App\Enums\PaymentMethod;
+use App\Enums\SaleTransactionType;
 use App\Exceptions\SaleException;
 use Illuminate\Support\Facades\DB;
 
@@ -38,12 +39,19 @@ class SaleService
                     ->keyBy('id');
 
                 $sale = Sale::create([
-                    'invoice_number' => $this->generateInvoiceNumber(),
+                    'invoice_number' => $this->generateReferenceNumber($data->transaction_type),
+                    'transaction_type' => $data->transaction_type,
                     'customer_id' => $data->customer_id,
                     'created_by' => $data->created_by,
                     'sale_date' => $data->sale_date,
+                    'usage_date' => $data->usage_date,
                     'status' => $data->status,
                     'payment_method' => $data->payment_method,
+                    'purpose' => $data->purpose,
+                    'formula' => $data->formula,
+                    'project' => $data->project,
+                    'requested_by' => $data->requested_by,
+                    'issued_by' => $data->issued_by ?? $data->created_by,
                     'notes' => $data->notes,
                     'cash_received' => $data->cash_received,
                     'change' => $data->change,
@@ -121,7 +129,7 @@ class SaleService
                     'change' => $change,
                 ]);
 
-                if ($sale->status === SaleStatus::COMPLETED) {
+                if ($sale->status === SaleStatus::COMPLETED && $sale->transaction_type->createsFinanceIncome()) {
                     $this->financeService->recordIncomeFromSale($sale);
                 }
 
@@ -216,7 +224,9 @@ class SaleService
             $sale->update($updateData);
 
             // Sync Finance
-            $this->financeService->recordIncomeFromSale($sale);
+            if ($sale->transaction_type->createsFinanceIncome()) {
+                $this->financeService->recordIncomeFromSale($sale);
+            }
 
             return $sale;
         });
@@ -286,9 +296,9 @@ class SaleService
      * Generate unique invoice number.
      * Format: INV.YYMMDD.0001
      */
-    private function generateInvoiceNumber(): string
+    private function generateReferenceNumber(SaleTransactionType $transactionType): string
     {
-        $prefix = 'INV.' . date('ymd') . '.';
+        $prefix = $transactionType->referencePrefix() . '.' . date('ymd') . '.';
 
         $latest = Sale::where('invoice_number', 'like', $prefix . '%')
             ->orderBy('id', 'desc')

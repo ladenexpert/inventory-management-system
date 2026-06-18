@@ -50,7 +50,11 @@ class PurchaseController extends Controller
 
             $purchase = $this->service->createPurchase($purchaseData, Auth::id());
 
-            return redirect()->route('purchases.show', $purchase)
+            $targetRoute = $request->input('context') === 'material_receipt'
+                ? 'material-receipts.show'
+                : 'purchases.show';
+
+            return redirect()->route($targetRoute, $purchase)
                 ->with('success', 'Purchase created successfully.');
 
         } catch (PurchaseException $e) {
@@ -107,7 +111,11 @@ class PurchaseController extends Controller
 
             $this->service->updatePurchase($purchase, $purchaseData);
 
-            return redirect()->route('purchases.show', $purchase)
+            $targetRoute = $request->input('context') === 'material_receipt'
+                ? 'material-receipts.show'
+                : 'purchases.show';
+
+            return redirect()->route($targetRoute, $purchase)
                 ->with('success', 'Purchase updated successfully.');
 
         } catch (PurchaseException $e) {

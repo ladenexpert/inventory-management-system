@@ -5,6 +5,7 @@ namespace App\Livewire\Sales;
 use Carbon\Carbon;
 use App\Models\Sale;
 use App\Enums\SaleStatus;
+use App\Enums\SaleTransactionType;
 use App\Services\SaleService;
 use App\Exceptions\SaleException;
 use Illuminate\Database\Eloquent\Builder;
@@ -50,6 +51,7 @@ final class SalesTable extends PowerGridComponent
     public function datasource(): Builder
     {
         return Sale::query()
+            ->where('transaction_type', SaleTransactionType::SALE->value)
             ->with(['customer', 'creator', 'items.product.unit']);
     }
 

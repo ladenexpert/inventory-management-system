@@ -5,7 +5,10 @@ namespace Tests\Feature;
 use Tests\TestCase;
 use App\Models\Batch;
 use App\Models\Product;
+use App\Models\Sale;
+use App\Models\SaleItem;
 use App\Models\User;
+use App\Enums\SaleTransactionType;
 use App\Services\DashboardStatsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -87,5 +90,75 @@ class DashboardBatchAlertTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Batch Monitoring');
+    }
+
+    public function test_rni_dashboard_metrics_include_recent_material_usage(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create([
+            'name' => 'Microcrystalline Cellulose',
+            'quantity' => 4,
+            'min_stock' => 5,
+            'is_active' => true,
+        ]);
+
+        Batch::create([
+            'product_id' => $product->id,
+            'batch_number' => 'MCC-001',
+            'expiry_date' => now()->addDays(4)->toDateString(),
+            'received_at' => now()->subDay(),
+            'unit_cost' => 0,
+            'selling_price' => 10000,
+            'quantity' => 4,
+            'available_quantity' => 4,
+            'source' => 'purchase',
+        ]);
+
+        $usage = Sale::create([
+            'invoice_number' => 'MUS.260618.0002',
+            'transaction_type' => SaleTransactionType::MATERIAL_USAGE,
+            'created_by' => $user->id,
+            'issued_by' => $user->id,
+            'sale_date' => now(),
+            'usage_date' => now(),
+            'status' => 'completed',
+            'subtotal' => 0,
+            'global_discount' => 0,
+            'total_discount' => 0,
+            'total' => 0,
+            'cash_received' => 0,
+            'change' => 0,
+            'payment_method' => 'transfer',
+            'purpose' => 'Compression test',
+            'formula' => 'CMP-001',
+            'project' => 'Pilot',
+            'requested_by' => 'R&D',
+            'notes' => null,
+        ]);
+
+        SaleItem::create([
+            'sale_id' => $usage->id,
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'cost_price' => 0,
+            'total_cost' => 0,
+            'unit_price' => 0,
+            'discount' => 0,
+            'final_price' => 0,
+            'subtotal' => 0,
+        ]);
+
+        $service = app(DashboardStatsService::class);
+
+        $overview = $service->getRniOverviewStats();
+        $recentUsage = $service->getRecentMaterialUsage();
+
+        $this->assertSame(1, $overview['total_rm']);
+        $this->assertSame(1, $overview['total_batch']);
+        $this->assertSame(1, $overview['low_stock']);
+        $this->assertSame(1, $overview['near_expiry']);
+        $this->assertSame(1, $overview['zero_cost_batch']);
+        $this->assertSame('Compression test', $recentUsage[0]['purpose']);
+        $this->assertSame('MUS.260618.0002', $recentUsage[0]['usage_number']);
     }
 }

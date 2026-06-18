@@ -5,6 +5,8 @@ use App\Http\Controllers\SalesController;
 use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FinanceReportController;
+use App\Http\Controllers\MaterialUsageController;
+use App\Http\Controllers\MaterialReceiptController;
 use App\Http\Controllers\ProductOpeningStockImportController;
 
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -21,15 +23,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Master Data
     // =========================================================================
     Route::prefix('master')->group(function () {
-        Route::view('customers', 'customers.index')->name('customers.index');
-        Route::view('suppliers', 'suppliers.index')->name('suppliers.index');
-        Route::view('categories', 'categories.index')->name('categories.index');
-        Route::view('units', 'units.index')->name('units.index');
-        Route::get('products/import-opening-stock', [ProductOpeningStockImportController::class, 'index'])->name('products.import-opening-stock');
-        Route::post('products/import-opening-stock', [ProductOpeningStockImportController::class, 'store'])->name('products.import-opening-stock.store');
-        Route::get('products/import-opening-stock/template', [ProductOpeningStockImportController::class, 'downloadTemplate'])->name('products.import-opening-stock.template');
-        Route::view('products', 'products.index')->name('products.index');
-        Route::view('batches', 'batches.index')->name('batches.index');
+        Route::middleware('role:admin_rni')->group(function () {
+            Route::view('customers', 'customers.index')->name('customers.index');
+            Route::view('suppliers', 'suppliers.index')->name('suppliers.index');
+            Route::view('categories', 'categories.index')->name('categories.index');
+            Route::view('units', 'units.index')->name('units.index');
+            Route::get('products/import-opening-stock', [ProductOpeningStockImportController::class, 'index'])->name('products.import-opening-stock');
+            Route::post('products/import-opening-stock', [ProductOpeningStockImportController::class, 'store'])->name('products.import-opening-stock.store');
+            Route::get('products/import-opening-stock/template', [ProductOpeningStockImportController::class, 'downloadTemplate'])->name('products.import-opening-stock.template');
+        });
+
+        Route::middleware('role:admin_rni,formulator')->group(function () {
+            Route::view('products', 'products.index')->name('products.index');
+            Route::view('batches', 'batches.index')->name('batches.index');
+        });
     });
 
     // =========================================================================
@@ -37,37 +44,65 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // =========================================================================
 
     // Purchases
-    Route::resource('purchases', PurchaseController::class);
-    Route::prefix('purchases/{purchase}')->name('purchases.')->controller(PurchaseController::class)->group(function () {
-        Route::patch('ordered', 'markOrdered')->name('mark-ordered');
-        Route::patch('received', 'markReceived')->name('mark-received');
-        Route::patch('paid', 'markPaid')->name('mark-paid');
-        Route::patch('cancel', 'cancel')->name('cancel');
-        Route::patch('restore-draft', 'restoreToDraft')->name('restore-draft');
+    Route::middleware('role:admin_rni')->group(function () {
+        Route::resource('purchases', PurchaseController::class);
+        Route::prefix('purchases/{purchase}')->name('purchases.')->controller(PurchaseController::class)->group(function () {
+            Route::patch('ordered', 'markOrdered')->name('mark-ordered');
+            Route::patch('received', 'markReceived')->name('mark-received');
+            Route::patch('paid', 'markPaid')->name('mark-paid');
+            Route::patch('cancel', 'cancel')->name('cancel');
+            Route::patch('restore-draft', 'restoreToDraft')->name('restore-draft');
+        });
+
+        Route::get('material-receipts', [MaterialReceiptController::class, 'index'])->name('material-receipts.index');
+        Route::get('material-receipts/create', [MaterialReceiptController::class, 'create'])->name('material-receipts.create');
+        Route::get('material-receipts/{purchase}', [MaterialReceiptController::class, 'show'])->name('material-receipts.show');
+        Route::get('material-receipts/{purchase}/edit', [MaterialReceiptController::class, 'edit'])->name('material-receipts.edit');
     });
 
     // Sales
-    Route::resource('sales', SalesController::class)->except(['edit', 'update']);
-    Route::prefix('sales/{sale}')->name('sales.')->controller(SalesController::class)->group(function () {
-        Route::get('print', 'print')->name('print');
-        Route::patch('complete', 'complete')->name('complete');
-        Route::patch('restore', 'restore')->name('restore');
+    Route::middleware('role:admin_rni')->group(function () {
+        Route::resource('sales', SalesController::class)->except(['edit', 'update']);
+        Route::prefix('sales/{sale}')->name('sales.')->controller(SalesController::class)->group(function () {
+            Route::get('print', 'print')->name('print');
+            Route::patch('complete', 'complete')->name('complete');
+            Route::patch('restore', 'restore')->name('restore');
+        });
+    });
+
+    Route::middleware('role:admin_rni,formulator')->group(function () {
+        Route::resource('material-usages', MaterialUsageController::class)
+            ->parameters(['material-usages' => 'sale'])
+            ->except(['edit', 'update']);
+        Route::prefix('material-usages/{sale}')->name('material-usages.')->controller(MaterialUsageController::class)->group(function () {
+            Route::get('print', 'print')->name('print');
+            Route::patch('complete', 'complete')->name('complete');
+            Route::patch('restore', 'restore')->name('restore');
+        });
     });
 
     // =========================================================================
     // Finance
     // =========================================================================
-    Route::prefix('finance')->name('finance.')->group(function () {
+    Route::middleware('role:admin_rni')->prefix('finance')->name('finance.')->group(function () {
         Route::view('categories', 'finance-categories.index')->name('categories.index');
         Route::view('transactions', 'finance-transactions.index')->name('transactions.index');
         Route::get('transactions/print/{printId}', [FinanceReportController::class, 'print'])->name('transactions.print');
     });
 
+    Route::middleware('role:admin_rni,formulator')->prefix('reports')->name('reports.')->group(function () {
+        Route::view('current-inventory', 'reports.inventory')->name('inventory');
+        Route::view('usage-history', 'reports.usage-history')->name('usage-history');
+        Route::view('expiry', 'reports.expiry')->name('expiry');
+    });
+
     // =========================================================================
     // Settings & Users
     // =========================================================================
-    Route::view('users', 'users.index')->name('users.index');
-    Route::view('settings', 'settings.index')->name('settings.index');
+    Route::middleware('role:admin_rni')->group(function () {
+        Route::view('users', 'users.index')->name('users.index');
+        Route::view('settings', 'settings.index')->name('settings.index');
+    });
 
     // =========================================================================
     // Internal APIs (AJAX)

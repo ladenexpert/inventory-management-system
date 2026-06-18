@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\UserRole;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -25,6 +26,7 @@ class User extends Authenticatable
         'name',
         'username',
         'email',
+        'role',
         'password',
     ];
 
@@ -47,6 +49,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'role' => UserRole::class,
             'password' => 'hashed',
         ];
     }
@@ -54,5 +57,25 @@ class User extends Authenticatable
     public function sales()
     {
         return $this->hasMany(Sale::class, 'created_by');
+    }
+
+    public function issuedMaterialUsages()
+    {
+        return $this->hasMany(Sale::class, 'issued_by');
+    }
+
+    public function isAdminRni(): bool
+    {
+        return $this->role === UserRole::ADMIN_RNI;
+    }
+
+    public function isFormulator(): bool
+    {
+        return $this->role === UserRole::FORMULATOR;
+    }
+
+    public function hasAnyRole(array $roles): bool
+    {
+        return in_array($this->role?->value, $roles, true);
     }
 }
