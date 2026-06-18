@@ -739,6 +739,10 @@
 
                     // Submit Sale
                     async submitSale() {
+                        if (this.isSubmitting) {
+                            return;
+                        }
+
                         this.isSubmitting = true;
 
                         try {
@@ -783,7 +787,8 @@
                                 body: JSON.stringify(payload)
                             });
 
-                            const data = await res.json();
+                            const isJsonResponse = (res.headers.get('content-type') || '').includes('application/json');
+                            const data = isJsonResponse ? await res.json() : null;
 
                             if (res.ok && data.success) {
                                 this.$dispatch('close-modal', { name: 'confirmation-modal' });
@@ -792,14 +797,24 @@
                                     window.open(data.print_url, '_blank');
                                 }
 
-                                this.clearStorage();
-                                this.resetForm();
-
-                                this.$dispatch('toast', { message: 'Transaction Successful!', type: 'success' });
-
-                            } else {
-                                this.$dispatch('toast', { message: data.message || 'Error occurred', type: 'error' });
+                                window.location.href = data.redirect_url || '{{ route('sales.index') }}';
+                                return;
                             }
+
+                            if (res.status === 422 && data?.errors) {
+                                const validationMessage = Object.values(data.errors)
+                                    .flat()
+                                    .filter(Boolean)
+                                    .join(' ');
+
+                                this.$dispatch('toast', {
+                                    message: validationMessage || data.message || 'Please review the sale details.',
+                                    type: 'error'
+                                });
+                                return;
+                            }
+
+                            this.$dispatch('toast', { message: data?.message || 'Error occurred', type: 'error' });
 
                         } catch (e) {
                             console.error(e);

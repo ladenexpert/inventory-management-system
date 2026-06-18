@@ -21,6 +21,7 @@ class Batch extends Model
         'expiry_date',
         'received_at',
         'storage_location',
+        'storage_location_id',
         'unit_cost',
         'selling_price',
         'quantity',
@@ -33,6 +34,7 @@ class Batch extends Model
         'product_id' => 'integer',
         'purchase_id' => 'integer',
         'purchase_item_id' => 'integer',
+        'storage_location_id' => 'integer',
         'expiry_date' => 'date',
         'received_at' => 'datetime',
         'unit_cost' => 'integer',
@@ -66,6 +68,11 @@ class Batch extends Model
         return $this->hasMany(SaleItemBatch::class);
     }
 
+    public function storageLocationRecord(): BelongsTo
+    {
+        return $this->belongsTo(StorageLocation::class, 'storage_location_id')->withTrashed();
+    }
+
     protected function inventoryValue(): Attribute
     {
         return Attribute::get(fn () => app(BatchPolicyService::class)->inventoryValue($this));
@@ -74,5 +81,18 @@ class Batch extends Model
     protected function lifecycleStatus(): Attribute
     {
         return Attribute::get(fn () => app(BatchPolicyService::class)->getStatus($this)->value);
+    }
+
+    protected function resolvedStorageLocation(): Attribute
+    {
+        return Attribute::get(function () {
+            $location = $this->storageLocationRecord;
+
+            if ($location) {
+                return $location->display_label;
+            }
+
+            return $this->storage_location ?: '-';
+        });
     }
 }

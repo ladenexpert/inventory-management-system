@@ -107,6 +107,23 @@ final class CategoryTable extends PowerGridComponent
         ];
     }
 
+    public function header(): array
+    {
+        return [
+            Button::add('delete-selected')
+                ->slot('Delete Selected')
+                ->class('bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md font-medium text-sm')
+                ->dispatch('open-delete-modal', [
+                    'component' => 'categories.category-table',
+                    'method' => 'bulkDelete',
+                    'title' => 'Delete Selected Categories?',
+                    'description' => 'Selected categories will be soft-deleted. Categories still referenced by materials will remain protected.',
+                    'confirmButtonText' => 'Delete Selected',
+                    'confirmButtonClass' => 'bg-red-600 text-white hover:bg-red-700',
+                ]),
+        ];
+    }
+
     #[\Livewire\Attributes\On('delete')]
     public function delete($rowId, CategoryService $service): void
     {
@@ -124,5 +141,37 @@ final class CategoryTable extends PowerGridComponent
                 $this->dispatch('toast', message: $message, type: 'error');
             }
         }
+    }
+
+    #[\Livewire\Attributes\On('bulkDelete')]
+    public function bulkDelete(CategoryService $service): void
+    {
+        $selectedIds = collect($this->checkboxValues)->filter()->values();
+
+        if ($selectedIds->isEmpty()) {
+            $this->dispatch('toast', message: 'No categories selected.', type: 'warning');
+            return;
+        }
+
+        $deleted = 0;
+        $failed = 0;
+
+        foreach (Category::whereIn('id', $selectedIds)->get() as $category) {
+            try {
+                $service->deleteCategory($category);
+                $deleted++;
+            } catch (\Throwable) {
+                $failed++;
+            }
+        }
+
+        $this->checkboxValues = [];
+
+        $message = "Categories deleted: {$deleted}.";
+        if ($failed > 0) {
+            $message .= " Failed: {$failed}.";
+        }
+
+        $this->dispatch('toast', message: $message, type: $failed > 0 ? 'warning' : 'success');
     }
 }

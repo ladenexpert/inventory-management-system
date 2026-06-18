@@ -8,6 +8,7 @@ use App\Models\Purchase;
 use App\DTOs\PurchaseData;
 use App\Models\PurchaseItem;
 use App\Enums\PurchaseStatus;
+use App\Models\StorageLocation;
 use Illuminate\Support\Facades\DB;
 use App\Exceptions\PurchaseException;
 
@@ -31,6 +32,7 @@ class PurchaseService
                     'status' => $data->status,
                     'notes' => $data->notes,
                     'proof_image' => $data->proof_image,
+                    'entry_context' => $data->entry_context,
                     'created_by'     => $userId,
                     'total'          => 0,
                 ]);
@@ -60,6 +62,7 @@ class PurchaseService
                     'due_date' => $data->due_date,
                     'notes' => $data->notes,
                     'proof_image' => $data->proof_image,
+                    'entry_context' => $data->entry_context,
                 ]);
 
                 // Full sync of items
@@ -122,12 +125,11 @@ class PurchaseService
                 throw PurchaseException::invalidStatus('receive', $purchase->status->label(), ['id' => $purchase->id]);
             }
 
-            if (empty($purchase->invoice_number)) {
+            if (!$purchase->isMaterialReceipt() && empty($purchase->invoice_number)) {
                 throw PurchaseException::missingReference('Invoice Number', ['id' => $purchase->id]);
             }
 
-            // Enforce Proof Image
-            if (empty($purchase->proof_image)) {
+            if (!$purchase->isMaterialReceipt() && empty($purchase->proof_image)) {
                 throw PurchaseException::missingReference('Proof Image', ['id' => $purchase->id]);
             }
 
@@ -193,11 +195,11 @@ class PurchaseService
             }
 
             // Strict Validation for Payment
-            if (empty($purchase->invoice_number)) {
+            if (!$purchase->isMaterialReceipt() && empty($purchase->invoice_number)) {
                 throw PurchaseException::missingReference('Invoice Number', ['id' => $purchase->id]);
             }
 
-            if (empty($purchase->proof_image)) {
+            if (!$purchase->isMaterialReceipt() && empty($purchase->proof_image)) {
                 throw PurchaseException::missingReference('Proof Image', ['id' => $purchase->id]);
             }
 
@@ -245,13 +247,17 @@ class PurchaseService
             }
 
             $subtotal = $itemData->quantity * $itemData->unit_price;
+            $location = $itemData->storage_location_id
+                ? StorageLocation::withTrashed()->find($itemData->storage_location_id)
+                : null;
 
             PurchaseItem::create([
                 'purchase_id' => $purchase->id,
                 'product_id' => $itemData->product_id,
                 'batch_number' => $itemData->batch_number,
                 'expiry_date' => $itemData->expiry_date,
-                'storage_location' => $itemData->storage_location,
+                'storage_location' => $location?->display_label ?? $itemData->storage_location,
+                'storage_location_id' => $location?->id ?? $itemData->storage_location_id,
                 'quantity' => $itemData->quantity,
                 'unit_price' => $itemData->unit_price,
                 'subtotal'    => $subtotal,

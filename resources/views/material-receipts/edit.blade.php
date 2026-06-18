@@ -22,6 +22,8 @@
                         'batch_number' => $item->batch_number,
                         'expiry_date' => optional($item->expiry_date)->format('Y-m-d'),
                         'storage_location' => $item->storage_location,
+                        'storage_location_id' => $item->storage_location_id,
+                        'storage_location_label' => $item->storageLocation?->display_label ?? $item->storage_location,
                         'quantity' => $item->quantity,
                         'unit_price' => $item->unit_price,
                         'selling_price' => $item->selling_price,
@@ -35,6 +37,7 @@
                 @csrf
                 @method('PUT')
                 <input type="hidden" name="context" value="material_receipt">
+                <input type="hidden" name="entry_context" value="material_receipt">
 
                 @include('purchases.form', ['context' => 'material_receipt'])
             </form>

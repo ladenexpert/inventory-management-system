@@ -66,8 +66,10 @@ class ProductOpeningStockImportTest extends TestCase
             'batch_number' => 'OB-PARA-001',
             'expiry_date' => '2027-01-15 00:00:00',
             'source' => 'opening_balance',
-            'storage_location' => 'Rack A-01',
             'available_quantity' => 100,
+        ]);
+        $this->assertDatabaseHas('storage_locations', [
+            'name' => 'Rack A-01',
         ]);
     }
 

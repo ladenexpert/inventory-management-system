@@ -102,6 +102,23 @@ final class UnitTable extends PowerGridComponent
         ];
     }
 
+    public function header(): array
+    {
+        return [
+            Button::add('delete-selected')
+                ->slot('Delete Selected')
+                ->class('bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md font-medium text-sm')
+                ->dispatch('open-delete-modal', [
+                    'component' => 'units.unit-table',
+                    'method' => 'bulkDelete',
+                    'title' => 'Delete Selected Units?',
+                    'description' => 'Selected units will be soft-deleted. Units already used by materials will remain protected.',
+                    'confirmButtonText' => 'Delete Selected',
+                    'confirmButtonClass' => 'bg-red-600 text-white hover:bg-red-700',
+                ]),
+        ];
+    }
+
     #[\Livewire\Attributes\On('delete')]
     public function delete($rowId, UnitService $service): void
     {
@@ -119,5 +136,37 @@ final class UnitTable extends PowerGridComponent
                 $this->dispatch('toast', message: $message, type: 'error');
             }
         }
+    }
+
+    #[\Livewire\Attributes\On('bulkDelete')]
+    public function bulkDelete(UnitService $service): void
+    {
+        $selectedIds = collect($this->checkboxValues)->filter()->values();
+
+        if ($selectedIds->isEmpty()) {
+            $this->dispatch('toast', message: 'No units selected.', type: 'warning');
+            return;
+        }
+
+        $deleted = 0;
+        $failed = 0;
+
+        foreach (Unit::whereIn('id', $selectedIds)->get() as $unit) {
+            try {
+                $service->deleteUnit($unit);
+                $deleted++;
+            } catch (\Throwable) {
+                $failed++;
+            }
+        }
+
+        $this->checkboxValues = [];
+
+        $message = "Units deleted: {$deleted}.";
+        if ($failed > 0) {
+            $message .= " Failed: {$failed}.";
+        }
+
+        $this->dispatch('toast', message: $message, type: $failed > 0 ? 'warning' : 'success');
     }
 }

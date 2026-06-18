@@ -22,6 +22,7 @@
                 @submit.prevent="submitForm">
                 @csrf
                 <input type="hidden" name="context" value="material_receipt">
+                <input type="hidden" name="entry_context" value="material_receipt">
 
                 @include('purchases.form', ['context' => 'material_receipt'])
             </form>

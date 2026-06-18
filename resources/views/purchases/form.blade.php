@@ -182,14 +182,19 @@
 
                                 <!-- Qty -->
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <input
-                                        type="text"
-                                        :name="`items[${index}][storage_location]`"
-                                        x-model="item.storage_location"
-                                        class="w-40 border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm shadow-sm"
-                                        placeholder="Rack / room / shelf"
-                                    >
+                                    <div class="w-48">
+                                        <select
+                                            :id="`storage_location_${index}`"
+                                            x-init="initStorageLocationSelect($el, index)"
+                                            autocomplete="off"
+                                        >
+                                            <option value=""></option>
+                                        </select>
+                                    </div>
+                                    <input type="hidden" :name="`items[${index}][storage_location]`" :value="item.storage_location">
+                                    <input type="hidden" :name="`items[${index}][storage_location_id]`" :value="item.storage_location_id">
                                     <p x-show="hasError(`items.${index}.storage_location`)" x-text="getError(`items.${index}.storage_location`)" class="text-xs text-red-600 mt-1"></p>
+                                    <p x-show="hasError(`items.${index}.storage_location_id`)" x-text="getError(`items.${index}.storage_location_id`)" class="text-xs text-red-600 mt-1"></p>
                                 </td>
 
                                 <!-- Qty -->
@@ -402,6 +407,8 @@
                 batch_number: i.batch_number || '',
                 expiry_date: i.expiry_date || '',
                 storage_location: i.storage_location || '',
+                storage_location_id: i.storage_location_id || '',
+                storage_location_label: i.storage_location_label || i.storage_location || '',
                 subtotal: parseInt(i.subtotal) || 0
             })),
             supplier_id: initialData.supplier_id || '',
@@ -429,6 +436,56 @@
 
             removeItem(index) {
                 this.items.splice(index, 1);
+            },
+
+            initStorageLocationSelect(el, index) {
+                this.waitForTomSelect(() => {
+                    if (el.tomselect) {
+                        return;
+                    }
+
+                    const item = this.items[index];
+                    const initialId = item?.storage_location_id || '';
+                    const initialLabel = item?.storage_location_label || '';
+
+                    new TomSelect(el, {
+                        items: initialId ? [initialId] : [],
+                        options: initialId && initialLabel ? [{ value: initialId, text: initialLabel }] : [],
+                        valueField: 'value',
+                        labelField: 'text',
+                        searchField: ['text', 'code', 'name'],
+                        placeholder: 'Select storage location',
+                        preload: 'focus',
+                        plugins: ['clear_button'],
+                        create: false,
+                        load: (query, callback) => {
+                            fetch('{{ route("ajax.storage-locations.search") }}', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                                },
+                                body: JSON.stringify({ q: query })
+                            })
+                                .then(response => response.json())
+                                .then(json => callback(Array.isArray(json) ? json : []))
+                                .catch(() => callback());
+                        },
+                        onChange: (value) => {
+                            const selected = el.tomselect?.options?.[value] || null;
+                            this.items[index].storage_location_id = value || '';
+                            this.items[index].storage_location = selected?.text || '';
+                            this.items[index].storage_location_label = selected?.text || '';
+                        },
+                        onClear: () => {
+                            this.items[index].storage_location_id = '';
+                            this.items[index].storage_location = '';
+                            this.items[index].storage_location_label = '';
+                        },
+                    });
+                });
             },
 
             calculateLine(index) {
@@ -503,6 +560,8 @@
                     batch_number: '',
                     expiry_date: '',
                     storage_location: '',
+                    storage_location_id: '',
+                    storage_location_label: '',
                     quantity: 1,
                     unit_price: product.price || 0,
                     selling_price: product.selling_price || 0,

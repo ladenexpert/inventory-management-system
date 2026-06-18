@@ -45,8 +45,17 @@ class PurchaseRouteSmokeTest extends TestCase
             ->assertOk()
             ->assertSee('Edit Purchase');
 
+        $receipt = Purchase::create([
+            'supplier_id' => $supplier->id,
+            'purchase_date' => now(),
+            'total' => 0,
+            'status' => PurchaseStatus::DRAFT,
+            'created_by' => $user->id,
+            'entry_context' => 'material_receipt',
+        ]);
+
         $this->actingAs($user)
-            ->get(route('material-receipts.edit', $purchase))
+            ->get(route('material-receipts.edit', $receipt))
             ->assertOk()
             ->assertSee('Edit Material Receipt');
     }

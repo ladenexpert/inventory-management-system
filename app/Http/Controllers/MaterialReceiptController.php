@@ -23,7 +23,9 @@ class MaterialReceiptController extends Controller
 
     public function show(Purchase $purchase)
     {
-        $purchase->load(['supplier', 'creator', 'items.product.unit', 'items.batch']);
+        abort_unless($purchase->isMaterialReceipt(), 404);
+
+        $purchase->load(['supplier', 'creator', 'items.product.unit', 'items.storageLocation', 'items.batch.storageLocationRecord']);
 
         return view('purchases.show', [
             'purchase' => $purchase,
@@ -35,9 +37,10 @@ class MaterialReceiptController extends Controller
 
     public function edit(Purchase $purchase)
     {
+        abort_unless($purchase->isMaterialReceipt(), 404);
         abort_if(!in_array($purchase->status, [PurchaseStatus::DRAFT, PurchaseStatus::ORDERED]), 403, 'Only draft or ordered receipts can be edited.');
 
-        $purchase->load('items.product', 'supplier');
+        $purchase->load('items.product', 'items.storageLocation', 'supplier');
 
         return view('material-receipts.edit', [
             'purchase' => $purchase,

@@ -215,14 +215,20 @@
 
                     <div class="space-y-2">
                         <x-input-label for="opening_storage_location" :value="__('Opening Storage Location')" />
-                        <x-text-input
+                        <div wire:ignore>
+                            <x-tom-select
                             id="opening_storage_location"
                             name="opening_storage_location"
-                            wire:model="opening_storage_location"
-                            placeholder="Optional rack / room / shelf"
-                            class="block w-full"
-                        />
+                                wire:model="opening_storage_location_id"
+                                :url="route('ajax.storage-locations.search')"
+                                method="POST"
+                                placeholder="Optional storage location"
+                                data-initial-label="{{ $storageLocationName }}"
+                            />
+                        </div>
+                        <input type="hidden" wire:model="opening_storage_location">
                         <x-input-error :messages="$errors->get('opening_storage_location')" />
+                        <x-input-error :messages="$errors->get('opening_storage_location_id')" />
                     </div>
                 </div>
             @endif

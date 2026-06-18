@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Exception;
 use App\Models\Product;
+use App\Models\StorageLocation;
 use Illuminate\Support\Str;
 use App\DTOs\ProductData;
 use App\Exceptions\ProductException;
@@ -43,6 +44,10 @@ class ProductService
                     'notes' => $data->notes,
                 ]);
 
+                $openingLocation = $data->opening_storage_location_id
+                    ? StorageLocation::withTrashed()->find($data->opening_storage_location_id)
+                    : null;
+
                 if ($data->quantity > 0) {
                     $this->batchService->createManualInboundBatch(
                         product: $product,
@@ -53,7 +58,8 @@ class ProductService
                         notes: 'Opening balance created from initial product setup.',
                         batchNumber: $data->opening_batch_number,
                         expiryDate: $data->opening_expiry_date,
-                        storageLocation: $data->opening_storage_location,
+                        storageLocation: $openingLocation?->display_label ?? $data->opening_storage_location,
+                        storageLocationId: $data->opening_storage_location_id,
                     );
                 }
 

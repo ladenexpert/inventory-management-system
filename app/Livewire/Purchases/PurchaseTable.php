@@ -49,7 +49,14 @@ final class PurchaseTable extends PowerGridComponent
 
     public function datasource(): Builder
     {
+        $isMaterialReceiptContext = request()->routeIs('material-receipts.*');
+
         return Purchase::query()
+            ->when(
+                $isMaterialReceiptContext,
+                fn (Builder $query) => $query->where('entry_context', 'material_receipt'),
+                fn (Builder $query) => $query->where('entry_context', '!=', 'material_receipt')
+            )
             ->with(['supplier', 'creator', 'items.product.unit']);
     }
 

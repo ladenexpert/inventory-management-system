@@ -17,6 +17,7 @@ class PurchaseItem extends Model
         'batch_number',
         'expiry_date',
         'storage_location',
+        'storage_location_id',
         'quantity',
         'unit_price',
         'subtotal',
@@ -26,6 +27,7 @@ class PurchaseItem extends Model
     protected $casts = [
         'purchase_id' => 'integer',
         'product_id' => 'integer',
+        'storage_location_id' => 'integer',
         'expiry_date' => 'date',
         'quantity' => 'integer',
         'unit_price' => 'integer',
@@ -46,5 +48,10 @@ class PurchaseItem extends Model
     public function batch(): HasOne
     {
         return $this->hasOne(Batch::class);
+    }
+
+    public function storageLocation(): BelongsTo
+    {
+        return $this->belongsTo(StorageLocation::class)->withTrashed();
     }
 }

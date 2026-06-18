@@ -13,7 +13,29 @@
             </button>
         </div>
 
-    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <div class="rounded-xl border bg-card text-card-foreground shadow-sm">
+            <div class="p-4 flex flex-row items-center justify-between space-y-0 pb-2">
+                <h3 class="tracking-tight text-sm font-medium">Total RM</h3>
+                <x-heroicon-o-beaker class="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div class="p-4 pt-0">
+                <div class="text-xl sm:text-2xl font-bold">{{ number_format($stats['total_rm'] ?? 0) }}</div>
+                <p class="text-xs text-muted-foreground mt-1">Active raw materials tracked in the system</p>
+            </div>
+        </div>
+
+        <div class="rounded-xl border bg-card text-card-foreground shadow-sm">
+            <div class="p-4 flex flex-row items-center justify-between space-y-0 pb-2">
+                <h3 class="tracking-tight text-sm font-medium">Total Batch</h3>
+                <x-heroicon-o-cube-transparent class="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div class="p-4 pt-0">
+                <div class="text-xl sm:text-2xl font-bold">{{ number_format($stats['total_batch'] ?? 0) }}</div>
+                <p class="text-xs text-muted-foreground mt-1">Active batch layers with remaining stock</p>
+            </div>
+        </div>
+
         <div class="rounded-xl border bg-card text-card-foreground shadow-sm">
             <div class="p-4 flex flex-row items-center justify-between space-y-0 pb-2">
                 <h3 class="tracking-tight text-sm font-medium">Physical Stock Qty</h3>
@@ -38,23 +60,34 @@
 
         <div class="rounded-xl border bg-card text-card-foreground shadow-sm">
             <div class="p-4 flex flex-row items-center justify-between space-y-0 pb-2">
-                <h3 class="tracking-tight text-sm font-medium">Expired Stock Qty</h3>
-                <x-heroicon-o-clock class="h-4 w-4 text-red-500" />
+                <h3 class="tracking-tight text-sm font-medium">Low Stock</h3>
+                <x-heroicon-o-exclamation-triangle class="h-4 w-4 text-amber-500" />
             </div>
             <div class="p-4 pt-0">
-                <div class="text-xl sm:text-2xl font-bold text-red-600">{{ number_format($stats['expired_stock_quantity'] ?? 0) }}</div>
-                <p class="text-xs text-muted-foreground mt-1">Quantity sitting in expired batches</p>
+                <div class="text-xl sm:text-2xl font-bold text-amber-600">{{ number_format($stats['low_stock'] ?? 0) }}</div>
+                <p class="text-xs text-muted-foreground mt-1">Materials at or below their minimum stock alert</p>
             </div>
         </div>
 
         <div class="rounded-xl border bg-card text-card-foreground shadow-sm">
             <div class="p-4 flex flex-row items-center justify-between space-y-0 pb-2">
-                <h3 class="tracking-tight text-sm font-medium">Near Expiry Qty</h3>
+                <h3 class="tracking-tight text-sm font-medium">Near Expiry Batches</h3>
                 <x-heroicon-o-beaker class="h-4 w-4 text-amber-500" />
             </div>
             <div class="p-4 pt-0">
-                <div class="text-xl sm:text-2xl font-bold text-amber-600">{{ number_format($stats['near_expiry_stock_quantity'] ?? 0) }}</div>
-                <p class="text-xs text-muted-foreground mt-1">Quantity entering the near-expiry window</p>
+                <div class="text-xl sm:text-2xl font-bold text-amber-600">{{ number_format($stats['near_expiry'] ?? 0) }}</div>
+                <p class="text-xs text-muted-foreground mt-1">Batches entering the near-expiry alert window</p>
+            </div>
+        </div>
+
+        <div class="rounded-xl border bg-card text-card-foreground shadow-sm">
+            <div class="p-4 flex flex-row items-center justify-between space-y-0 pb-2">
+                <h3 class="tracking-tight text-sm font-medium">Expired Batches</h3>
+                <x-heroicon-o-clock class="h-4 w-4 text-red-500" />
+            </div>
+            <div class="p-4 pt-0">
+                <div class="text-xl sm:text-2xl font-bold text-red-600">{{ number_format($stats['expired'] ?? 0) }}</div>
+                <p class="text-xs text-muted-foreground mt-1">Expired batches that need attention</p>
             </div>
         </div>
 

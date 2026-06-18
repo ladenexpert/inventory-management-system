@@ -46,7 +46,7 @@ final class BatchTable extends PowerGridComponent
     public function datasource(): Builder
     {
         return Batch::query()
-            ->with(['product.unit', 'purchase'])
+            ->with(['product.unit', 'purchase', 'storageLocationRecord'])
             ->when(empty($this->sortField), fn ($query) => $query->orderBy('expiry_date'));
     }
 
@@ -64,7 +64,7 @@ final class BatchTable extends PowerGridComponent
             ->add('physical_form_label', fn (Batch $model) => $model->product?->physical_form_label ?? '-')
             ->add('product_uom', fn (Batch $model) => $model->product?->unit?->symbol ?? $model->product?->unit?->name ?? '-')
             ->add('purchase_invoice', fn (Batch $model) => $model->purchase?->invoice_number ?? '-')
-            ->add('storage_location', fn (Batch $model) => $model->storage_location ?? '-')
+            ->add('storage_location', fn (Batch $model) => $model->resolved_storage_location)
             ->add('available_quantity')
             ->add('quantity')
             ->add('unit_cost_formatted', fn (Batch $model) => format_money($model->unit_cost))

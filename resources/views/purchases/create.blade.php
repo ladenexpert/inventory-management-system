@@ -21,6 +21,7 @@
                     })"
                     @submit.prevent="submitForm">
                 @csrf
+                <input type="hidden" name="entry_context" value="legacy_purchase">
 
                 @include('purchases.form')
 

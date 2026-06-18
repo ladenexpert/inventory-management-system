@@ -15,6 +15,7 @@ class PurchaseData
         public ?Carbon $due_date = null,
         public ?string $notes = null,
         public ?string $proof_image = null,
+        public string $entry_context = 'legacy_purchase',
         public PurchaseStatus $status = PurchaseStatus::DRAFT,
     ) {}
 
@@ -33,6 +34,7 @@ class PurchaseData
             due_date: !empty($data['due_date']) ? Carbon::parse($data['due_date']) : null,
             notes: !empty($data['notes']) ? $data['notes'] : null,
             proof_image: !empty($data['proof_image']) ? $data['proof_image'] : null,
+            entry_context: !empty($data['entry_context']) ? (string) $data['entry_context'] : 'legacy_purchase',
             status: isset($data['status']) ? PurchaseStatus::from($data['status']) : PurchaseStatus::DRAFT,
         );
     }
@@ -47,6 +49,7 @@ class PurchaseData
             'due_date' => $this->due_date?->toDateTimeString(),
             'notes' => $this->notes,
             'proof_image' => $this->proof_image,
+            'entry_context' => $this->entry_context,
             'status' => $this->status->value,
         ];
     }

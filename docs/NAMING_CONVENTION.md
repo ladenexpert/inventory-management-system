@@ -4,22 +4,26 @@
 
 Use these names in RNI-facing navigation, headings, actions, and success/error messages:
 
-- `Material Usage`
-- `Material Receipt`
+- `RNI Stock Out`
+- `RNI Stock In`
 - `Materials`
 - `Reports`
 - `Usage History`
+- `Material Usage`
+- `Material Receipt`
 - `Current Inventory`
 - `Expiry Report`
+- `Storage Locations`
 
 ## Legacy commercial labels
 
 Use these names only for the commercial workflow:
 
-- `Legacy POS`
 - `Legacy Sales`
 - `Legacy Purchases`
+- `Sales / POS`
 - `Finance`
+- `Customers`
 
 ## Rules
 
@@ -34,11 +38,11 @@ Use these names only for the commercial workflow:
 ## Current applied examples
 
 - Navigation now separates:
-  - `Material Usage`
-  - `Material Receipt`
-  - `Legacy POS`
+  - `RNI Stock Out`
+  - `RNI Stock In`
   - `Legacy Sales`
   - `Legacy Purchases`
+  - `Customers`
 - Material receipt forms now prefer:
   - `Raw Material`
   - `Unit Cost`

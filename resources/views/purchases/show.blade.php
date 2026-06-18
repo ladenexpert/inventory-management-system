@@ -137,7 +137,7 @@
                                             {{ $item->batch?->expiry_date?->format('d M Y') ?? $item->expiry_date?->format('d M Y') ?? '-' }}
                                         </td>
                                         <td class="px-6 py-4 text-sm text-gray-600">
-                                            {{ $item->batch?->storage_location ?? $item->storage_location ?? '-' }}
+                                            {{ $item->batch?->resolved_storage_location ?? $item->storageLocation?->display_label ?? $item->storage_location ?? '-' }}
                                         </td>
                                         <td class="px-6 py-4 text-sm text-gray-500">
                                             {{ $item->product->unit->symbol ?? $item->product->unit->name ?? '-' }}
@@ -263,12 +263,11 @@
                                             </div>
                                         @else
                                             <div class="space-y-2">
-                                                <x-input-label for="invoice_number" :value="__('Final Invoice Number')" required />
+                                                <x-input-label for="invoice_number" :value="$isMaterialReceipt ? __('Final Invoice Number (Optional)') : __('Final Invoice Number')" :required="!$isMaterialReceipt" />
                                                 <x-text-input
                                                     id="invoice_number"
                                                     name="invoice_number"
                                                     :value="old('invoice_number')"
-                                                    required
                                                     placeholder="INV...."
                                                 />
                                                 <x-input-error :messages="$errors->get('invoice_number')" class="mt-2" />
@@ -286,13 +285,12 @@
                                             </div>
                                         @else
                                             <div class="space-y-2">
-                                                <x-input-label for="proof_image" :value="$isMaterialReceipt ? __('Upload Receipt Evidence') : __('Upload Proof of Receipt')" required />
+                                                <x-input-label for="proof_image" :value="$isMaterialReceipt ? __('Upload Receipt Evidence (Optional)') : __('Upload Proof of Receipt')" :required="!$isMaterialReceipt" />
                                                 <input
                                                     id="proof_image"
                                                     type="file"
                                                     name="proof_image"
                                                     accept="image/*"
-                                                    required
                                                     class="block w-full text-sm text-gray-500
                                                         file:mr-4 file:py-2 file:px-4
                                                         file:rounded-md file:border-0
@@ -300,7 +298,7 @@
                                                         file:bg-indigo-50 file:text-indigo-700
                                                         hover:file:bg-indigo-100"
                                                 />
-                                                <p class="text-xs text-gray-500">Image (JPG, PNG) max 2MB.</p>
+                                                <p class="text-xs text-gray-500">{{ $isMaterialReceipt ? 'Optional for RNI receipts. JPG/PNG max 2MB.' : 'Image (JPG, PNG) max 2MB.' }}</p>
                                                 <x-input-error :messages="$errors->get('proof_image')" class="mt-2" />
                                             </div>
                                         @endif

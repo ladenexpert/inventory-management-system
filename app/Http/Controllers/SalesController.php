@@ -10,6 +10,7 @@ use App\Exceptions\SaleException;
 use App\Enums\SaleTransactionType;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Requests\StoreSaleRequest;
+use Throwable;
 
 class SalesController extends Controller
 {
@@ -38,27 +39,35 @@ class SalesController extends Controller
             if ($request->wantsJson()) {
                 return response()->json([
                     'success' => true,
-                    'message' => 'Sale created successfully',
+                    'message' => 'Sale created successfully.',
                     'data' => $sale,
-                    'print_url' => route('sales.print', $sale->id),
-                    'redirect' => route('sales.create')
+                    'print_url' => route('sales.print', $sale),
+                    'redirect_url' => route('sales.show', $sale),
                 ], 201);
             }
 
-            return redirect()->route('sales.create')
+            return redirect()->route('sales.show', $sale)
                 ->with('success', 'Sale created successfully.');
 
         } catch (SaleException $e) {
             if ($request->wantsJson()) {
-                return response()->json(['message' => $e->getMessage()], 400);
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                ], 422);
             }
             return back()->with('error', $e->getMessage())->withInput();
 
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
+            report($e);
+
             if ($request->wantsJson()) {
-                return response()->json(['message' => $e->getMessage()], 400);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to create sale. Please try again.',
+                ], 500);
             }
-            return back()->with('error', $e->getMessage())->withInput();
+            return back()->with('error', 'Failed to create sale. Please try again.')->withInput();
         }
     }
 

@@ -2,20 +2,19 @@
 
 namespace App\Livewire\FinanceTransactions;
 
-use Carbon\Carbon;
-use Illuminate\Support\Str;
-use App\Models\FinanceCategory;
+use App\Exceptions\FinanceTransactionException;
 use App\Models\FinanceTransaction;
-use Illuminate\Database\Eloquent\Builder;
 use App\Services\FinanceTransactionService;
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Str;
 use PowerComponents\LivewirePowerGrid\Button;
 use PowerComponents\LivewirePowerGrid\Column;
-use App\Exceptions\FinanceTransactionException;
 use PowerComponents\LivewirePowerGrid\Facades\Filter;
-use PowerComponents\LivewirePowerGrid\PowerGridFields;
 use PowerComponents\LivewirePowerGrid\Facades\PowerGrid;
-use PowerComponents\LivewirePowerGrid\Traits\WithExport;
 use PowerComponents\LivewirePowerGrid\PowerGridComponent;
+use PowerComponents\LivewirePowerGrid\PowerGridFields;
+use PowerComponents\LivewirePowerGrid\Traits\WithExport;
 use PowerComponents\LivewirePowerGrid\Components\SetUp\Exportable;
 
 final class FinanceTransactionTable extends PowerGridComponent
@@ -58,30 +57,34 @@ final class FinanceTransactionTable extends PowerGridComponent
     {
         return PowerGrid::fields()
             ->add('code')
-            ->add('transaction_date_formatted', fn(FinanceTransaction $model) => Carbon::parse($model->transaction_date)->format('d/m/Y'))
+            ->add('transaction_date_formatted', fn (FinanceTransaction $model) => Carbon::parse($model->transaction_date)->format('d/m/Y'))
             ->add('reference_display', function (FinanceTransaction $model) {
-                $tag = $model->reference_type ? '<span class="text-xs font-semibold px-2 py-0.5 rounded bg-blue-100 text-blue-800">Auto</span>' : '<span class="text-xs font-semibold px-2 py-0.5 rounded bg-gray-100 text-gray-800">Manual</span>';
-                
+                $tag = $model->reference_type
+                    ? '<span class="text-xs font-semibold px-2 py-0.5 rounded bg-blue-100 text-blue-800">Auto</span>'
+                    : '<span class="text-xs font-semibold px-2 py-0.5 rounded bg-gray-100 text-gray-800">Manual</span>';
+
                 if (!empty($model->external_reference)) {
                     return $tag . ' ' . $model->external_reference;
                 }
+
                 return $tag . ' ' . $model->code;
             })
-            ->add('category_name', fn(FinanceTransaction $model) => $model->category->name)
-            ->add('type_badge', function(FinanceTransaction $model) {
+            ->add('category_name', fn (FinanceTransaction $model) => $model->category->name)
+            ->add('type_badge', function (FinanceTransaction $model) {
                 return view('components.status-badge', ['status' => $model->category->type])->render();
             })
-            ->add('description', fn(FinanceTransaction $model) => Str::limit($model->description, 30))
+            ->add('description', fn (FinanceTransaction $model) => Str::limit($model->description, 30))
             ->add('amount')
             ->add('amount_formatted', function (FinanceTransaction $model) {
                 $type = $model->category->type->value ?? '';
                 $color = $type === 'income' ? 'text-emerald-600' : 'text-red-600';
                 $prefix = $type === 'income' ? '+' : '-';
+
                 return "<div class=\"text-right {$color} font-medium\">{$prefix} " . format_money($model->amount) . "</div>";
             })
-            ->add('creator_name', fn(FinanceTransaction $model) => $model->creator->name)
+            ->add('creator_name', fn (FinanceTransaction $model) => $model->creator->name)
             ->add('created_at')
-            ->add('date_period', fn() => '');
+            ->add('date_period', fn () => '');
     }
 
     public function columns(): array
@@ -189,7 +192,6 @@ final class FinanceTransactionTable extends PowerGridComponent
                 ->tooltip('View Detail'),
         ];
 
-        // View Source Button for System Generated
         if ($row->reference_type === \App\Models\Sale::class) {
             $actions[] = Button::add('view-source')
                 ->slot('<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>')
@@ -204,7 +206,6 @@ final class FinanceTransactionTable extends PowerGridComponent
                 ->tooltip('Go to Purchase');
         }
 
-        // Only allow edit/delete for Manual Transactions (where reference_type is null)
         if (is_null($row->reference_type)) {
             $actions[] = Button::add('edit')
                 ->slot('<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>')
@@ -220,7 +221,7 @@ final class FinanceTransactionTable extends PowerGridComponent
                     'method' => 'delete',
                     'params' => ['rowId' => $row->id],
                     'title' => 'Delete Transaction?',
-                    'description' => "Are you sure you want to delete this transaction? This action cannot be undone.",
+                    'description' => 'Are you sure you want to delete this transaction? This action cannot be undone.',
                 ])
                 ->tooltip('Delete Transaction');
         }
@@ -232,9 +233,20 @@ final class FinanceTransactionTable extends PowerGridComponent
     {
         return [
             Button::add('print-selected')
-                ->slot('🖨️ Print Selected')
+                ->slot('Print Selected')
                 ->class('bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md font-medium text-sm')
                 ->dispatch('bulk-print', []),
+            Button::add('delete-selected')
+                ->slot('Delete Selected')
+                ->class('bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md font-medium text-sm')
+                ->dispatch('open-delete-modal', [
+                    'component' => 'finance-transactions.finance-transaction-table',
+                    'method' => 'bulkDelete',
+                    'title' => 'Delete Selected Transactions?',
+                    'description' => 'Only manual finance transactions can be deleted. Auto-generated transactions will be skipped.',
+                    'confirmButtonText' => 'Delete Selected',
+                    'confirmButtonClass' => 'bg-red-600 text-white hover:bg-red-700',
+                ]),
         ];
     }
 
@@ -248,19 +260,15 @@ final class FinanceTransactionTable extends PowerGridComponent
             return;
         }
 
-        // Generate a unique ID for this print session
         $printId = (string) Str::uuid();
 
-        // Store selected IDs in cache for 5 minutes
         \Illuminate\Support\Facades\Cache::put("finance_print_{$printId}", $checkboxValues, now()->addMinutes(5));
 
-        // Get filter info to pass along
         $period = $this->filters['date_period'] ?? null;
         if (is_array($period)) {
             $period = $period[0] ?? null;
         }
 
-        // Construct URL
         $url = route('finance.transactions.print', ['printId' => $printId]);
 
         if ($period) {
@@ -275,17 +283,51 @@ final class FinanceTransactionTable extends PowerGridComponent
     {
         $transaction = FinanceTransaction::find($rowId);
 
-        if ($transaction) {
+        if (!$transaction) {
+            return;
+        }
+
+        try {
+            $service->deleteTransaction($transaction);
+            $this->dispatch('toast', message: 'Transaction deleted successfully.', type: 'success');
+        } catch (\Exception $e) {
+            $message = $e instanceof FinanceTransactionException
+                ? $e->getMessage()
+                : 'Failed to delete transaction: ' . $e->getMessage();
+
+            $this->dispatch('toast', message: $message, type: 'error');
+        }
+    }
+
+    #[\Livewire\Attributes\On('bulkDelete')]
+    public function bulkDelete(FinanceTransactionService $service): void
+    {
+        $selectedIds = collect($this->checkboxValues)->filter()->values();
+
+        if ($selectedIds->isEmpty()) {
+            $this->dispatch('toast', message: 'No finance transactions selected.', type: 'warning');
+            return;
+        }
+
+        $deleted = 0;
+        $failed = 0;
+
+        foreach (FinanceTransaction::whereIn('id', $selectedIds)->get() as $transaction) {
             try {
                 $service->deleteTransaction($transaction);
-                $this->dispatch('toast', message: 'Transaction deleted successfully.', type: 'success');
-            } catch (\Exception $e) {
-                $message = $e instanceof FinanceTransactionException
-                    ? $e->getMessage()
-                    : 'Failed to delete transaction: ' . $e->getMessage();
-
-                $this->dispatch('toast', message: $message, type: 'error');
+                $deleted++;
+            } catch (\Throwable) {
+                $failed++;
             }
         }
+
+        $this->checkboxValues = [];
+
+        $message = "Finance transactions deleted: {$deleted}.";
+        if ($failed > 0) {
+            $message .= " Skipped/failed: {$failed}.";
+        }
+
+        $this->dispatch('toast', message: $message, type: $failed > 0 ? 'warning' : 'success');
     }
 }

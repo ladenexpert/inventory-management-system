@@ -44,6 +44,9 @@ class PurchaseController extends Controller
 
             $data = $request->validated();
             $data['proof_image'] = $proofPath;
+            $data['entry_context'] = $request->input('context') === 'material_receipt'
+                ? 'material_receipt'
+                : 'legacy_purchase';
             $data['status'] = PurchaseStatus::DRAFT->value; // Force Draft on Create
 
             $purchaseData = PurchaseData::fromArray($data);
@@ -66,12 +69,14 @@ class PurchaseController extends Controller
 
     public function show(Purchase $purchase)
     {
-        $purchase->load(['supplier', 'creator', 'items.product.unit', 'items.batch']);
+        abort_if($purchase->isMaterialReceipt(), 404);
+        $purchase->load(['supplier', 'creator', 'items.product.unit', 'items.storageLocation', 'items.batch.storageLocationRecord']);
         return view('purchases.show', compact('purchase'));
     }
 
     public function edit(Purchase $purchase)
     {
+        abort_if($purchase->isMaterialReceipt(), 404);
         // // Authorization: Only creator or admin can edit
         // if ($purchase->created_by !== Auth::id()) {
         //     abort(403, 'You can only edit your own purchases.');
@@ -82,7 +87,7 @@ class PurchaseController extends Controller
         }
 
         // Load relationships needed for the form
-        $purchase->load('items.product', 'supplier');
+        $purchase->load('items.product', 'items.storageLocation', 'supplier');
 
         return view('purchases.edit', [
             'purchase' => $purchase,
@@ -105,6 +110,7 @@ class PurchaseController extends Controller
 
             $data = $request->validated();
             $data['proof_image'] = $proofPath;
+            $data['entry_context'] = $purchase->entry_context ?: ($request->input('context') === 'material_receipt' ? 'material_receipt' : 'legacy_purchase');
             $data['status'] = $purchase->status->value; // Preserve existing status
 
             $purchaseData = PurchaseData::fromArray($data);
@@ -158,12 +164,11 @@ class PurchaseController extends Controller
     {
         $rules = [];
 
-        // Only validate invoice_number if it's not already set on the purchase
-        if (empty($purchase->invoice_number)) {
+        if (!$purchase->isMaterialReceipt() && empty($purchase->invoice_number)) {
             $rules['invoice_number'] = 'required|string|max:255';
         }
 
-        if (empty($purchase->proof_image)) {
+        if (!$purchase->isMaterialReceipt() && empty($purchase->proof_image)) {
             $rules['proof_image'] = 'required|image|max:2048'; // 2MB Max
         }
 

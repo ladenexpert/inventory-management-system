@@ -4,6 +4,7 @@ namespace App\Livewire\Products;
 
 use App\DTOs\ProductData;
 use App\Models\Product;
+use App\Models\StorageLocation;
 use Livewire\Component;
 use Livewire\Attributes\On;
 use Illuminate\Validation\Rule;
@@ -29,6 +30,7 @@ class ProductForm extends Component
     public ?string $opening_batch_number = null;
     public ?string $opening_expiry_date = null;
     public ?string $opening_storage_location = null;
+    public ?int $opening_storage_location_id = null;
     public int $min_stock = 0;
     public bool $is_active = true;
     public string $description = '';
@@ -38,6 +40,7 @@ class ProductForm extends Component
     public ?string $categoryName = null;
     public ?string $unitName = null;
     public ?string $supplierName = null;
+    public ?string $storageLocationName = null;
 
     public function mount()
     {
@@ -68,6 +71,7 @@ class ProductForm extends Component
             'opening_batch_number',
             'opening_expiry_date',
             'opening_storage_location',
+            'opening_storage_location_id',
             'min_stock',
             'description',
             'notes',
@@ -76,6 +80,7 @@ class ProductForm extends Component
             'categoryName',
             'unitName',
             'supplierName',
+            'storageLocationName',
         ]);
         $this->is_active = true;
 
@@ -98,6 +103,7 @@ class ProductForm extends Component
         $this->quantity = $product->quantity;
         $this->opening_batch_number = null;
         $this->opening_storage_location = null;
+        $this->opening_storage_location_id = null;
         $this->min_stock = $product->min_stock;
         $this->is_active = $product->is_active;
         $this->description = $product->description ?? '';
@@ -134,6 +140,7 @@ class ProductForm extends Component
             'opening_batch_number' => ['nullable', 'string', 'max:100', 'unique:batches,batch_number'],
             'opening_expiry_date' => ['nullable', 'date', 'after_or_equal:today'],
             'opening_storage_location' => ['nullable', 'string', 'max:150'],
+            'opening_storage_location_id' => ['nullable', 'exists:storage_locations,id'],
             'min_stock' => ['required', 'integer', 'min:0'],
             'is_active' => ['boolean'],
             'description' => ['nullable', 'string'],
@@ -144,6 +151,12 @@ class ProductForm extends Component
     public function save(ProductService $service): void
     {
         $validated = $this->validate();
+
+        if (!empty($validated['opening_storage_location_id']) && empty($validated['opening_storage_location'])) {
+            $validated['opening_storage_location'] = StorageLocation::withTrashed()
+                ->find($validated['opening_storage_location_id'])
+                ?->display_label;
+        }
 
         $data = ProductData::fromArray($validated);
 

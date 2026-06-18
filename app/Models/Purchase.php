@@ -21,6 +21,7 @@ class Purchase extends Model
         'status',
         'notes',
         'proof_image',
+        'entry_context',
         'created_by',
     ];
 
@@ -32,6 +33,11 @@ class Purchase extends Model
         'created_by' => 'integer',
         'status' => PurchaseStatus::class,
     ];
+
+    public function isMaterialReceipt(): bool
+    {
+        return $this->entry_context === 'material_receipt';
+    }
 
     public function supplier(): BelongsTo
     {

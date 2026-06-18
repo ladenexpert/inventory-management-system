@@ -191,7 +191,7 @@ class DashboardStatsService
                         'product_name' => $batch->product->name ?? 'Unknown Product',
                         'sku' => $batch->product->sku ?? '-',
                         'available_quantity' => $batch->available_quantity,
-                        'storage_location' => $batch->storage_location ?? '-',
+                        'storage_location' => $batch->resolved_storage_location,
                         'expiry_date' => $batch->expiry_date?->format('Y-m-d'),
                         'status' => $status->value,
                         'status_label' => $status->label(),

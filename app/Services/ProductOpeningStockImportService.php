@@ -7,6 +7,7 @@ use App\Models\Batch;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\Supplier;
+use App\Models\StorageLocation;
 use App\Models\Unit;
 use DateTimeInterface;
 use RuntimeException;
@@ -46,7 +47,8 @@ class ProductOpeningStockImportService
     ];
 
     public function __construct(
-        protected ProductService $productService
+        protected ProductService $productService,
+        protected StorageLocationService $storageLocationService,
     ) {
     }
 
@@ -184,6 +186,9 @@ class ProductOpeningStockImportService
         $openingBatchNumber = $this->cleanString($row['opening_batch_number'] ?? null);
         $openingExpiryDate = $this->parseDate($row['opening_expiry_date'] ?? null, 'Opening expiry date tidak valid.');
         $openingStorageLocation = $this->cleanString($row['opening_storage_location'] ?? null);
+        $openingStorageLocationRecord = $openingStorageLocation
+            ? $this->storageLocationService->resolveOrCreate($openingStorageLocation)
+            : null;
 
         if ($purchasePrice < 0 || $sellingPrice < 0 || $quantity < 0 || $minStock < 0) {
             throw new RuntimeException('Nilai numerik tidak boleh negatif.');
@@ -241,7 +246,8 @@ class ProductOpeningStockImportService
             'quantity' => $quantity,
             'opening_batch_number' => $openingBatchNumber,
             'opening_expiry_date' => $openingExpiryDate,
-            'opening_storage_location' => $openingStorageLocation,
+            'opening_storage_location' => $openingStorageLocationRecord?->display_label ?? $openingStorageLocation,
+            'opening_storage_location_id' => $openingStorageLocationRecord?->id,
             'min_stock' => $minStock,
             'is_active' => $isActive,
             'description' => $description,

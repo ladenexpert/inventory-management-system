@@ -38,6 +38,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::view('products', 'products.index')->name('products.index');
             Route::view('batches', 'batches.index')->name('batches.index');
         });
+
+        Route::middleware(['role:admin_rni', 'module:materials'])->group(function () {
+            Route::view('storage-locations', 'storage-locations.index')->name('storage-locations.index');
+        });
     });
 
     // =========================================================================
@@ -129,6 +133,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('users', [\App\Http\Controllers\Api\UserController::class, 'search'])->name('users.search');
         Route::post('finance-categories', [\App\Http\Controllers\Api\FinanceCategoryController::class, 'search'])->name('finance-categories.search');
         Route::post('batches', [\App\Http\Controllers\Api\BatchController::class, 'getBatches'])->name('batches.get');
+        Route::post('storage-locations', [\App\Http\Controllers\Api\StorageLocationController::class, 'search'])->name('storage-locations.search');
     });
 });
 

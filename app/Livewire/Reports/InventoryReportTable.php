@@ -40,7 +40,7 @@ final class InventoryReportTable extends PowerGridComponent
 
     public function datasource(): Builder
     {
-        return Batch::query()->with(['product.unit', 'product.supplier', 'purchase.supplier']);
+        return Batch::query()->with(['product.unit', 'product.supplier', 'purchase.supplier', 'storageLocationRecord']);
     }
 
     public function fields(): PowerGridFields
@@ -55,7 +55,7 @@ final class InventoryReportTable extends PowerGridComponent
             ->add('uom', fn (Batch $model) => $model->product?->unit?->symbol ?? $model->product?->unit?->name ?? '-')
             ->add('physical_form', fn (Batch $model) => $model->product?->physical_form_label ?? '-')
             ->add('supplier_name', fn (Batch $model) => $model->purchase?->supplier?->name ?? $model->product?->supplier?->name ?? '-')
-            ->add('storage_location', fn (Batch $model) => $model->storage_location ?? '-')
+            ->add('storage_location', fn (Batch $model) => $model->resolved_storage_location)
             ->add('quantity', fn (Batch $model) => (int) $model->available_quantity)
             ->add('expiry', fn (Batch $model) => $model->expiry_date?->format('d/m/Y') ?? 'No expiry')
             ->add('value', fn (Batch $model) => format_money($policy->inventoryValue($model)))
