@@ -12,6 +12,8 @@ class Dashboard extends Component
     public array $urgentBatches = [];
     public array $batchValuation = [];
     public array $recentUsage = [];
+    public array $topUsedMaterials = [];
+    public array $nearExpiryRisks = [];
 
     public function mount(DashboardStatsService $service)
     {
@@ -25,6 +27,8 @@ class Dashboard extends Component
         $this->urgentBatches = $service->getUrgentBatches(5);
         $this->batchValuation = $service->getTopBatchValuations(5);
         $this->recentUsage = $service->getRecentMaterialUsage(8);
+        $this->topUsedMaterials = $service->getTopUsedMaterialsThisMonth(5);
+        $this->nearExpiryRisks = $service->getNearExpiryMaterialRisks(5);
     }
 
     public function render()

@@ -75,6 +75,7 @@ class ProductOpeningStockImportController extends Controller
             'selling_price',
             'opening_quantity',
             'opening_batch_number',
+            'opening_expiry_date',
             'min_stock',
             'is_active',
             'description',
@@ -90,6 +91,7 @@ class ProductOpeningStockImportController extends Controller
             '1500',
             '100',
             'OB-PARA-001',
+            now()->addMonths(6)->format('Y-m-d'),
             '10',
             '1',
             'Tablet 10 strip',
@@ -115,4 +117,3 @@ class ProductOpeningStockImportController extends Controller
         return response()->download($filePath, 'template-import-stok-awal.xlsx')->deleteFileAfterSend(true);
     }
 }
-

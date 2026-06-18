@@ -1,4 +1,8 @@
-@php($isMaterialReceipt = ($context ?? null) === 'material_receipt')
+@php
+    $isMaterialReceipt = ($context ?? null) === 'material_receipt';
+    $selectedSupplierId = old('supplier_id', $purchase->supplier_id ?? null);
+    $selectedSupplier = $selectedSupplierId ? \App\Models\Supplier::withTrashed()->find($selectedSupplierId) : null;
+@endphp
 <div class="space-y-6">
     <!-- Header Input Section -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
@@ -11,15 +15,8 @@
                         x-model="supplier_id"
                         autocomplete="off">
                     <option value=""></option>
-                    @if(old('supplier_id'))
-                        @php
-                            $oldSupplier = \App\Models\Supplier::find(old('supplier_id'));
-                        @endphp
-                        @if($oldSupplier)
-                            <option value="{{ $oldSupplier->id }}" selected>{{ $oldSupplier->name . ($oldSupplier->phone ? ' | ' . $oldSupplier->phone : '') }}</option>
-                        @endif
-                    @elseif(isset($purchase) && $purchase->supplier)
-                        <option value="{{ $purchase->supplier_id }}" selected>{{ $purchase->supplier->name . ($purchase->supplier->phone ? ' | ' . $purchase->supplier->phone : '') }}</option>
+                    @if($selectedSupplier)
+                        <option value="{{ $selectedSupplier->id }}" selected>{{ $selectedSupplier->name . ($selectedSupplier->phone ? ' | ' . $selectedSupplier->phone : '') }}</option>
                     @endif
                 </select>
             </div>
@@ -134,12 +131,12 @@
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50 sticky top-0 z-10">
                         <tr>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ $isMaterialReceipt ? 'Raw Material' : 'Product' }}</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch No</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expiry</th>
                             <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
-                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Buy Price</th>
-                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Sell Price</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ $isMaterialReceipt ? 'Unit Cost' : 'Buy Price' }}</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ $isMaterialReceipt ? 'Reference Price' : 'Sell Price' }}</th>
                             <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</th>
                             <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
                         </tr>
@@ -343,7 +340,7 @@
                                     <div class="flex flex-col items-center justify-center">
                                         <svg class="w-12 h-12 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                                         <p class="text-base font-medium">No items added</p>
-                                        <p class="text-sm text-gray-400">Search products above to add to purchase list</p>
+                                        <p class="text-sm text-gray-400">{{ $isMaterialReceipt ? 'Search raw materials above to add receipt lines.' : 'Search products above to add to purchase list.' }}</p>
                                     </div>
                                 </td>
                             </tr>

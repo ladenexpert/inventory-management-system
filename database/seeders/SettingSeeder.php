@@ -23,5 +23,17 @@ class SettingSeeder extends Seeder
         Setting::set('currency_thousand_separator', '.');
         Setting::set('currency_decimal_separator', ',');
         Setting::set('batch_near_expiry_days', '30');
+
+        foreach ([
+            'rni',
+            'sales',
+            'purchases',
+            'finance',
+            'reports',
+            'users',
+            'materials',
+        ] as $module) {
+            Setting::set("module_{$module}_enabled", '1');
+        }
     }
 }

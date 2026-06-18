@@ -53,6 +53,7 @@ final class SupplierTable extends PowerGridComponent
             ->add('email')
             ->add('phone')
             ->add('address')
+            ->add('notes')
             ->add('created_at');
     }
 

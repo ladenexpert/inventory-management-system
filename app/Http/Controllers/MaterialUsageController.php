@@ -12,6 +12,7 @@ use App\Services\SaleService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use Throwable;
 
 class MaterialUsageController extends Controller
 {
@@ -65,19 +66,33 @@ class MaterialUsageController extends Controller
                     'message' => 'Material usage created successfully.',
                     'data' => $usage,
                     'print_url' => route('material-usages.print', $usage),
-                    'redirect' => route('material-usages.create'),
+                    'redirect_url' => route('material-usages.show', $usage),
                 ], 201);
             }
 
             return redirect()
-                ->route('material-usages.create')
+                ->route('material-usages.show', $usage)
                 ->with('success', 'Material usage created successfully.');
         } catch (SaleException $e) {
             if ($request->wantsJson()) {
-                return response()->json(['message' => $e->getMessage()], 400);
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                ], 422);
             }
 
             return back()->withInput()->with('error', $e->getMessage());
+        } catch (Throwable $e) {
+            report($e);
+
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to create material usage. Please try again.',
+                ], 500);
+            }
+
+            return back()->withInput()->with('error', 'Failed to create material usage. Please try again.');
         }
     }
 

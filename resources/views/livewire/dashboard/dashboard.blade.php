@@ -3,7 +3,9 @@
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card p-4 rounded-lg border border-border shadow-sm">
             <div>
                 <h2 class="text-lg font-semibold text-foreground">RNI Operations Overview</h2>
-                <p class="text-sm text-muted-foreground">Track raw materials, expiry risk, and the latest usage activity.</p>
+                <p class="text-sm text-muted-foreground">
+                    {{ $stats['total_rm'] ?? 0 }} active materials, {{ $stats['total_batch'] ?? 0 }} active batches, and real-time usage visibility.
+                </p>
             </div>
             <button wire:click="loadStats" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 gap-2">
                 <x-heroicon-o-arrow-path wire:loading.class="animate-spin" class="h-4 w-4" />
@@ -14,67 +16,67 @@
     <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
         <div class="rounded-xl border bg-card text-card-foreground shadow-sm">
             <div class="p-4 flex flex-row items-center justify-between space-y-0 pb-2">
-                <h3 class="tracking-tight text-sm font-medium">Total RM</h3>
+                <h3 class="tracking-tight text-sm font-medium">Physical Stock Qty</h3>
                 <x-heroicon-o-cube class="h-4 w-4 text-muted-foreground" />
             </div>
             <div class="p-4 pt-0">
-                <div class="text-xl sm:text-2xl font-bold">{{ $stats['total_rm'] ?? 0 }}</div>
-                <p class="text-xs text-muted-foreground mt-1">Active material master records</p>
+                <div class="text-xl sm:text-2xl font-bold">{{ number_format($stats['total_physical_stock_quantity'] ?? 0) }}</div>
+                <p class="text-xs text-muted-foreground mt-1">Current on-hand quantity across active batches</p>
             </div>
         </div>
 
         <div class="rounded-xl border bg-card text-card-foreground shadow-sm">
             <div class="p-4 flex flex-row items-center justify-between space-y-0 pb-2">
-                <h3 class="tracking-tight text-sm font-medium">Total Batch</h3>
+                <h3 class="tracking-tight text-sm font-medium">Usable Stock Qty</h3>
                 <x-heroicon-o-archive-box class="h-4 w-4 text-muted-foreground" />
             </div>
             <div class="p-4 pt-0">
-                <div class="text-xl sm:text-2xl font-bold">{{ $stats['total_batch'] ?? 0 }}</div>
-                <p class="text-xs text-muted-foreground mt-1">Tracked batch layers</p>
+                <div class="text-xl sm:text-2xl font-bold">{{ number_format($stats['total_usable_stock_quantity'] ?? 0) }}</div>
+                <p class="text-xs text-muted-foreground mt-1">Stock still usable under batch policy rules</p>
             </div>
         </div>
 
         <div class="rounded-xl border bg-card text-card-foreground shadow-sm">
             <div class="p-4 flex flex-row items-center justify-between space-y-0 pb-2">
-                <h3 class="tracking-tight text-sm font-medium">Low Stock</h3>
-                 <x-heroicon-o-exclamation-triangle class="h-4 w-4 text-orange-500" />
-            </div>
-            <div class="p-4 pt-0">
-                <div class="text-xl sm:text-2xl font-bold">{{ $stats['low_stock'] ?? 0 }}</div>
-                <p class="text-xs text-muted-foreground mt-1">Items at or below minimum stock</p>
-            </div>
-        </div>
-
-        <div class="rounded-xl border bg-card text-card-foreground shadow-sm">
-            <div class="p-4 flex flex-row items-center justify-between space-y-0 pb-2">
-                <h3 class="tracking-tight text-sm font-medium">Near Expiry</h3>
-                <x-heroicon-o-beaker class="h-4 w-4 text-amber-500" />
-            </div>
-            <div class="p-4 pt-0">
-                <div class="text-xl sm:text-2xl font-bold text-amber-600">{{ $stats['near_expiry'] ?? 0 }}</div>
-                <p class="text-xs text-muted-foreground mt-1">Expiring soon under current policy</p>
-            </div>
-        </div>
-
-        <div class="rounded-xl border bg-card text-card-foreground shadow-sm">
-            <div class="p-4 flex flex-row items-center justify-between space-y-0 pb-2">
-                <h3 class="tracking-tight text-sm font-medium">Expired</h3>
+                <h3 class="tracking-tight text-sm font-medium">Expired Stock Qty</h3>
                 <x-heroicon-o-clock class="h-4 w-4 text-red-500" />
             </div>
             <div class="p-4 pt-0">
-                <div class="text-xl sm:text-2xl font-bold text-red-600">{{ $stats['expired'] ?? 0 }}</div>
-                <p class="text-xs text-muted-foreground mt-1">Available stock past expiry</p>
+                <div class="text-xl sm:text-2xl font-bold text-red-600">{{ number_format($stats['expired_stock_quantity'] ?? 0) }}</div>
+                <p class="text-xs text-muted-foreground mt-1">Quantity sitting in expired batches</p>
+            </div>
+        </div>
+
+        <div class="rounded-xl border bg-card text-card-foreground shadow-sm">
+            <div class="p-4 flex flex-row items-center justify-between space-y-0 pb-2">
+                <h3 class="tracking-tight text-sm font-medium">Near Expiry Qty</h3>
+                <x-heroicon-o-beaker class="h-4 w-4 text-amber-500" />
+            </div>
+            <div class="p-4 pt-0">
+                <div class="text-xl sm:text-2xl font-bold text-amber-600">{{ number_format($stats['near_expiry_stock_quantity'] ?? 0) }}</div>
+                <p class="text-xs text-muted-foreground mt-1">Quantity entering the near-expiry window</p>
+            </div>
+        </div>
+
+        <div class="rounded-xl border bg-card text-card-foreground shadow-sm">
+            <div class="p-4 flex flex-row items-center justify-between space-y-0 pb-2">
+                <h3 class="tracking-tight text-sm font-medium">Zero Cost Batches</h3>
+                <x-heroicon-o-scale class="h-4 w-4 text-sky-500" />
+            </div>
+            <div class="p-4 pt-0">
+                <div class="text-xl sm:text-2xl font-bold text-sky-600">{{ $stats['zero_cost_batch_count'] ?? 0 }}</div>
+                <p class="text-xs text-muted-foreground mt-1">Batches with stock but zero recorded cost</p>
             </div>
         </div>
 
          <div class="rounded-xl border bg-card text-card-foreground shadow-sm">
             <div class="p-4 flex flex-row items-center justify-between space-y-0 pb-2">
-                <h3 class="tracking-tight text-sm font-medium">Zero Cost Batch</h3>
-                <x-heroicon-o-scale class="h-4 w-4 text-sky-500" />
+                <h3 class="tracking-tight text-sm font-medium">Usage This Month</h3>
+                <x-heroicon-o-arrow-trending-up class="h-4 w-4 text-emerald-500" />
             </div>
             <div class="p-4 pt-0">
-                <div class="text-xl sm:text-2xl font-bold text-sky-600">{{ $stats['zero_cost_batch'] ?? 0 }}</div>
-                <p class="text-xs text-muted-foreground mt-1">Batches with valid stock and zero cost</p>
+                <div class="text-xl sm:text-2xl font-bold text-emerald-600">{{ number_format($stats['material_usage_this_month'] ?? 0) }}</div>
+                <p class="text-xs text-muted-foreground mt-1">Total quantity issued in the current month</p>
             </div>
         </div>
     </div>
@@ -153,26 +155,47 @@
     <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <div class="col-span-1 rounded-xl border bg-card text-card-foreground shadow-sm break-inside-avoid">
             <div class="p-4 flex flex-col space-y-1.5 border-b">
-                <h3 class="font-semibold leading-none tracking-tight">Batch Valuation</h3>
-                <p class="text-xs text-muted-foreground">Top remaining inventory value by batch.</p>
+                <h3 class="font-semibold leading-none tracking-tight">Top Used Materials</h3>
+                <p class="text-xs text-muted-foreground">Most consumed raw materials this month.</p>
             </div>
             <div class="p-4 pt-4 max-h-[300px] overflow-auto">
                 <div class="space-y-4">
-                    @forelse($batchValuation as $batch)
+                    @forelse($topUsedMaterials as $material)
                         <div class="flex items-start justify-between gap-3">
                             <div class="space-y-1 flex-1 min-w-0">
-                                <p class="text-sm font-medium leading-none truncate" title="{{ $batch['product_name'] }}">{{ $batch['product_name'] }}</p>
-                                <p class="text-[11px] text-muted-foreground">{{ $batch['batch_number'] }} | {{ $batch['sku'] }}</p>
-                                <p class="text-[11px] text-muted-foreground">
-                                    {{ $batch['available_quantity'] }} x @money($batch['unit_cost']) | {{ $batch['status_label'] }}
-                                </p>
+                                <p class="text-sm font-medium leading-none truncate" title="{{ $material['product_name'] }}">{{ $material['product_name'] }}</p>
+                                <p class="text-[11px] text-muted-foreground">{{ $material['sku'] }}</p>
                             </div>
-                            <div class="font-semibold text-sm text-sky-700 bg-sky-50 px-2 py-1 rounded-md whitespace-nowrap">
-                                @money($batch['inventory_value'])
+                            <div class="font-semibold text-sm text-emerald-700 bg-emerald-50 px-2 py-1 rounded-md whitespace-nowrap">
+                                {{ number_format($material['total_quantity']) }}
                             </div>
                         </div>
                     @empty
-                        <p class="text-xs text-muted-foreground text-center py-2">No batch valuation data.</p>
+                        <p class="text-xs text-muted-foreground text-center py-2">No material usage recorded this month.</p>
+                    @endforelse
+                </div>
+            </div>
+        </div>
+
+        <div class="col-span-1 rounded-xl border bg-card text-card-foreground shadow-sm break-inside-avoid">
+            <div class="p-4 flex flex-col space-y-1.5 border-b">
+                <h3 class="font-semibold leading-none tracking-tight">Near Expiry Risk</h3>
+                <p class="text-xs text-muted-foreground">Materials with the nearest expiry pressure.</p>
+            </div>
+             <div class="p-4 pt-4 max-h-[300px] overflow-auto">
+                <div class="space-y-4">
+                    @forelse($nearExpiryRisks as $risk)
+                        <div class="flex items-center justify-between">
+                            <div class="space-y-1 flex-1">
+                                <p class="text-sm font-medium leading-none truncate pr-2" title="{{ $risk['product_name'] }}">{{ $risk['product_name'] }}</p>
+                                <p class="text-[11px] text-muted-foreground">{{ $risk['sku'] }} | {{ $risk['nearest_expiry_date'] }}</p>
+                            </div>
+                            <div class="font-semibold text-sm bg-amber-50 text-amber-700 px-2 py-1 rounded-md">
+                                {{ number_format($risk['at_risk_quantity']) }}
+                            </div>
+                        </div>
+                    @empty
+                         <p class="text-xs text-muted-foreground text-center py-2">No near-expiry material pressure.</p>
                     @endforelse
                 </div>
             </div>

@@ -4,7 +4,10 @@ namespace Tests\Feature;
 
 use App\Enums\SaleTransactionType;
 use App\Models\Batch;
+use App\Models\FinanceTransaction;
+use App\Models\InventoryLog;
 use App\Models\Product;
+use App\Models\SaleItemBatch;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -64,6 +67,9 @@ class MaterialUsageWorkflowTest extends TestCase
             'requested_by' => 'Dr. Maya',
             'issued_by' => $user->id,
         ]);
+        $this->assertSame(1, SaleItemBatch::count());
+        $this->assertSame(1, InventoryLog::where('movement_type', 'sale_out')->count());
+        $this->assertSame(0, FinanceTransaction::count());
 
         $this->assertSame(6, (int) Batch::where('batch_number', 'CA-001')->value('available_quantity'));
         $this->assertSame(6, $product->fresh()->quantity);
@@ -126,5 +132,91 @@ class MaterialUsageWorkflowTest extends TestCase
         $this->assertSame([3, 2], $allocations->pluck('quantity')->all());
         $this->assertSame(0, (int) Batch::where('batch_number', 'MS-EARLY')->value('available_quantity'));
         $this->assertSame(4, (int) Batch::where('batch_number', 'MS-LATE')->value('available_quantity'));
+    }
+
+    public function test_material_usage_validation_failure_returns_json_errors_without_creating_records(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create([
+            'quantity' => 10,
+            'purchase_price' => 5000,
+        ]);
+
+        Batch::create([
+            'product_id' => $product->id,
+            'batch_number' => 'VAL-001',
+            'expiry_date' => now()->addDays(10)->toDateString(),
+            'received_at' => now()->subDay(),
+            'unit_cost' => 5000,
+            'selling_price' => 7000,
+            'quantity' => 10,
+            'available_quantity' => 10,
+            'source' => 'purchase',
+        ]);
+
+        $response = $this->actingAs($user)
+            ->withHeader('Accept', 'application/json')
+            ->postJson(route('material-usages.store'), [
+                'usage_date' => now()->toDateString(),
+                'purpose' => '',
+                'issued_by' => $user->id,
+                'items' => [
+                    [
+                        'product_id' => $product->id,
+                        'quantity' => 0,
+                        'unit_price' => 5000,
+                        'discount' => 0,
+                    ],
+                ],
+            ]);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['purpose', 'items.0.quantity']);
+
+        $this->assertSame(0, \App\Models\Sale::count());
+        $this->assertSame(10, (int) Batch::where('batch_number', 'VAL-001')->value('available_quantity'));
+        $this->assertSame(0, InventoryLog::count());
+        $this->assertSame(0, FinanceTransaction::count());
+    }
+
+    public function test_material_usage_standard_form_submission_redirects_to_detail_page(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create([
+            'quantity' => 6,
+            'purchase_price' => 8000,
+        ]);
+
+        Batch::create([
+            'product_id' => $product->id,
+            'batch_number' => 'REDIR-001',
+            'expiry_date' => now()->addDays(20)->toDateString(),
+            'received_at' => now()->subDay(),
+            'unit_cost' => 8000,
+            'selling_price' => 9500,
+            'quantity' => 6,
+            'available_quantity' => 6,
+            'source' => 'purchase',
+        ]);
+
+        $response = $this->actingAs($user)->post(route('material-usages.store'), [
+            'usage_date' => now()->toDateString(),
+            'purpose' => 'Redirect check',
+            'issued_by' => $user->id,
+            'items' => [
+                [
+                    'product_id' => $product->id,
+                    'quantity' => 2,
+                    'unit_price' => 8000,
+                    'discount' => 0,
+                ],
+            ],
+        ]);
+
+        $usage = \App\Models\Sale::query()->latest('id')->firstOrFail();
+
+        $response->assertRedirect(route('material-usages.show', $usage));
+        $this->assertSame(SaleTransactionType::MATERIAL_USAGE, $usage->transaction_type);
+        $this->assertSame(0, FinanceTransaction::count());
     }
 }

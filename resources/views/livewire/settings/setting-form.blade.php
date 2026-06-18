@@ -45,6 +45,11 @@
                         <option value=" ">Space ( )</option>
                         <option value="">None</option>
                     </select>
+                @elseif(str_starts_with($key ?? '', 'module_') && str_ends_with($key ?? '', '_enabled'))
+                    <select id="value" wire:model="value" class="block w-full rounded-md border-input bg-background shadow-sm focus:border-ring focus:ring-ring sm:text-sm">
+                        <option value="1">Enabled</option>
+                        <option value="0">Disabled</option>
+                    </select>
                 @elseif(in_array($key, ['store_address']))
                     <textarea
                         id="value"

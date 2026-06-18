@@ -35,8 +35,8 @@ class ProductOpeningStockImportTest extends TestCase
         Unit::factory()->create(['name' => 'PCS', 'symbol' => 'PCS']);
 
         $file = $this->makeXlsxFile([
-            ['sku', 'item_code_ierp', 'name', 'category', 'unit', 'purchase_price', 'selling_price', 'opening_quantity', 'opening_batch_number', 'min_stock', 'is_active', 'description', 'notes'],
-            ['PRD-OB-001', 'IERP-OB-001', 'Paracetamol 500mg', 'Medicine', 'PCS', '1200', '1500', '100', 'OB-PARA-001', '10', '1', 'Tablet', 'Migrasi awal'],
+            ['sku', 'item_code_ierp', 'name', 'category', 'unit', 'purchase_price', 'selling_price', 'opening_quantity', 'opening_batch_number', 'opening_expiry_date', 'min_stock', 'is_active', 'description', 'notes'],
+            ['PRD-OB-001', 'IERP-OB-001', 'Paracetamol 500mg', 'Medicine', 'PCS', '1200', '1500', '100', 'OB-PARA-001', '2027-01-15', '10', '1', 'Tablet', 'Migrasi awal'],
         ]);
 
         $response = $this->actingAs($user)->post(route('products.import-opening-stock.store'), [
@@ -60,6 +60,7 @@ class ProductOpeningStockImportTest extends TestCase
         $this->assertDatabaseHas('batches', [
             'product_id' => $product->id,
             'batch_number' => 'OB-PARA-001',
+            'expiry_date' => '2027-01-15 00:00:00',
             'source' => 'opening_balance',
             'available_quantity' => 100,
         ]);
@@ -122,4 +123,3 @@ class ProductOpeningStockImportTest extends TestCase
         );
     }
 }
-

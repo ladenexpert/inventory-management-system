@@ -1,3 +1,4 @@
+@php($modules = app(\App\Services\ModuleService::class)->all())
 <section class="py-4 bg-background border-b border-border">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" x-data="{ mobileMenuOpen: false }">
         <!-- Desktop Menu -->
@@ -21,6 +22,7 @@
                         </a>
 
                         <!-- Material Usage Dropdown -->
+                        @if($modules['rni'])
                         <x-nav-dropdown active="{{ request()->routeIs(['material-usages.*', 'sales.*']) }}">
                             <x-slot name="icon">
                                 <x-heroicon-o-banknotes class="mr-2 h-4 w-4" />
@@ -35,7 +37,7 @@
                                 <x-dropdown-link :href="route('material-usages.index')" :active="request()->routeIs(['material-usages.index', 'material-usages.show'])">
                                     Usage History
                                 </x-dropdown-link>
-                                @if(Auth::user()->isAdminRni())
+                                @if(Auth::user()->isAdminRni() && $modules['sales'])
                                     <x-dropdown-link :href="route('sales.create')" :active="request()->routeIs('sales.create')">
                                         Legacy POS
                                     </x-dropdown-link>
@@ -45,8 +47,10 @@
                                 @endif
                             </x-slot>
                         </x-nav-dropdown>
+                        @endif
 
                         <!-- Material Receipt Dropdown -->
+                        @if($modules['rni'])
                         <x-nav-dropdown active="{{ request()->routeIs(['material-receipts.*', 'purchases.*']) }}">
                             <x-slot name="icon">
                                 <x-heroicon-o-shopping-cart class="mr-2 h-4 w-4" />
@@ -56,21 +60,27 @@
                             </x-slot>
                             <x-slot name="content">
                                 @if(Auth::user()->isAdminRni())
+                                    <x-dropdown-link :href="route('material-receipts.create')" :active="request()->routeIs('material-receipts.create')">
+                                        Create Material Receipt
+                                    </x-dropdown-link>
                                     <x-dropdown-link :href="route('material-receipts.index')" :active="request()->routeIs('material-receipts.*')">
                                         Receipts
                                     </x-dropdown-link>
+                                    @if($modules['purchases'])
                                     <x-dropdown-link :href="route('suppliers.index')" :active="request()->routeIs('suppliers.*')">
                                         Suppliers
                                     </x-dropdown-link>
                                     <x-dropdown-link :href="route('purchases.index')" :active="request()->routeIs('purchases.*')">
                                         Legacy Purchases
                                     </x-dropdown-link>
+                                    @endif
                                 @endif
                             </x-slot>
                         </x-nav-dropdown>
+                        @endif
 
                         <!-- Finance Dropdown -->
-                        @if(Auth::user()->isAdminRni())
+                        @if(Auth::user()->isAdminRni() && $modules['finance'])
                         <x-nav-dropdown active="{{ request()->routeIs(['finance.*']) }}">
                             <x-slot name="icon">
                                 <x-heroicon-o-currency-dollar class="mr-2 h-4 w-4" />
@@ -90,7 +100,7 @@
                         @endif
 
                         <!-- Users Link -->
-                        @if(Auth::user()->isAdminRni())
+                        @if(Auth::user()->isAdminRni() && $modules['users'])
                         <a href="{{ route('users.index') }}" class="group inline-flex h-10 w-max items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 {{ request()->routeIs('users.*') ? 'bg-accent/50 text-accent-foreground' : 'bg-background' }}">
                             <x-heroicon-o-users class="mr-2 h-4 w-4" />
                             Users
@@ -98,6 +108,7 @@
                         @endif
 
                         <!-- Materials Dropdown -->
+                        @if($modules['materials'])
                         <x-nav-dropdown active="{{ request()->routeIs(['products.*', 'categories.*', 'units.*', 'batches.*']) }}">
                             <x-slot name="icon">
                                 <x-heroicon-o-cube class="mr-2 h-4 w-4" />
@@ -127,7 +138,9 @@
                                 @endif
                             </x-slot>
                         </x-nav-dropdown>
+                        @endif
 
+                        @if($modules['reports'])
                         <x-nav-dropdown active="{{ request()->routeIs(['reports.*']) }}">
                             <x-slot name="icon">
                                 <x-heroicon-o-document-chart-bar class="mr-2 h-4 w-4" />
@@ -147,6 +160,7 @@
                                 </x-dropdown-link>
                             </x-slot>
                         </x-nav-dropdown>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -238,6 +252,7 @@
                         <a href="{{ route('dashboard') }}" class="text-md font-semibold hover:underline {{ request()->routeIs('dashboard') ? 'text-primary' : '' }}">Dashboard</a>
 
                         <!-- Mobile Material Usage Accordion -->
+                        @if($modules['rni'])
                         <div x-data="{ expanded: {{ request()->routeIs(['material-usages.*', 'sales.*']) ? 'true' : 'false' }} }" class="border-b-0">
                             <button @click="expanded = !expanded" class="flex flex-1 items-center justify-between py-0 font-semibold transition-all hover:underline [&[data-state=open]>svg]:rotate-180 w-full text-left text-md {{ request()->routeIs(['sales.*', 'customers.*']) ? 'text-primary' : '' }}">
                                 Material Usage
@@ -247,14 +262,16 @@
                                 <div class="mt-2 flex flex-col gap-2 pl-4 border-l border-border ml-2">
                                     <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs(['material-usages.index', 'material-usages.show']) ? 'text-primary' : '' }}" href="{{ route('material-usages.index') }}">Usage History</a>
                                     <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('material-usages.create') ? 'text-primary' : '' }}" href="{{ route('material-usages.create') }}">Create Usage</a>
-                                    @if(Auth::user()->isAdminRni())
+                                    @if(Auth::user()->isAdminRni() && $modules['sales'])
                                         <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('sales.index') ? 'text-primary' : '' }}" href="{{ route('sales.index') }}">Legacy Sales</a>
                                     @endif
                                 </div>
                             </div>
                         </div>
+                        @endif
 
                         <!-- Mobile Material Receipt Accordion -->
+                        @if($modules['rni'])
                         <div x-data="{ expanded: {{ request()->routeIs(['material-receipts.*', 'purchases.*']) ? 'true' : 'false' }} }" class="border-b-0">
                             <button @click="expanded = !expanded" class="flex flex-1 items-center justify-between py-0 font-semibold transition-all hover:underline [&[data-state=open]>svg]:rotate-180 w-full text-left text-md {{ request()->routeIs(['purchases.*', 'suppliers.*']) ? 'text-primary' : '' }}">
                                 Material Receipt
@@ -263,15 +280,20 @@
                             <div x-show="expanded" x-collapse>
                                 <div class="mt-2 flex flex-col gap-2 pl-4 border-l border-border ml-2">
                                     @if(Auth::user()->isAdminRni())
+                                        <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('material-receipts.create') ? 'text-primary' : '' }}" href="{{ route('material-receipts.create') }}">Create Material Receipt</a>
                                         <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('material-receipts.index') ? 'text-primary' : '' }}" href="{{ route('material-receipts.index') }}">Receipts</a>
+                                        @if($modules['purchases'])
                                         <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('suppliers.index') ? 'text-primary' : '' }}" href="{{ route('suppliers.index') }}">Suppliers</a>
+                                        <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('purchases.index') ? 'text-primary' : '' }}" href="{{ route('purchases.index') }}">Legacy Purchases</a>
+                                        @endif
                                     @endif
                                 </div>
                             </div>
                         </div>
+                        @endif
 
                         <!-- Mobile Finance Accordion -->
-                        @if(Auth::user()->isAdminRni())
+                        @if(Auth::user()->isAdminRni() && $modules['finance'])
                         <div x-data="{ expanded: {{ request()->routeIs(['finance.*']) ? 'true' : 'false' }} }" class="border-b-0">
                             <button @click="expanded = !expanded" class="flex flex-1 items-center justify-between py-0 font-semibold transition-all hover:underline [&[data-state=open]>svg]:rotate-180 w-full text-left text-md {{ request()->routeIs(['finance.*']) ? 'text-primary' : '' }}">
                                 Finance
@@ -287,11 +309,12 @@
                         @endif
 
                         <!-- Mobile Users Link -->
-                        @if(Auth::user()->isAdminRni())
+                        @if(Auth::user()->isAdminRni() && $modules['users'])
                         <a href="{{ route('users.index') }}" class="text-md font-semibold hover:underline border-b pb-4 {{ request()->routeIs('users.*') ? 'text-primary' : '' }}">Users</a>
                         @endif
 
                         <!-- Mobile Materials Accordion -->
+                        @if($modules['materials'])
                         <div x-data="{ expanded: {{ request()->routeIs(['products.*', 'categories.*', 'units.*', 'batches.*']) ? 'true' : 'false' }} }" class="border-b-0">
                             <button @click="expanded = !expanded" class="flex flex-1 items-center justify-between py-0 font-semibold transition-all hover:underline [&[data-state=open]>svg]:rotate-180 w-full text-left text-md {{ request()->routeIs(['products.*', 'categories.*', 'units.*', 'batches.*']) ? 'text-primary' : '' }}">
                                 Materials
@@ -311,7 +334,9 @@
                                 </div>
                             </div>
                         </div>
+                        @endif
 
+                        @if($modules['reports'])
                         <div x-data="{ expanded: {{ request()->routeIs(['reports.*']) ? 'true' : 'false' }} }" class="border-b-0">
                             <button @click="expanded = !expanded" class="flex flex-1 items-center justify-between py-0 font-semibold transition-all hover:underline [&[data-state=open]>svg]:rotate-180 w-full text-left text-md {{ request()->routeIs(['reports.*']) ? 'text-primary' : '' }}">
                                 Reports
@@ -325,6 +350,7 @@
                                 </div>
                             </div>
                         </div>
+                        @endif
 
 
                     <!-- Mobile User Menu -->

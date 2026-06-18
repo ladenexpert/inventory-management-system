@@ -10,6 +10,11 @@ use App\Exceptions\CustomerException;
 
 class CustomerService
 {
+    public function __construct(
+        protected AuditLogService $auditLogService,
+    ) {
+    }
+
     /**
      * Create a new customer record.
      */
@@ -68,6 +73,7 @@ class CustomerService
         DB::transaction(function () use ($customer) {
             try {
                 $customer->delete();
+                $this->auditLogService->logDeletion($customer);
 
             } catch (Exception $e) {
                 throw CustomerException::deletionFailed($e->getMessage(), ['id' => $customer->id]);

@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -399,19 +400,57 @@ class DashboardStatsService
 
     public function getRniOverviewStats(): array
     {
-        $batchAlerts = $this->getBatchAlertStats();
+        return Cache::remember('dashboard_rni_overview_stats', now()->addMinutes(5), function () {
+            $activeBatches = Batch::query()
+                ->with('product')
+                ->where('available_quantity', '>', 0)
+                ->get();
 
-        return [
-            'total_rm' => Product::query()->where('is_active', true)->count(),
-            'total_batch' => Batch::query()->count(),
-            'low_stock' => Product::query()
-                ->whereColumn('quantity', '<=', 'min_stock')
-                ->where('is_active', true)
-                ->count(),
-            'near_expiry' => $batchAlerts['near_expiry_count'],
-            'expired' => $batchAlerts['expired_count'],
-            'zero_cost_batch' => $batchAlerts['zero_cost_count'],
-        ];
+            $physicalStockQuantity = (int) $activeBatches->sum('available_quantity');
+            $usableStockQuantity = (int) $activeBatches
+                ->filter(fn (Batch $batch) => $this->batchPolicyService->canBeConsumed($batch))
+                ->sum('available_quantity');
+            $expiredStockQuantity = (int) $activeBatches
+                ->filter(fn (Batch $batch) => $this->batchPolicyService->isExpired($batch))
+                ->sum('available_quantity');
+            $nearExpiryStockQuantity = (int) $activeBatches
+                ->filter(fn (Batch $batch) => $this->batchPolicyService->isNearExpiry($batch))
+                ->sum('available_quantity');
+            $expiredBatchCount = (int) $activeBatches
+                ->filter(fn (Batch $batch) => $this->batchPolicyService->isExpired($batch))
+                ->count();
+            $nearExpiryBatchCount = (int) $activeBatches
+                ->filter(fn (Batch $batch) => $this->batchPolicyService->isNearExpiry($batch))
+                ->count();
+            $zeroCostBatchCount = (int) $activeBatches->where('unit_cost', 0)->count();
+            $currentMonthStart = now()->startOfMonth();
+            $currentMonthEnd = now()->endOfMonth();
+            $materialUsageThisMonth = (int) SaleItem::query()
+                ->whereHas('sale', function (Builder $query) use ($currentMonthStart, $currentMonthEnd) {
+                    $query
+                        ->where('transaction_type', SaleTransactionType::MATERIAL_USAGE->value)
+                        ->whereBetween('sale_date', [$currentMonthStart, $currentMonthEnd]);
+                })
+                ->sum('quantity');
+
+            return [
+                'total_rm' => Product::query()->where('is_active', true)->count(),
+                'total_batch' => $activeBatches->count(),
+                'total_physical_stock_quantity' => $physicalStockQuantity,
+                'total_usable_stock_quantity' => $usableStockQuantity,
+                'expired_stock_quantity' => $expiredStockQuantity,
+                'near_expiry_stock_quantity' => $nearExpiryStockQuantity,
+                'near_expiry' => $nearExpiryBatchCount,
+                'expired' => $expiredBatchCount,
+                'zero_cost_batch' => $zeroCostBatchCount,
+                'zero_cost_batch_count' => $zeroCostBatchCount,
+                'material_usage_this_month' => $materialUsageThisMonth,
+                'low_stock' => Product::query()
+                    ->whereColumn('quantity', '<=', 'min_stock')
+                    ->where('is_active', true)
+                    ->count(),
+            ];
+        });
     }
 
     public function getRecentMaterialUsage(int $limit = 8): array
@@ -436,6 +475,65 @@ class DashboardStatsService
                         'total_qty' => (int) $sale->items->sum('quantity'),
                     ];
                 })
+                ->toArray();
+        });
+    }
+
+    public function getTopUsedMaterialsThisMonth(int $limit = 5): array
+    {
+        $start = now()->startOfMonth();
+        $end = now()->endOfMonth();
+
+        return Cache::remember("dashboard_top_used_materials_{$limit}_{$start->format('Ym')}", now()->addMinutes(5), function () use ($start, $end, $limit) {
+            return SaleItem::query()
+                ->select('product_id', DB::raw('SUM(quantity) as total_quantity'))
+                ->whereHas('sale', function (Builder $query) use ($start, $end) {
+                    $query
+                        ->where('transaction_type', SaleTransactionType::MATERIAL_USAGE->value)
+                        ->whereBetween('sale_date', [$start, $end]);
+                })
+                ->with('product:id,name,sku')
+                ->groupBy('product_id')
+                ->orderByDesc('total_quantity')
+                ->limit($limit)
+                ->get()
+                ->map(fn (SaleItem $item) => [
+                    'product_name' => $item->product?->name ?? 'Unknown Material',
+                    'sku' => $item->product?->sku ?? '-',
+                    'total_quantity' => (int) $item->total_quantity,
+                ])
+                ->toArray();
+        });
+    }
+
+    public function getNearExpiryMaterialRisks(int $limit = 5): array
+    {
+        $today = now()->startOfDay();
+        $until = $today->copy()->addDays($this->batchPolicyService->nearExpiryThresholdDays())->endOfDay();
+
+        return Cache::remember("dashboard_near_expiry_material_risks_{$limit}_{$today->format('Ymd')}", now()->addMinutes(5), function () use ($today, $until, $limit) {
+            return Batch::query()
+                ->select('product_id')
+                ->selectRaw('MIN(expiry_date) as nearest_expiry_date')
+                ->selectRaw('SUM(available_quantity) as at_risk_quantity')
+                ->with('product:id,name,sku')
+                ->where('available_quantity', '>', 0)
+                ->whereNotNull('expiry_date')
+                ->whereDate('expiry_date', '>=', $today)
+                ->whereDate('expiry_date', '<=', $until)
+                ->groupBy('product_id')
+                ->orderBy('nearest_expiry_date')
+                ->orderByDesc('at_risk_quantity')
+                ->limit($limit)
+                ->get()
+                ->map(fn (Batch $batch) => [
+                    'product_name' => $batch->product?->name ?? 'Unknown Material',
+                    'sku' => $batch->product?->sku ?? '-',
+                    'nearest_expiry_date' => $batch->nearest_expiry_date
+                        ? Carbon::parse($batch->nearest_expiry_date)->format('Y-m-d')
+                        : null,
+                    'at_risk_quantity' => (int) $batch->at_risk_quantity,
+                ])
                 ->toArray();
         });
     }

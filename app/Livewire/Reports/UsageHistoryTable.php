@@ -45,6 +45,14 @@ final class UsageHistoryTable extends PowerGridComponent
             ->with(['batch.product.unit', 'saleItem.product', 'saleItem.sale.creator', 'saleItem.sale.issuer'])
             ->whereHas('saleItem.sale', function (Builder $query) {
                 $query->where('transaction_type', SaleTransactionType::MATERIAL_USAGE->value);
+
+                if (auth()->user()?->isFormulator()) {
+                    $query->where(function (Builder $nested) {
+                        $nested
+                            ->where('issued_by', auth()->id())
+                            ->orWhere('created_by', auth()->id());
+                    });
+                }
             });
     }
 

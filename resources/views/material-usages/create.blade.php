@@ -53,6 +53,7 @@
                                                     class="w-20 text-center border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm shadow-sm"
                                                     placeholder="1">
                                             </div>
+                                            <div x-show="hasError(`items.${index}.quantity`)" x-text="getError(`items.${index}.quantity`)" class="text-xs text-red-600 mt-1"></div>
                                             <div x-show="item.quantity > item.max_stock" class="text-xs text-red-600 mt-1">
                                                 Max: <span x-text="item.max_stock"></span>
                                             </div>
@@ -89,10 +90,12 @@
                                                             :disabled="!batch.can_be_sold"
                                                             @input="validateBatchQty(index, batchIndex)">
                                                     </div>
+                                                    <div x-show="hasError(`items.${index}.batch_allocations.${batchIndex}.quantity`)" x-text="getError(`items.${index}.batch_allocations.${batchIndex}.quantity`)" class="text-xs text-red-600 mb-1"></div>
                                                 </template>
                                                 <div class="text-xs mt-1" :class="getBatchTotal(index) === item.quantity ? 'text-green-600' : 'text-red-600'">
                                                     Allocated: <span x-text="getBatchTotal(index)"></span> / <span x-text="item.quantity"></span>
                                                 </div>
+                                                <div x-show="hasError(`items.${index}.batch_allocations`)" x-text="getError(`items.${index}.batch_allocations`)" class="text-xs text-red-600 mt-1"></div>
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
@@ -125,41 +128,55 @@
                 </div>
 
                 <div class="p-4 space-y-4 flex-1 overflow-y-auto">
+                    <div x-show="errorSummary.length" x-cloak class="rounded-lg border border-red-200 bg-red-50 p-3">
+                        <div class="text-sm font-semibold text-red-700">Please review the highlighted fields.</div>
+                        <template x-for="(message, index) in errorSummary" :key="`error-${index}`">
+                            <div class="mt-1 text-sm text-red-600" x-text="message"></div>
+                        </template>
+                    </div>
+
                     <div class="space-y-2">
                         <label class="block text-xs font-bold text-gray-500 uppercase">Usage Date</label>
                         <input type="date" x-model="form.usage_date" class="block w-full rounded-md border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 text-sm">
+                        <div x-show="hasError('usage_date')" x-text="getError('usage_date')" class="text-xs text-red-600"></div>
                     </div>
 
                     <div class="space-y-2">
                         <label class="block text-xs font-bold text-gray-500 uppercase">Purpose</label>
                         <input type="text" x-model="form.purpose" class="block w-full rounded-md border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 text-sm" placeholder="Example: Pilot batch production">
+                        <div x-show="hasError('purpose')" x-text="getError('purpose')" class="text-xs text-red-600"></div>
                     </div>
 
                     <div class="grid grid-cols-1 gap-4">
                         <div class="space-y-2">
                             <label class="block text-xs font-bold text-gray-500 uppercase">Formula</label>
                             <input type="text" x-model="form.formula" class="block w-full rounded-md border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 text-sm" placeholder="Optional">
+                            <div x-show="hasError('formula')" x-text="getError('formula')" class="text-xs text-red-600"></div>
                         </div>
 
                         <div class="space-y-2">
                             <label class="block text-xs font-bold text-gray-500 uppercase">Project</label>
                             <input type="text" x-model="form.project" class="block w-full rounded-md border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 text-sm" placeholder="Optional">
+                            <div x-show="hasError('project')" x-text="getError('project')" class="text-xs text-red-600"></div>
                         </div>
 
                         <div class="space-y-2">
                             <label class="block text-xs font-bold text-gray-500 uppercase">Requested By</label>
                             <input type="text" x-model="form.requested_by" class="block w-full rounded-md border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 text-sm" placeholder="Optional">
+                            <div x-show="hasError('requested_by')" x-text="getError('requested_by')" class="text-xs text-red-600"></div>
                         </div>
 
                         <div class="space-y-2">
                             <label class="block text-xs font-bold text-gray-500 uppercase">Issued By</label>
                             <select x-ref="issuerSelect" placeholder="Search issuer [F2]..." autocomplete="off"></select>
+                            <div x-show="hasError('issued_by')" x-text="getError('issued_by')" class="text-xs text-red-600"></div>
                         </div>
                     </div>
 
                     <div class="space-y-2">
                         <label class="block text-xs font-bold text-gray-500 uppercase">Notes</label>
                         <textarea x-model="form.notes" rows="4" class="block w-full text-sm border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 placeholder-gray-400 py-2" placeholder="Optional notes for this usage slip..."></textarea>
+                        <div x-show="hasError('notes')" x-text="getError('notes')" class="text-xs text-red-600"></div>
                     </div>
 
                     <div class="bg-indigo-50 rounded-lg p-4 border border-indigo-100 space-y-3">
@@ -216,6 +233,8 @@
                     },
                     issuer: { id: '{{ auth()->id() }}', name: '{{ addslashes(auth()->user()->name) }}' },
                     isSubmitting: false,
+                    errors: {},
+                    errorSummary: [],
                     productTs: null,
                     issuerTs: null,
 
@@ -226,6 +245,26 @@
 
                     get totalQuantity() {
                         return this.cart.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0);
+                    },
+
+                    hasError(field) {
+                        return Array.isArray(this.errors[field]) && this.errors[field].length > 0;
+                    },
+
+                    getError(field) {
+                        return this.hasError(field) ? this.errors[field][0] : '';
+                    },
+
+                    clearErrors() {
+                        this.errors = {};
+                        this.errorSummary = [];
+                    },
+
+                    setValidationErrors(errors) {
+                        this.errors = errors || {};
+                        this.errorSummary = Object.values(this.errors)
+                            .flat()
+                            .filter((message, index, array) => array.indexOf(message) === index);
                     },
 
                     initProductSelect() {
@@ -409,7 +448,12 @@
                     },
 
                     async submitUsage() {
+                        if (this.isSubmitting) {
+                            return;
+                        }
+
                         this.isSubmitting = true;
+                        this.clearErrors();
 
                         try {
                             const items = this.cart.map(item => {
@@ -450,20 +494,24 @@
                                 body: JSON.stringify(payload)
                             });
 
-                            const data = await response.json();
+                            const isJsonResponse = (response.headers.get('content-type') || '').includes('application/json');
+                            const data = isJsonResponse ? await response.json() : null;
 
-                            if (response.ok && data.success) {
+                            if (response.ok && data?.success) {
                                 this.$dispatch('close-modal', { name: 'confirmation-modal' });
-
-                                if (data.print_url) {
-                                    window.open(data.print_url, '_blank');
-                                }
-
-                                this.resetForm();
-                                this.$dispatch('toast', { message: 'Material usage created successfully.', type: 'success' });
-                            } else {
-                                this.$dispatch('toast', { message: data.message || 'Failed to create material usage.', type: 'error' });
+                                window.location.href = data.redirect_url || '{{ route('material-usages.index') }}';
+                                return;
                             }
+
+                            this.$dispatch('close-modal', { name: 'confirmation-modal' });
+
+                            if (response.status === 422 && data?.errors) {
+                                this.setValidationErrors(data.errors);
+                                this.$dispatch('toast', { message: data.message || 'Please review the highlighted fields.', type: 'error' });
+                                return;
+                            }
+
+                            this.$dispatch('toast', { message: data?.message || 'Failed to create material usage.', type: 'error' });
                         } catch (error) {
                             console.error(error);
                             this.$dispatch('toast', { message: 'Network error occurred.', type: 'error' });
@@ -474,6 +522,7 @@
 
                     resetForm() {
                         this.cart = [];
+                        this.clearErrors();
                         this.form = {
                             usage_date: new Date().toISOString().slice(0, 10),
                             purpose: '',

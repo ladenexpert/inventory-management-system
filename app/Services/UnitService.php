@@ -11,6 +11,11 @@ use Illuminate\Support\Facades\Cache;
 
 class UnitService
 {
+    public function __construct(
+        protected AuditLogService $auditLogService,
+    ) {
+    }
+
     /**
      * Create a new unit record.
      */
@@ -68,11 +73,8 @@ class UnitService
     {
         DB::transaction(function () use ($unit) {
             try {
-                if ($unit->products()->exists()) {
-                    throw new Exception('Cannot delete unit because it is associated with products.');
-                }
-
                 $unit->delete();
+                $this->auditLogService->logDeletion($unit);
 
                 Cache::forget('units_list_all');
 

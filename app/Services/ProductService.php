@@ -12,7 +12,8 @@ use Illuminate\Support\Facades\DB;
 class ProductService
 {
     public function __construct(
-        protected BatchService $batchService
+        protected BatchService $batchService,
+        protected AuditLogService $auditLogService,
     ) {
     }
 
@@ -114,16 +115,8 @@ class ProductService
     {
         DB::transaction(function () use ($product) {
             try {
-                if (
-                    $product->purchaseItems()->exists()
-                    || $product->saleItems()->exists()
-                    || $product->batches()->exists()
-                    || $product->inventoryLogs()->exists()
-                ) {
-                    throw new Exception('Cannot delete product because it already has stock movement history.');
-                }
-
                 $product->delete();
+                $this->auditLogService->logDeletion($product);
 
             } catch (Exception $e) {
                 throw ProductException::deletionFailed($e->getMessage(), ['id' => $product->id]);

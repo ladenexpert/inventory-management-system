@@ -11,6 +11,11 @@ use Illuminate\Support\Facades\Cache;
 
 class CategoryService
 {
+    public function __construct(
+        protected AuditLogService $auditLogService,
+    ) {
+    }
+
     /**
      * Create a new category.
      */
@@ -70,11 +75,8 @@ class CategoryService
     {
         DB::transaction(function () use ($category) {
             try {
-                if ($category->products()->exists()) {
-                    throw new Exception("Cannot delete category because it is associated with products.");
-                }
-
                 $category->delete();
+                $this->auditLogService->logDeletion($category);
 
                 Cache::forget('categories_list_all');
 

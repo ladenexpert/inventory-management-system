@@ -11,6 +11,11 @@ use Illuminate\Support\Facades\Cache;
 
 class SupplierService
 {
+    public function __construct(
+        protected AuditLogService $auditLogService,
+    ) {
+    }
+
     /**
      * Create a new supplier record.
      */
@@ -76,11 +81,8 @@ class SupplierService
     {
         DB::transaction(function () use ($supplier) {
             try {
-                if ($supplier->purchases()->exists()) {
-                    throw new Exception('Cannot delete supplier because there are purchases associated with this supplier.');
-                }
-
                 $supplier->delete();
+                $this->auditLogService->logDeletion($supplier);
 
                 Cache::forget('suppliers_list_all');
 

@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\Unit;
 use DateTimeInterface;
 use RuntimeException;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use OpenSpout\Reader\Common\Creator\ReaderFactory;
 
@@ -33,6 +34,7 @@ class ProductOpeningStockImportService
         'selling_price' => ['selling_price', 'sale_price', 'harga_jual'],
         'opening_quantity' => ['opening_quantity', 'quantity', 'qty', 'stock_awal'],
         'opening_batch_number' => ['opening_batch_number', 'batch_number', 'opening_batch', 'batch'],
+        'opening_expiry_date' => ['opening_expiry_date', 'expiry_date', 'exp_date'],
         'min_stock' => ['min_stock', 'minimum_stock', 'min_qty'],
         'is_active' => ['is_active', 'active'],
         'description' => ['description'],
@@ -174,6 +176,7 @@ class ProductOpeningStockImportService
         $description = $this->cleanString($row['description'] ?? null);
         $notes = $this->cleanString($row['notes'] ?? null);
         $openingBatchNumber = $this->cleanString($row['opening_batch_number'] ?? null);
+        $openingExpiryDate = $this->parseDate($row['opening_expiry_date'] ?? null, 'Opening expiry date tidak valid.');
 
         if ($purchasePrice < 0 || $sellingPrice < 0 || $quantity < 0 || $minStock < 0) {
             throw new RuntimeException('Nilai numerik tidak boleh negatif.');
@@ -181,6 +184,7 @@ class ProductOpeningStockImportService
 
         if ($quantity === 0) {
             $openingBatchNumber = null;
+            $openingExpiryDate = null;
         }
 
         if ($sku !== null) {
@@ -226,6 +230,7 @@ class ProductOpeningStockImportService
             'selling_price' => $sellingPrice,
             'quantity' => $quantity,
             'opening_batch_number' => $openingBatchNumber,
+            'opening_expiry_date' => $openingExpiryDate,
             'min_stock' => $minStock,
             'is_active' => $isActive,
             'description' => $description,
@@ -351,6 +356,21 @@ class ProductOpeningStockImportService
         }
 
         throw new RuntimeException("Nilai is_active '{$raw}' tidak valid. Gunakan 1/0, true/false, yes/no.");
+    }
+
+    private function parseDate(mixed $value, string $errorMessage): ?string
+    {
+        $raw = $this->cleanString($value);
+
+        if ($raw === null) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($raw)->format('Y-m-d');
+        } catch (\Throwable) {
+            throw new RuntimeException($errorMessage);
+        }
     }
 
     private function cleanString(mixed $value): ?string
