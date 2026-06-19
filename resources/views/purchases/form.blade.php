@@ -2,6 +2,10 @@
     $isMaterialReceipt = ($context ?? null) === 'material_receipt';
     $selectedSupplierId = old('supplier_id', $purchase->supplier_id ?? null);
     $selectedSupplier = $selectedSupplierId ? \App\Models\Supplier::withTrashed()->find($selectedSupplierId) : null;
+    $proofExtension = isset($purchase) && $purchase->proof_image
+        ? strtolower(pathinfo($purchase->proof_image, PATHINFO_EXTENSION))
+        : null;
+    $proofIsPdf = $proofExtension === 'pdf';
 @endphp
 <div class="space-y-6">
     <!-- Header Input Section -->
@@ -47,7 +51,7 @@
                 id="proof_image"
                 type="file"
                 name="proof_image"
-                accept="image/*"
+                accept=".pdf,image/jpeg,image/png"
                 class="block w-full text-sm text-gray-500
                     file:mr-4 file:py-2 file:px-4
                     file:rounded-md file:border-0
@@ -59,7 +63,14 @@
 
             <div class="mt-2">
                 @if(isset($purchase) && $purchase->proof_image)
-                    <img src="{{ Storage::url($purchase->proof_image) }}" class="h-20 w-auto rounded border border-gray-200 object-cover">
+                    @if($proofIsPdf)
+                        <a href="{{ Storage::url($purchase->proof_image) }}" target="_blank" class="inline-flex items-center gap-2 text-sm text-indigo-600 hover:underline">
+                            <x-heroicon-o-document-text class="w-4 h-4" />
+                            View current PDF attachment
+                        </a>
+                    @else
+                        <img src="{{ Storage::url($purchase->proof_image) }}" class="h-20 w-auto rounded border border-gray-200 object-cover">
+                    @endif
                 @endif
             </div>
         </div>
@@ -596,7 +607,7 @@
                                     'Content-Type': 'application/json',
                                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                                 },
-                                body: JSON.stringify({ q: query })
+                                body: JSON.stringify({ q: query, scope: 'procurement' })
                             })
                             .then(response => response.json())
                             .then(json => {

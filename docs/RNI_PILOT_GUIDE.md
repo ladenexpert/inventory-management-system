@@ -31,6 +31,7 @@ Inventory ledger, batch allocation, FEFO behavior, and zero-cost batch handling 
 - inventory views
 - reports
 - dashboard
+- business insights not shown
 - user and settings management
 
 ### Formulator
@@ -62,6 +63,32 @@ Notes:
 - Existing inventory rules still validate categories, units, and batch uniqueness.
 - Zero-cost opening batches remain valid when operationally needed.
 
+## Master Data Import
+
+Menu paths:
+
+- `Materials` -> `Import Excel`
+- `Categories` -> `Import Excel`
+- `Units` -> `Import Excel`
+- `Suppliers` -> `Import Excel`
+- `Customers` -> `Import Excel`
+- `Storage Locations` -> `Import Excel`
+
+Import flow:
+
+1. Open the relevant master data page.
+2. Click `Download Template`.
+3. Fill the generated template columns only.
+4. Upload the file through `Import Excel`.
+5. Review the import summary for processed, created, skipped, and failed rows.
+
+Notes:
+
+- The framework accepts `.xlsx`, `.csv`, and `.ods`.
+- Rows starting with `#` are ignored.
+- The new `Materials` import creates master data only.
+- Opening balances still use the separate `Upload Opening Stock` flow.
+
 ## Receiving
 
 Menu path:
@@ -73,9 +100,10 @@ Steps:
 1. Create a new material receipt.
 2. Select supplier and receipt date. Supplier can be left blank for sample/internal RNI receipts.
 3. Add one or more RM lines.
-4. Enter batch number, expiry date, storage location, quantity, and unit cost for each received line.
-5. Save the receipt as draft or continue the receipt lifecycle.
-6. Confirm receipt from the detail page to move stock into active batches.
+4. Search now includes all active materials, including zero-stock and newly created materials.
+5. Enter batch number, expiry date, storage location, quantity, and unit cost for each received line.
+6. Save the receipt as draft or continue the receipt lifecycle.
+7. Confirm receipt from the detail page to move stock into active batches.
 
 Notes:
 
@@ -185,7 +213,7 @@ Filters:
 - RM name
 - lot number
 
-### Usage History Report
+### Usage Analysis
 
 Columns:
 
@@ -213,17 +241,39 @@ All report pages support export through the existing table export flow.
 
 ## Dashboard
 
-The RNI dashboard surfaces:
+The dashboard now has two views.
 
-- total RM
-- total batch
+### RNI Operations
+
+Focus:
+
+- total materials
+- physical stock
+- usable stock
 - low stock
 - near expiry
 - expired
-- zero-cost batch
-- recent material usage
+- zero-cost batches
+- recent receipts
+- recent usage
+- top used materials
 - urgent batches
-- physical form mix
-- top batch valuation
+- expiry risk
 
-Use the dashboard as the daily starting point for monitoring pilot operations.
+### Business Insights
+
+Focus:
+
+- inventory value
+- inbound trend
+- outbound trend
+- purchase trend
+- sales trend
+- material consumption trend
+- fast moving materials
+- slow moving materials
+- dead stock
+- top suppliers
+- top customers
+
+Use `Dashboard` -> `RNI Operations` for operational monitoring and `Dashboard` -> `Business Insights` for management review.

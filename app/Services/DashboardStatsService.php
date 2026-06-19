@@ -3,10 +3,12 @@
 namespace App\Services;
 
 use App\Enums\BatchStatus;
+use App\Enums\PurchaseStatus;
 use App\Enums\SaleTransactionType;
 use App\Models\Batch;
 use App\Models\FinanceTransaction;
 use App\Models\Product;
+use App\Models\Purchase;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use Carbon\Carbon;
@@ -557,6 +559,271 @@ class DashboardStatsService
         });
     }
 
+    public function getRecentReceipts(int $limit = 8): array
+    {
+        return Cache::remember("dashboard_recent_receipts_{$limit}", now()->addMinutes(1), function () use ($limit) {
+            return Purchase::query()
+                ->with(['supplier:id,name', 'items'])
+                ->whereIn('status', [
+                    PurchaseStatus::DRAFT->value,
+                    PurchaseStatus::ORDERED->value,
+                    PurchaseStatus::RECEIVED->value,
+                    PurchaseStatus::PAID->value,
+                ])
+                ->orderByDesc('purchase_date')
+                ->limit($limit)
+                ->get()
+                ->map(fn (Purchase $purchase) => [
+                    'id' => $purchase->id,
+                    'receipt_number' => $purchase->invoice_number ?: 'PUR-' . $purchase->id,
+                    'purchase_date' => optional($purchase->purchase_date)?->format('Y-m-d'),
+                    'supplier_name' => $purchase->supplier?->name ?? 'Unknown supplier',
+                    'line_count' => $purchase->items->count(),
+                    'total' => (int) $purchase->total,
+                    'status' => $purchase->status->label(),
+                    'entry_context' => $purchase->entry_context ?: 'legacy_purchase',
+                ])
+                ->toArray();
+        });
+    }
+
+    public function getBusinessInsightStats(Carbon $startDate, Carbon $endDate): array
+    {
+        $cacheKey = "dashboard_business_insights_{$startDate->format('Ymd')}_{$endDate->format('Ymd')}";
+
+        return Cache::remember($cacheKey, now()->addMinutes(10), function () use ($startDate, $endDate) {
+            $inventoryValuation = $this->getInventoryValuation();
+
+            $inboundTotal = (int) \App\Models\InventoryLog::query()
+                ->where('movement_type', 'purchase_receive')
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->sum('quantity');
+
+            $outboundTotal = (int) abs((int) \App\Models\InventoryLog::query()
+                ->where('movement_type', 'sale_out')
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->sum('quantity'));
+
+            $purchaseTotal = (int) Purchase::query()
+                ->whereBetween('purchase_date', [$startDate, $endDate])
+                ->whereNotIn('status', [PurchaseStatus::CANCELLED->value])
+                ->sum('total');
+
+            $salesTotal = (int) $this->commercialSalesQuery()
+                ->whereBetween('sale_date', [$startDate, $endDate])
+                ->where('status', 'completed')
+                ->sum('total');
+
+            $materialConsumptionTotal = (int) SaleItem::query()
+                ->whereHas('sale', function (Builder $query) use ($startDate, $endDate) {
+                    $query
+                        ->where('transaction_type', SaleTransactionType::MATERIAL_USAGE->value)
+                        ->whereBetween('sale_date', [$startDate, $endDate]);
+                })
+                ->sum('quantity');
+
+            return [
+                'inventory_value' => $inventoryValuation['cost_value'],
+                'inbound_total' => $inboundTotal,
+                'outbound_total' => $outboundTotal,
+                'purchase_total' => $purchaseTotal,
+                'sales_total' => $salesTotal,
+                'material_consumption_total' => $materialConsumptionTotal,
+            ];
+        });
+    }
+
+    public function getPurchaseTrend(Carbon $startDate, Carbon $endDate): array
+    {
+        $cacheKey = "dashboard_purchase_trend_{$startDate->format('Ymd')}_{$endDate->format('Ymd')}";
+
+        return Cache::remember($cacheKey, now()->addMinutes(30), function () use ($startDate, $endDate) {
+            $data = Purchase::query()
+                ->selectRaw('DATE(purchase_date) as date, SUM(total) as total')
+                ->whereBetween('purchase_date', [$startDate, $endDate])
+                ->whereNotIn('status', [PurchaseStatus::CANCELLED->value])
+                ->groupBy('date')
+                ->orderBy('date')
+                ->pluck('total', 'date')
+                ->toArray();
+
+            return $this->fillDateSeries($startDate, $endDate, $data);
+        });
+    }
+
+    public function getInboundTrend(Carbon $startDate, Carbon $endDate): array
+    {
+        $cacheKey = "dashboard_inbound_trend_{$startDate->format('Ymd')}_{$endDate->format('Ymd')}";
+
+        return Cache::remember($cacheKey, now()->addMinutes(30), function () use ($startDate, $endDate) {
+            $data = \App\Models\InventoryLog::query()
+                ->selectRaw('DATE(created_at) as date, SUM(quantity) as total')
+                ->where('movement_type', 'purchase_receive')
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->groupBy('date')
+                ->orderBy('date')
+                ->pluck('total', 'date')
+                ->toArray();
+
+            return $this->fillDateSeries($startDate, $endDate, $data);
+        });
+    }
+
+    public function getOutboundTrend(Carbon $startDate, Carbon $endDate): array
+    {
+        $cacheKey = "dashboard_outbound_trend_{$startDate->format('Ymd')}_{$endDate->format('Ymd')}";
+
+        return Cache::remember($cacheKey, now()->addMinutes(30), function () use ($startDate, $endDate) {
+            $data = \App\Models\InventoryLog::query()
+                ->selectRaw('DATE(created_at) as date, ABS(SUM(quantity)) as total')
+                ->where('movement_type', 'sale_out')
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->groupBy('date')
+                ->orderBy('date')
+                ->pluck('total', 'date')
+                ->toArray();
+
+            return $this->fillDateSeries($startDate, $endDate, $data);
+        });
+    }
+
+    public function getMaterialConsumptionTrend(Carbon $startDate, Carbon $endDate): array
+    {
+        $cacheKey = "dashboard_material_consumption_trend_{$startDate->format('Ymd')}_{$endDate->format('Ymd')}";
+
+        return Cache::remember($cacheKey, now()->addMinutes(30), function () use ($startDate, $endDate) {
+            $data = SaleItem::query()
+                ->selectRaw('DATE(sales.sale_date) as date, SUM(sale_items.quantity) as total')
+                ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
+                ->where('sales.transaction_type', SaleTransactionType::MATERIAL_USAGE->value)
+                ->whereBetween('sales.sale_date', [$startDate, $endDate])
+                ->groupBy('date')
+                ->orderBy('date')
+                ->pluck('total', 'date')
+                ->toArray();
+
+            return $this->fillDateSeries($startDate, $endDate, $data);
+        });
+    }
+
+    public function getTopSuppliers(Carbon $startDate, Carbon $endDate, int $limit = 5): array
+    {
+        $cacheKey = "dashboard_top_suppliers_{$startDate->format('Ymd')}_{$endDate->format('Ymd')}_{$limit}";
+
+        return Cache::remember($cacheKey, now()->addMinutes(30), function () use ($startDate, $endDate, $limit) {
+            return Purchase::query()
+                ->select('supplier_id', DB::raw('SUM(total) as total_spend'))
+                ->whereBetween('purchase_date', [$startDate, $endDate])
+                ->whereNotIn('status', [PurchaseStatus::CANCELLED->value])
+                ->whereNotNull('supplier_id')
+                ->with('supplier:id,name,phone')
+                ->groupBy('supplier_id')
+                ->orderByDesc('total_spend')
+                ->limit($limit)
+                ->get()
+                ->map(fn (Purchase $purchase) => [
+                    'supplier_name' => $purchase->supplier?->name ?? 'Unknown',
+                    'phone' => $purchase->supplier?->phone ?? '-',
+                    'total_spend' => (int) $purchase->total_spend,
+                ])
+                ->toArray();
+        });
+    }
+
+    public function getFastMovingMaterials(Carbon $startDate, Carbon $endDate, int $limit = 5): array
+    {
+        $cacheKey = "dashboard_fast_moving_materials_{$startDate->format('Ymd')}_{$endDate->format('Ymd')}_{$limit}";
+
+        return Cache::remember($cacheKey, now()->addMinutes(30), function () use ($startDate, $endDate, $limit) {
+            return SaleItem::query()
+                ->select('product_id', DB::raw('SUM(quantity) as total_quantity'))
+                ->whereHas('sale', function (Builder $query) use ($startDate, $endDate) {
+                    $query
+                        ->whereBetween('sale_date', [$startDate, $endDate])
+                        ->whereIn('transaction_type', [
+                            SaleTransactionType::SALE->value,
+                            SaleTransactionType::MATERIAL_USAGE->value,
+                        ]);
+                })
+                ->with('product:id,name,sku')
+                ->groupBy('product_id')
+                ->orderByDesc('total_quantity')
+                ->limit($limit)
+                ->get()
+                ->map(fn (SaleItem $item) => [
+                    'product_name' => $item->product?->name ?? 'Unknown Material',
+                    'sku' => $item->product?->sku ?? '-',
+                    'total_quantity' => (int) $item->total_quantity,
+                ])
+                ->toArray();
+        });
+    }
+
+    public function getSlowMovingMaterials(Carbon $startDate, Carbon $endDate, int $limit = 5): array
+    {
+        $cacheKey = "dashboard_slow_moving_materials_{$startDate->format('Ymd')}_{$endDate->format('Ymd')}_{$limit}";
+
+        return Cache::remember($cacheKey, now()->addMinutes(30), function () use ($startDate, $endDate, $limit) {
+            return Product::query()
+                ->select('products.id', 'products.name', 'products.sku')
+                ->leftJoinSub(
+                    SaleItem::query()
+                        ->select('product_id', DB::raw('SUM(quantity) as total_quantity'))
+                        ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
+                        ->whereBetween('sales.sale_date', [$startDate, $endDate])
+                        ->whereIn('sales.transaction_type', [
+                            SaleTransactionType::SALE->value,
+                            SaleTransactionType::MATERIAL_USAGE->value,
+                        ])
+                        ->groupBy('product_id'),
+                    'movement_totals',
+                    'movement_totals.product_id',
+                    '=',
+                    'products.id'
+                )
+                ->where('products.is_active', true)
+                ->whereRaw('COALESCE(movement_totals.total_quantity, 0) > 0')
+                ->orderByRaw('COALESCE(movement_totals.total_quantity, 0) asc')
+                ->orderByDesc('products.quantity')
+                ->limit($limit)
+                ->get()
+                ->map(fn (Product $product) => [
+                    'product_name' => $product->name,
+                    'sku' => $product->sku ?? '-',
+                    'total_quantity' => (int) ($product->total_quantity ?? 0),
+                ])
+                ->toArray();
+        });
+    }
+
+    public function getDeadStock(int $days = 90, int $limit = 5): array
+    {
+        $cutoff = now()->subDays($days)->startOfDay();
+        $cacheKey = "dashboard_dead_stock_{$days}_{$limit}_{$cutoff->format('Ymd')}";
+
+        return Cache::remember($cacheKey, now()->addMinutes(30), function () use ($cutoff, $limit) {
+            $movedProductIds = SaleItem::query()
+                ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
+                ->where('sales.sale_date', '>=', $cutoff)
+                ->distinct()
+                ->pluck('sale_items.product_id');
+
+            return Product::query()
+                ->where('is_active', true)
+                ->where('quantity', '>', 0)
+                ->whereNotIn('id', $movedProductIds)
+                ->orderByDesc('quantity')
+                ->limit($limit)
+                ->get()
+                ->map(fn (Product $product) => [
+                    'product_name' => $product->name,
+                    'sku' => $product->sku ?? '-',
+                    'quantity' => (int) $product->quantity,
+                ])
+                ->toArray();
+        });
+    }
+
     protected function commercialSalesQuery(): \Illuminate\Database\Eloquent\Builder
     {
         return Sale::query()->where('transaction_type', SaleTransactionType::SALE->value);
@@ -565,5 +832,18 @@ class DashboardStatsService
     protected function materialUsageQuery(): \Illuminate\Database\Eloquent\Builder
     {
         return Sale::query()->where('transaction_type', SaleTransactionType::MATERIAL_USAGE->value);
+    }
+
+    protected function fillDateSeries(Carbon $startDate, Carbon $endDate, array $data): array
+    {
+        $period = \Carbon\CarbonPeriod::create($startDate, $endDate);
+        $filled = [];
+
+        foreach ($period as $date) {
+            $formattedDate = $date->format('Y-m-d');
+            $filled[$formattedDate] = (int) ($data[$formattedDate] ?? 0);
+        }
+
+        return $filled;
     }
 }

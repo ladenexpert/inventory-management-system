@@ -27,10 +27,13 @@ class RouteSmokeTest extends TestCase
             'batches.index',
             'customers.index',
             'storage-locations.index',
+            'roles.index',
             'reports.inventory',
             'reports.inventory-movement-history',
             'reports.usage-history',
             'reports.expiry',
+            'reports.purchase-analysis',
+            'reports.sales-analysis',
         ];
 
         foreach ($routes as $routeName) {

@@ -96,6 +96,7 @@ class SaleService
                         'final_price' => $finalPrice,
                         'subtotal' => $subtotal,
                     ]);
+                    $saleItem->setRelation('product', $product);
 
                     $this->batchService->recordSaleItemAllocations($sale, $saleItem, $allocations);
 

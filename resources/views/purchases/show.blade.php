@@ -1,5 +1,9 @@
 @php($isMaterialReceipt = ($context ?? null) === 'material_receipt')
 <x-app-layout title="{{ $isMaterialReceipt ? 'Material Receipt Details' : 'Purchase Details' }}">
+    @php
+        $proofExtension = $purchase->proof_image ? strtolower(pathinfo($purchase->proof_image, PATHINFO_EXTENSION)) : null;
+        $proofLabel = $proofExtension === 'pdf' ? 'View Attachment PDF' : 'View Attachment';
+    @endphp
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-foreground leading-tight">
@@ -9,6 +13,11 @@
                 <x-secondary-button href="{{ route($indexRoute ?? 'purchases.index') }}">
                     &larr; {{ __('Back to List') }}
                 </x-secondary-button>
+                @unless($isMaterialReceipt)
+                    <x-secondary-button href="{{ route('purchases.print', $purchase) }}" target="_blank">
+                        {{ __('Print Receipt') }}
+                    </x-secondary-button>
+                @endunless
                 @if(in_array($purchase->status, [\App\Enums\PurchaseStatus::DRAFT, \App\Enums\PurchaseStatus::ORDERED]))
                     <x-secondary-button href="{{ route($editRoute ?? 'purchases.edit', $purchase) }}">
                         {{ __('Edit') }}
@@ -83,7 +92,7 @@
                                 <div class="mt-1">
                                     <a href="{{ Storage::url($purchase->proof_image) }}" target="_blank" class="text-indigo-600 hover:underline text-sm flex items-center gap-1">
                                         <x-heroicon-o-paper-clip class="w-4 h-4" />
-                                        View Image
+                                        {{ $proofLabel }}
                                     </a>
                                 </div>
                             </div>
@@ -280,7 +289,7 @@
                                                 <span class="block text-xs font-medium text-gray-500 uppercase mb-1">Proof of Receipt</span>
                                                 <a href="{{ Storage::url($purchase->proof_image) }}" target="_blank" class="text-indigo-600 hover:underline text-sm flex items-center gap-1">
                                                     <x-heroicon-o-paper-clip class="w-4 h-4" />
-                                                    View Uploaded Image
+                                                    {{ $proofLabel }}
                                                 </a>
                                             </div>
                                         @else
@@ -290,7 +299,7 @@
                                                     id="proof_image"
                                                     type="file"
                                                     name="proof_image"
-                                                    accept="image/*"
+                                                    accept=".pdf,image/jpeg,image/png"
                                                     class="block w-full text-sm text-gray-500
                                                         file:mr-4 file:py-2 file:px-4
                                                         file:rounded-md file:border-0
@@ -298,7 +307,7 @@
                                                         file:bg-indigo-50 file:text-indigo-700
                                                         hover:file:bg-indigo-100"
                                                 />
-                                                <p class="text-xs text-gray-500">{{ $isMaterialReceipt ? 'Optional for RNI receipts. JPG/PNG max 2MB.' : 'Image (JPG, PNG) max 2MB.' }}</p>
+                                                <p class="text-xs text-gray-500">{{ $isMaterialReceipt ? 'Optional for RNI receipts. PDF/JPG/PNG max 2MB.' : 'PDF, JPG, or PNG max 2MB.' }}</p>
                                                 <x-input-error :messages="$errors->get('proof_image')" class="mt-2" />
                                             </div>
                                         @endif

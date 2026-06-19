@@ -169,7 +169,7 @@ class PurchaseController extends Controller
         }
 
         if (!$purchase->isMaterialReceipt() && empty($purchase->proof_image)) {
-            $rules['proof_image'] = 'required|image|max:2048'; // 2MB Max
+            $rules['proof_image'] = 'required|file|mimes:pdf,jpg,jpeg,png|max:2048';
         }
 
         $request->validate($rules);
@@ -198,6 +198,17 @@ class PurchaseController extends Controller
         } catch (\Exception $e) {
             return back()->with('error', 'Error receiving purchase: ' . $e->getMessage());
         }
+    }
+
+    public function print(Purchase $purchase)
+    {
+        abort_if($purchase->isMaterialReceipt(), 404);
+
+        $purchase->load(['supplier', 'creator', 'items.product.unit', 'items.storageLocation', 'items.batch.storageLocationRecord']);
+
+        return view('purchases.print', [
+            'purchase' => $purchase,
+        ]);
     }
 
     public function cancel(Purchase $purchase)

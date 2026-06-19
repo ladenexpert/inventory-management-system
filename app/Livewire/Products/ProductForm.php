@@ -15,6 +15,7 @@ class ProductForm extends Component
 {
     public bool $isEditing = false;
     public ?Product $product = null;
+    public int $formRevision = 0;
 
     // Form Fields
     public ?string $sku = null;
@@ -82,6 +83,7 @@ class ProductForm extends Component
             'supplierName',
             'storageLocationName',
         ]);
+        $this->formRevision++;
         $this->is_active = true;
 
         $this->dispatch('open-modal', name: 'product-form-modal');
@@ -114,6 +116,7 @@ class ProductForm extends Component
         $this->unitName = $product->unit ? "{$product->unit->name} ({$product->unit->symbol})" : null;
         $this->supplierName = $product->supplier?->name;
 
+        $this->formRevision++;
         $this->isEditing = true;
 
         $this->dispatch('open-modal', name: 'product-form-modal');

@@ -4,14 +4,23 @@
 
 Use these names in RNI-facing navigation, headings, actions, and success/error messages:
 
-- `RNI Stock Out`
-- `RNI Stock In`
+- `Dashboard`
+- `RNI Operations`
+- `Business Insights`
+- `Master Data`
+- `Inbound`
+- `Outbound`
+- `Inventory`
+- `Administration`
 - `Materials`
 - `Reports`
-- `Usage History`
+- `Usage Analysis`
 - `Material Usage`
 - `Material Receipt`
 - `Current Inventory`
+- `Inventory Report`
+- `Purchase Analysis`
+- `Sales Analysis`
 - `Expiry Report`
 - `Storage Locations`
 
@@ -38,11 +47,19 @@ Use these names only for the commercial workflow:
 ## Current applied examples
 
 - Navigation now separates:
-  - `RNI Stock Out`
-  - `RNI Stock In`
-  - `Legacy Sales`
-  - `Legacy Purchases`
-  - `Customers`
+  - `Dashboard`
+  - `Master Data`
+  - `Inbound`
+  - `Outbound`
+  - `Inventory`
+  - `Reports`
+  - `Administration`
+- Dashboard now separates:
+  - `RNI Operations`
+  - `Business Insights`
+- `Legacy Sales`
+- `Legacy Purchases`
+- `Customers`
 - Material receipt forms now prefer:
   - `Raw Material`
   - `Unit Cost`

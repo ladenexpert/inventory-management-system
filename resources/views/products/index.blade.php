@@ -6,6 +6,14 @@
             </h2>
             <div class="flex items-center gap-2">
                 @if(Auth::user()->isAdminRni())
+                    <x-secondary-button :href="route('master-imports.template', 'materials')">
+                        <x-heroicon-o-arrow-down-tray class="w-4 h-4 mr-2" />
+                        {{ __('Download Template') }}
+                    </x-secondary-button>
+                    <x-secondary-button :href="route('master-imports.show', 'materials')">
+                        <x-heroicon-o-arrow-up-tray class="w-4 h-4 mr-2" />
+                        {{ __('Import Excel') }}
+                    </x-secondary-button>
                     <x-secondary-button :href="route('products.import-opening-stock')">
                         <x-heroicon-o-arrow-up-tray class="w-4 h-4 mr-2" />
                         {{ __('Upload Opening Stock') }}

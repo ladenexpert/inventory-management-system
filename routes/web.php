@@ -6,9 +6,11 @@ use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FinanceReportController;
 use App\Http\Controllers\InventoryMovementHistoryController;
+use App\Http\Controllers\MasterDataImportController;
 use App\Http\Controllers\MaterialUsageController;
 use App\Http\Controllers\MaterialReceiptController;
 use App\Http\Controllers\ProductOpeningStockImportController;
+use App\Http\Controllers\ReportAnalyticsController;
 
 Route::middleware(['auth', 'verified'])->group(function () {
     // =========================================================================
@@ -29,6 +31,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::view('suppliers', 'suppliers.index')->middleware('module:purchases')->name('suppliers.index');
             Route::view('categories', 'categories.index')->middleware('module:materials')->name('categories.index');
             Route::view('units', 'units.index')->middleware('module:materials')->name('units.index');
+            Route::get('imports/{resource}', [MasterDataImportController::class, 'show'])->name('master-imports.show');
+            Route::post('imports/{resource}', [MasterDataImportController::class, 'store'])->name('master-imports.store');
+            Route::get('imports/{resource}/template', [MasterDataImportController::class, 'downloadTemplate'])->name('master-imports.template');
             Route::get('products/import-opening-stock', [ProductOpeningStockImportController::class, 'index'])->middleware('module:materials')->name('products.import-opening-stock');
             Route::post('products/import-opening-stock', [ProductOpeningStockImportController::class, 'store'])->middleware('module:materials')->name('products.import-opening-stock.store');
             Route::get('products/import-opening-stock/template', [ProductOpeningStockImportController::class, 'downloadTemplate'])->middleware('module:materials')->name('products.import-opening-stock.template');
@@ -54,6 +59,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('purchases/create', [PurchaseController::class, 'create'])->middleware('module:purchases')->name('purchases.create');
         Route::post('purchases', [PurchaseController::class, 'store'])->name('purchases.store');
         Route::get('purchases/{purchase}', [PurchaseController::class, 'show'])->middleware('module:purchases')->name('purchases.show');
+        Route::get('purchases/{purchase}/print', [PurchaseController::class, 'print'])->middleware('module:purchases')->name('purchases.print');
         Route::get('purchases/{purchase}/edit', [PurchaseController::class, 'edit'])->middleware('module:purchases')->name('purchases.edit');
         Route::match(['put', 'patch'], 'purchases/{purchase}', [PurchaseController::class, 'update'])->name('purchases.update');
         Route::delete('purchases/{purchase}', [PurchaseController::class, 'destroy'])->name('purchases.destroy');
@@ -112,11 +118,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::view('expiry', 'reports.expiry')->name('expiry');
     });
 
+    Route::middleware(['role:admin_rni', 'module:reports'])->prefix('reports')->name('reports.')->group(function () {
+        Route::get('purchase-analysis', [ReportAnalyticsController::class, 'purchaseAnalysis'])->name('purchase-analysis');
+        Route::get('sales-analysis', [ReportAnalyticsController::class, 'salesAnalysis'])->name('sales-analysis');
+    });
+
     // =========================================================================
     // Settings & Users
     // =========================================================================
     Route::middleware('role:admin_rni')->group(function () {
         Route::view('users', 'users.index')->middleware('module:users')->name('users.index');
+        Route::view('roles', 'roles.index')->middleware('module:users')->name('roles.index');
         Route::view('settings', 'settings.index')->name('settings.index');
     });
 

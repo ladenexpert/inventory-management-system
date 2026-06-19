@@ -29,6 +29,7 @@ class UpdatePurchaseRequest extends FormRequest
             'purchase_date' => ['required', 'date'],
             'due_date' => ['nullable', 'date', 'after_or_equal:purchase_date'],
             'notes' => ['nullable', 'string'],
+            'proof_image' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:2048'],
             'entry_context' => ['nullable', 'string', 'in:legacy_purchase,material_receipt'],
             // 'status' is preserved from existing record
             'items' => ['required', 'array', 'min:1'],
@@ -47,6 +48,7 @@ class UpdatePurchaseRequest extends FormRequest
     {
         return [
             'supplier_id.required' => 'Supplier is required for legacy purchase flow.',
+            'proof_image.mimes' => 'Attachment must be a PDF, JPG, JPEG, or PNG file.',
             'items.required' => 'Please add at least one item.',
             'items.*.product_id.required' => 'Product is required.',
             'items.*.quantity.min' => 'Quantity must be at least 1.',

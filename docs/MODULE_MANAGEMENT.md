@@ -70,18 +70,35 @@ Disabled modules are removed from both:
 - desktop navigation
 - mobile navigation
 
+The current grouped navigation is:
+
+- `Dashboard`
+- `Master Data`
+- `Inbound`
+- `Outbound`
+- `Inventory`
+- `Reports`
+- `Administration`
+
 RNI labels remain user-facing:
 
 - `Material Usage`
 - `Material Receipt`
 - `Materials`
 - `Reports`
+- `RNI Operations`
+- `Business Insights`
 
 Legacy labels remain clearly separated:
 
-- `Legacy POS`
 - `Legacy Sales`
 - `Legacy Purchases`
+
+Import-related visibility notes:
+
+- master data import routes are only exposed from the relevant master data pages
+- opening stock import remains under `Materials`
+- disabling `materials`, `sales`, or `purchases` still hides the related master pages that expose those import entry points
 
 ## Operational recommendation
 

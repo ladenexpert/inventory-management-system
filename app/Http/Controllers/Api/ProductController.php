@@ -11,8 +11,9 @@ class ProductController extends Controller
     public function search(Request $request)
     {
         $query = $request->input('q') ?? $request->input('search');
+        $scope = (string) ($request->input('scope') ?? 'sale');
 
-        $products = Product::query()
+        $productQuery = Product::query()
             ->with(['unit', 'supplier'])
             ->withCount([
                 'batches as active_batch_count' => fn($q) => $q->where('available_quantity', '>', 0),
@@ -23,7 +24,6 @@ class ProductController extends Controller
                     ->whereNotNull('expiry_date'),
             ], 'expiry_date')
             ->where('is_active', true)
-            ->where('quantity', '>', 0)
             ->when($query, function ($q) use ($query) {
                 $q->where(function ($inner) use ($query) {
                     $inner->where('name', 'like', "%{$query}%")
@@ -31,7 +31,13 @@ class ProductController extends Controller
                         ->orWhere('item_code_ierp', 'like', "%{$query}%");
                 });
             })
-            ->limit(50)
+            ->limit(50);
+
+        if ($scope === 'sale') {
+            $productQuery->where('quantity', '>', 0);
+        }
+
+        $products = $productQuery
             ->get()
             ->map(function ($product) {
                 return [
@@ -47,6 +53,7 @@ class ProductController extends Controller
                     'physical_form_label' => $product->physical_form_label,
                     'supplier_name' => $product->supplier?->name,
                     'quantity' => $product->quantity,
+                    'max_stock' => $product->quantity,
                     'active_batch_count' => $product->active_batch_count,
                     'nearest_expiry_date' => $product->nearest_expiry_date,
                     'unit' => $product->unit ? [

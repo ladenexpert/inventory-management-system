@@ -4,10 +4,20 @@
             <h2 class="font-semibold text-xl text-foreground leading-tight">
                 {{ __('Units') }}
             </h2>
-            <x-primary-button x-data x-on:click="$dispatch('create-unit')">
-                <x-heroicon-o-plus class="w-4 h-4 mr-2" />
-                {{ __('Create Unit') }}
-            </x-primary-button>
+            <div class="flex items-center gap-2">
+                <x-secondary-button :href="route('master-imports.template', 'units')">
+                    <x-heroicon-o-arrow-down-tray class="w-4 h-4 mr-2" />
+                    {{ __('Download Template') }}
+                </x-secondary-button>
+                <x-secondary-button :href="route('master-imports.show', 'units')">
+                    <x-heroicon-o-arrow-up-tray class="w-4 h-4 mr-2" />
+                    {{ __('Import Excel') }}
+                </x-secondary-button>
+                <x-primary-button x-data x-on:click="$dispatch('create-unit')">
+                    <x-heroicon-o-plus class="w-4 h-4 mr-2" />
+                    {{ __('Create Unit') }}
+                </x-primary-button>
+            </div>
         </div>
     </x-slot>
 

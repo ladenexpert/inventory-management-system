@@ -1,201 +1,160 @@
-@php($modules = app(\App\Services\ModuleService::class)->all())
-<section class="py-4 bg-background border-b border-border">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" x-data="{ mobileMenuOpen: false }">
-        <!-- Desktop Menu -->
+@php
+    $modules = app(\App\Services\ModuleService::class)->all();
+    $user = Auth::user();
+
+    $sections = [];
+
+    $dashboardItems = [];
+    if ($modules['rni'] || $modules['reports']) {
+        $dashboardItems[] = [
+            'label' => 'RNI Operations',
+            'href' => route('dashboard', ['view' => 'rni-operations']),
+            'active' => request()->routeIs('dashboard') && request('view', 'rni-operations') !== 'business-insights',
+        ];
+        if ($user->isAdminRni()) {
+            $dashboardItems[] = [
+                'label' => 'Business Insights',
+                'href' => route('dashboard', ['view' => 'business-insights']),
+                'active' => request()->routeIs('dashboard') && request('view') === 'business-insights',
+            ];
+        }
+    }
+
+    if ($dashboardItems !== []) {
+        $sections[] = ['label' => 'Dashboard', 'icon' => 'dashboard', 'items' => $dashboardItems];
+    }
+
+    $masterDataItems = [];
+    if ($modules['materials']) {
+        $masterDataItems[] = ['label' => 'Materials', 'href' => route('products.index'), 'active' => request()->routeIs('products.*')];
+        if ($user->isAdminRni()) {
+            $masterDataItems[] = ['label' => 'Categories', 'href' => route('categories.index'), 'active' => request()->routeIs('categories.*')];
+            $masterDataItems[] = ['label' => 'Units', 'href' => route('units.index'), 'active' => request()->routeIs('units.*')];
+        }
+    }
+    if ($user->isAdminRni() && $modules['purchases']) {
+        $masterDataItems[] = ['label' => 'Suppliers', 'href' => route('suppliers.index'), 'active' => request()->routeIs('suppliers.*')];
+    }
+    if ($user->isAdminRni() && $modules['sales']) {
+        $masterDataItems[] = ['label' => 'Customers', 'href' => route('customers.index'), 'active' => request()->routeIs('customers.*')];
+    }
+    if ($user->isAdminRni() && $modules['materials']) {
+        $masterDataItems[] = ['label' => 'Storage Locations', 'href' => route('storage-locations.index'), 'active' => request()->routeIs('storage-locations.*')];
+    }
+    if ($masterDataItems !== []) {
+        $sections[] = ['label' => 'Master Data', 'icon' => 'master', 'items' => $masterDataItems];
+    }
+
+    $inboundItems = [];
+    if ($user->isAdminRni() && $modules['rni']) {
+        $inboundItems[] = ['label' => 'Material Receipt', 'href' => route('material-receipts.index'), 'active' => request()->routeIs('material-receipts.*')];
+    }
+    if ($user->isAdminRni() && $modules['purchases']) {
+        $inboundItems[] = ['label' => 'Legacy Purchases', 'href' => route('purchases.index'), 'active' => request()->routeIs('purchases.*')];
+    }
+    if ($inboundItems !== []) {
+        $sections[] = ['label' => 'Inbound', 'icon' => 'inbound', 'items' => $inboundItems];
+    }
+
+    $outboundItems = [];
+    if ($modules['rni']) {
+        $outboundItems[] = ['label' => 'Material Usage', 'href' => route('material-usages.index'), 'active' => request()->routeIs('material-usages.*')];
+    }
+    if ($user->isAdminRni() && $modules['sales']) {
+        $outboundItems[] = ['label' => 'Legacy Sales', 'href' => route('sales.index'), 'active' => request()->routeIs('sales.*')];
+    }
+    if ($outboundItems !== []) {
+        $sections[] = ['label' => 'Outbound', 'icon' => 'outbound', 'items' => $outboundItems];
+    }
+
+    $inventoryItems = [];
+    if ($modules['reports']) {
+        $inventoryItems[] = ['label' => 'Current Inventory', 'href' => route('reports.inventory'), 'active' => request()->routeIs('reports.inventory')];
+        if ($modules['materials']) {
+            $inventoryItems[] = ['label' => 'Batch Monitoring', 'href' => route('batches.index'), 'active' => request()->routeIs('batches.*')];
+        }
+        $inventoryItems[] = ['label' => 'Inventory Movement History', 'href' => route('reports.inventory-movement-history'), 'active' => request()->routeIs('reports.inventory-movement-history*')];
+    }
+    if ($inventoryItems !== []) {
+        $sections[] = ['label' => 'Inventory', 'icon' => 'inventory', 'items' => $inventoryItems];
+    }
+
+    $reportItems = [];
+    if ($modules['reports']) {
+        $reportItems[] = ['label' => 'Inventory Report', 'href' => route('reports.inventory'), 'active' => request()->routeIs('reports.inventory')];
+        $reportItems[] = ['label' => 'Expiry Report', 'href' => route('reports.expiry'), 'active' => request()->routeIs('reports.expiry')];
+        $reportItems[] = ['label' => 'Usage Analysis', 'href' => route('reports.usage-history'), 'active' => request()->routeIs('reports.usage-history')];
+        if ($user->isAdminRni()) {
+            $reportItems[] = ['label' => 'Purchase Analysis', 'href' => route('reports.purchase-analysis'), 'active' => request()->routeIs('reports.purchase-analysis')];
+            $reportItems[] = ['label' => 'Sales Analysis', 'href' => route('reports.sales-analysis'), 'active' => request()->routeIs('reports.sales-analysis')];
+        }
+    }
+    if ($reportItems !== []) {
+        $sections[] = ['label' => 'Reports', 'icon' => 'reports', 'items' => $reportItems];
+    }
+
+    $administrationItems = [];
+    if ($user->isAdminRni() && $modules['users']) {
+        $administrationItems[] = ['label' => 'Users', 'href' => route('users.index'), 'active' => request()->routeIs('users.*')];
+        $administrationItems[] = ['label' => 'Roles', 'href' => route('roles.index'), 'active' => request()->routeIs('roles.*')];
+    }
+    if ($user->isAdminRni()) {
+        $administrationItems[] = ['label' => 'Module Settings', 'href' => route('settings.index'), 'active' => request()->routeIs('settings.*')];
+    }
+    if ($administrationItems !== []) {
+        $sections[] = ['label' => 'Administration', 'icon' => 'admin', 'items' => $administrationItems];
+    }
+@endphp
+
+<section class="border-b border-border bg-background py-4">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8" x-data="{ mobileMenuOpen: false }">
         <nav class="hidden items-center justify-between lg:flex">
             <div class="flex items-center gap-6">
-                <!-- Logo -->
                 <a href="{{ route('dashboard') }}" class="flex items-center gap-2">
-                    <x-application-logo class="w-8 h-8 fill-current text-foreground" />
-                    <span class="text-md font-semibold tracking-tighter text-foreground">
-                        {{ config('app.name', 'Laravel') }}
-                    </span>
+                    <x-application-logo class="h-8 w-8 fill-current text-foreground" />
+                    <span class="text-md font-semibold tracking-tighter text-foreground">{{ config('app.name', 'Laravel') }}</span>
                 </a>
 
-                <!-- Navigation Menu -->
-                <div class="flex items-center">
-                    <div class="flex flex-row gap-1">
-                        <!-- Dashboard Link -->
-                        <a href="{{ route('dashboard') }}" class="group inline-flex h-10 w-max items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 {{ request()->routeIs('dashboard') ? 'bg-accent/50 text-accent-foreground' : 'bg-background' }}">
-                            <x-heroicon-o-squares-2x2 class="mr-2 h-4 w-4" />
-                            Dashboard
-                        </a>
-
-                        <!-- RNI Stock Out Dropdown -->
-                        @if($modules['rni'])
-                        <x-nav-dropdown active="{{ request()->routeIs(['material-usages.*']) }}">
+                <div class="flex items-center gap-1">
+                    @foreach($sections as $section)
+                        @php($isSectionActive = collect($section['items'])->contains(fn ($item) => $item['active']))
+                        <x-nav-dropdown active="{{ $isSectionActive }}">
                             <x-slot name="icon">
-                                <x-heroicon-o-banknotes class="mr-2 h-4 w-4" />
-                            </x-slot>
-                            <x-slot name="trigger">
-                                RNI Stock Out
-                            </x-slot>
-                            <x-slot name="content">
-                                <x-dropdown-link :href="route('material-usages.index')" :active="request()->routeIs(['material-usages.index', 'material-usages.show'])">
-                                    Usage History
-                                </x-dropdown-link>
-                            </x-slot>
-                        </x-nav-dropdown>
-                        @endif
-
-                        <!-- RNI Stock In Dropdown -->
-                        @if($modules['rni'])
-                        <x-nav-dropdown active="{{ request()->routeIs(['material-receipts.*']) }}">
-                            <x-slot name="icon">
-                                <x-heroicon-o-shopping-cart class="mr-2 h-4 w-4" />
-                            </x-slot>
-                            <x-slot name="trigger">
-                                RNI Stock In
-                            </x-slot>
-                            <x-slot name="content">
-                                @if(Auth::user()->isAdminRni())
-                                    <x-dropdown-link :href="route('material-receipts.index')" :active="request()->routeIs('material-receipts.*')">
-                                        Material Receipts
-                                    </x-dropdown-link>
+                                @if($section['icon'] === 'dashboard')
+                                    <x-heroicon-o-squares-2x2 class="mr-2 h-4 w-4" />
+                                @elseif($section['icon'] === 'master')
+                                    <x-heroicon-o-rectangle-stack class="mr-2 h-4 w-4" />
+                                @elseif($section['icon'] === 'inbound')
+                                    <x-heroicon-o-arrow-down-tray class="mr-2 h-4 w-4" />
+                                @elseif($section['icon'] === 'outbound')
+                                    <x-heroicon-o-arrow-up-tray class="mr-2 h-4 w-4" />
+                                @elseif($section['icon'] === 'inventory')
+                                    <x-heroicon-o-cube class="mr-2 h-4 w-4" />
+                                @elseif($section['icon'] === 'reports')
+                                    <x-heroicon-o-document-chart-bar class="mr-2 h-4 w-4" />
+                                @else
+                                    <x-heroicon-o-cog-6-tooth class="mr-2 h-4 w-4" />
                                 @endif
                             </x-slot>
-                        </x-nav-dropdown>
-                        @endif
-
-                        @if(Auth::user()->isAdminRni() && $modules['sales'])
-                        <x-nav-dropdown active="{{ request()->routeIs(['sales.*', 'customers.*']) }}">
-                            <x-slot name="icon">
-                                <x-heroicon-o-shopping-bag class="mr-2 h-4 w-4" />
-                            </x-slot>
-                            <x-slot name="trigger">
-                                Legacy Sales
-                            </x-slot>
+                            <x-slot name="trigger">{{ $section['label'] }}</x-slot>
                             <x-slot name="content">
-                                <x-dropdown-link :href="route('sales.index')" :active="request()->routeIs(['sales.*'])">
-                                    Sales / POS
-                                </x-dropdown-link>
-                                <x-dropdown-link :href="route('customers.index')" :active="request()->routeIs('customers.*')">
-                                    Customers
-                                </x-dropdown-link>
-                            </x-slot>
-                        </x-nav-dropdown>
-                        @endif
-
-                        @if(Auth::user()->isAdminRni() && $modules['purchases'])
-                        <x-nav-dropdown active="{{ request()->routeIs(['purchases.*', 'suppliers.*']) }}">
-                            <x-slot name="icon">
-                                <x-heroicon-o-truck class="mr-2 h-4 w-4" />
-                            </x-slot>
-                            <x-slot name="trigger">
-                                Legacy Purchases
-                            </x-slot>
-                            <x-slot name="content">
-                                <x-dropdown-link :href="route('purchases.index')" :active="request()->routeIs('purchases.*')">
-                                    Purchases
-                                </x-dropdown-link>
-                                <x-dropdown-link :href="route('suppliers.index')" :active="request()->routeIs('suppliers.*')">
-                                    Suppliers
-                                </x-dropdown-link>
-                            </x-slot>
-                        </x-nav-dropdown>
-                        @endif
-
-                        <!-- Finance Dropdown -->
-                        @if(Auth::user()->isAdminRni() && $modules['finance'])
-                        <x-nav-dropdown active="{{ request()->routeIs(['finance.*']) }}">
-                            <x-slot name="icon">
-                                <x-heroicon-o-currency-dollar class="mr-2 h-4 w-4" />
-                            </x-slot>
-                            <x-slot name="trigger">
-                                Finance
-                            </x-slot>
-                            <x-slot name="content">
-                                <x-dropdown-link :href="route('finance.transactions.index')" :active="request()->routeIs('finance.transactions.index')">
-                                    Transactions
-                                </x-dropdown-link>
-                                <x-dropdown-link :href="route('finance.categories.index')" :active="request()->routeIs('finance.categories.index')">
-                                    Categories
-                                </x-dropdown-link>
-                            </x-slot>
-                        </x-nav-dropdown>
-                        @endif
-
-                        <!-- Users Link -->
-                        @if(Auth::user()->isAdminRni() && $modules['users'])
-                        <a href="{{ route('users.index') }}" class="group inline-flex h-10 w-max items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 {{ request()->routeIs('users.*') ? 'bg-accent/50 text-accent-foreground' : 'bg-background' }}">
-                            <x-heroicon-o-users class="mr-2 h-4 w-4" />
-                            Users
-                        </a>
-                        @endif
-
-                        <!-- Materials Dropdown -->
-                        @if($modules['materials'])
-                        <x-nav-dropdown active="{{ request()->routeIs(['products.*', 'categories.*', 'units.*', 'batches.*']) }}">
-                            <x-slot name="icon">
-                                <x-heroicon-o-cube class="mr-2 h-4 w-4" />
-                            </x-slot>
-                            <x-slot name="trigger">
-                                Materials
-                            </x-slot>
-                            <x-slot name="content">
-                                <x-dropdown-link :href="route('products.index')" :active="request()->routeIs('products.*')">
-                                    Materials
-                                </x-dropdown-link>
-                                @if(Auth::user()->isAdminRni())
-                                    <x-dropdown-link :href="route('products.import-opening-stock')" :active="request()->routeIs('products.import-opening-stock*')">
-                                        Upload Opening Stock
+                                @foreach($section['items'] as $item)
+                                    <x-dropdown-link :href="$item['href']" :active="$item['active']">
+                                        {{ $item['label'] }}
                                     </x-dropdown-link>
-                                @endif
-                                <x-dropdown-link :href="route('batches.index')" :active="request()->routeIs('batches.*')">
-                                    Batches
-                                </x-dropdown-link>
-                                @if(Auth::user()->isAdminRni())
-                                    <x-dropdown-link :href="route('storage-locations.index')" :active="request()->routeIs('storage-locations.*')">
-                                        Storage Locations
-                                    </x-dropdown-link>
-                                @endif
-                                @if(Auth::user()->isAdminRni())
-                                    <x-dropdown-link :href="route('categories.index')" :active="request()->routeIs('categories.*')">
-                                        Categories
-                                    </x-dropdown-link>
-                                    <x-dropdown-link :href="route('units.index')" :active="request()->routeIs('units.*')">
-                                        Units
-                                    </x-dropdown-link>
-                                @endif
+                                @endforeach
                             </x-slot>
                         </x-nav-dropdown>
-                        @endif
-
-                        @if($modules['reports'])
-                        <x-nav-dropdown active="{{ request()->routeIs(['reports.*']) }}">
-                            <x-slot name="icon">
-                                <x-heroicon-o-document-chart-bar class="mr-2 h-4 w-4" />
-                            </x-slot>
-                            <x-slot name="trigger">
-                                Reports
-                            </x-slot>
-                            <x-slot name="content">
-                                <x-dropdown-link :href="route('reports.inventory')" :active="request()->routeIs('reports.inventory')">
-                                    Current Inventory
-                                </x-dropdown-link>
-                                <x-dropdown-link :href="route('reports.inventory-movement-history')" :active="request()->routeIs('reports.inventory-movement-history*')">
-                                    Inventory Movement History
-                                </x-dropdown-link>
-                                <x-dropdown-link :href="route('reports.usage-history')" :active="request()->routeIs('reports.usage-history')">
-                                    Usage History
-                                </x-dropdown-link>
-                                <x-dropdown-link :href="route('reports.expiry')" :active="request()->routeIs('reports.expiry')">
-                                    Expiry Report
-                                </x-dropdown-link>
-                            </x-slot>
-                        </x-nav-dropdown>
-                        @endif
-                    </div>
+                    @endforeach
                 </div>
             </div>
 
-            <!-- User Auth Buttons -->
             <div class="flex gap-2">
                 <x-dropdown align="right" width="48">
                     <x-slot name="trigger">
-                        <button class="inline-flex items-center justify-center whitespace-nowrap rounded-full text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 gap-2">
-                            <span class="hidden md:inline-flex">{{ Auth::user()->name }}</span>
-                            <x-avatar :name="Auth::user()->name" />
+                        <button class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-medium transition-colors">
+                            <span class="hidden md:inline-flex">{{ $user->name }}</span>
+                            <x-avatar :name="$user->name" />
                         </button>
                     </x-slot>
 
@@ -204,17 +163,9 @@
                             {{ __('Profile') }}
                         </x-dropdown-link>
 
-                        <x-dropdown-link :href="route('settings.index')" :active="request()->routeIs('settings.*')">
-                            {{ __('Settings') }}
-                        </x-dropdown-link>
-
-                        <!-- Authentication -->
                         <form method="POST" action="{{ route('logout') }}">
                             @csrf
-
-                            <x-dropdown-link :href="route('logout')"
-                                    onclick="event.preventDefault();
-                                                this.closest('form').submit();">
+                            <x-dropdown-link :href="route('logout')" onclick="event.preventDefault(); this.closest('form').submit();">
                                 {{ __('Log Out') }}
                             </x-dropdown-link>
                         </form>
@@ -223,200 +174,59 @@
             </div>
         </nav>
 
-        <!-- Mobile Menu -->
         <div class="block lg:hidden">
             <div class="flex items-center justify-between">
-                <!-- Logo -->
                 <a href="{{ route('dashboard') }}" class="flex items-center gap-2">
-                    <x-application-logo class="w-8 h-8 fill-current text-foreground" />
+                    <x-application-logo class="h-8 w-8 fill-current text-foreground" />
                 </a>
 
-                <button @click="mobileMenuOpen = true" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 w-10">
+                <button @click="mobileMenuOpen = true" class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground">
                     <x-heroicon-o-bars-3 class="h-4 w-4" />
                 </button>
             </div>
 
-            <!-- Mobile Sheet/Drawer -->
-            <div x-show="mobileMenuOpen"
-                x-transition:enter="duration-300 ease-out"
-                x-transition:enter-start="opacity-0"
-                x-transition:enter-end="opacity-100"
-                x-transition:leave="duration-200 ease-in"
-                x-transition:leave-start="opacity-100"
-                x-transition:leave-end="opacity-0"
-                class="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm"
-                style="display: none;"
-                @click="mobileMenuOpen = false">
-            </div>
+            <div x-show="mobileMenuOpen" class="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm" style="display: none;" @click="mobileMenuOpen = false"></div>
 
-            <div x-show="mobileMenuOpen"
-                x-transition:enter="duration-500 ease-in-out"
-                x-transition:enter-start="translate-x-full"
-                x-transition:enter-end="translate-x-0"
-                x-transition:leave="duration-500 ease-in-out"
-                x-transition:leave-start="translate-x-0"
-                x-transition:leave-end="translate-x-full"
-                class="fixed inset-y-0 right-0 z-50 h-full w-3/4 gap-4 border-l bg-background p-6 shadow-lg sm:max-w-sm"
-                style="display: none;"
-                @click.stop>
-
+            <div x-show="mobileMenuOpen" class="fixed inset-y-0 right-0 z-50 h-full w-3/4 border-l bg-background p-6 shadow-lg sm:max-w-sm" style="display: none;" @click.stop>
                 <div class="flex flex-col gap-6">
                     <div class="flex items-center justify-between">
                         <a href="{{ route('dashboard') }}" class="flex items-center gap-2">
-                            <x-application-logo class="w-8 h-8 fill-current text-foreground" />
+                            <x-application-logo class="h-8 w-8 fill-current text-foreground" />
                             <span class="text-lg font-semibold">{{ config('app.name') }}</span>
                         </a>
-                        <button @click="mobileMenuOpen = false" class="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+                        <button @click="mobileMenuOpen = false" class="rounded-sm opacity-70 transition-opacity hover:opacity-100">
                             <span class="sr-only">Close</span>
                             <x-heroicon-o-x-mark class="h-4 w-4" />
                         </button>
                     </div>
 
-                    <div class="flex w-full flex-col gap-4">
-                        <a href="{{ route('dashboard') }}" class="text-md font-semibold hover:underline {{ request()->routeIs('dashboard') ? 'text-primary' : '' }}">Dashboard</a>
-
-                        <!-- Mobile RNI Stock Out Accordion -->
-                        @if($modules['rni'])
-                        <div x-data="{ expanded: {{ request()->routeIs(['material-usages.*']) ? 'true' : 'false' }} }" class="border-b-0">
-                            <button @click="expanded = !expanded" class="flex flex-1 items-center justify-between py-0 font-semibold transition-all hover:underline [&[data-state=open]>svg]:rotate-180 w-full text-left text-md {{ request()->routeIs(['material-usages.*']) ? 'text-primary' : '' }}">
-                                RNI Stock Out
-                                <x-heroicon-o-chevron-down :class="{'rotate-180': expanded}" class="h-4 w-4 shrink-0 transition-transform duration-200" />
-                            </button>
-                            <div x-show="expanded" x-collapse>
-                                <div class="mt-2 flex flex-col gap-2 pl-4 border-l border-border ml-2">
-                                    <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs(['material-usages.index', 'material-usages.show']) ? 'text-primary' : '' }}" href="{{ route('material-usages.index') }}">Usage History</a>
+                    <div class="flex flex-col gap-4">
+                        @foreach($sections as $section)
+                            @php($isSectionActive = collect($section['items'])->contains(fn ($item) => $item['active']))
+                            <div x-data="{ expanded: {{ $isSectionActive ? 'true' : 'false' }} }">
+                                <button @click="expanded = !expanded" class="flex w-full items-center justify-between text-left text-md font-semibold {{ $isSectionActive ? 'text-primary' : '' }}">
+                                    {{ $section['label'] }}
+                                    <x-heroicon-o-chevron-down :class="{'rotate-180': expanded}" class="h-4 w-4 shrink-0 transition-transform duration-200" />
+                                </button>
+                                <div x-show="expanded" x-collapse>
+                                    <div class="ml-2 mt-2 flex flex-col gap-2 border-l border-border pl-4">
+                                        @foreach($section['items'] as $item)
+                                            <a href="{{ $item['href'] }}" class="py-1 text-sm font-medium hover:underline {{ $item['active'] ? 'text-primary' : '' }}">{{ $item['label'] }}</a>
+                                        @endforeach
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        @endif
+                        @endforeach
 
-                        <!-- Mobile RNI Stock In Accordion -->
-                        @if($modules['rni'])
-                        <div x-data="{ expanded: {{ request()->routeIs(['material-receipts.*']) ? 'true' : 'false' }} }" class="border-b-0">
-                            <button @click="expanded = !expanded" class="flex flex-1 items-center justify-between py-0 font-semibold transition-all hover:underline [&[data-state=open]>svg]:rotate-180 w-full text-left text-md {{ request()->routeIs(['material-receipts.*']) ? 'text-primary' : '' }}">
-                                RNI Stock In
-                                <x-heroicon-o-chevron-down :class="{'rotate-180': expanded}" class="h-4 w-4 shrink-0 transition-transform duration-200" />
-                            </button>
-                            <div x-show="expanded" x-collapse>
-                                <div class="mt-2 flex flex-col gap-2 pl-4 border-l border-border ml-2">
-                                    @if(Auth::user()->isAdminRni())
-                                        <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('material-receipts.index') ? 'text-primary' : '' }}" href="{{ route('material-receipts.index') }}">Material Receipts</a>
-                                    @endif
-                                </div>
-                            </div>
-                        </div>
-                        @endif
-
-                        @if(Auth::user()->isAdminRni() && $modules['sales'])
-                        <div x-data="{ expanded: {{ request()->routeIs(['sales.*', 'customers.*']) ? 'true' : 'false' }} }" class="border-b-0">
-                            <button @click="expanded = !expanded" class="flex flex-1 items-center justify-between py-0 font-semibold transition-all hover:underline [&[data-state=open]>svg]:rotate-180 w-full text-left text-md {{ request()->routeIs(['sales.*', 'customers.*']) ? 'text-primary' : '' }}">
-                                Legacy Sales
-                                <x-heroicon-o-chevron-down :class="{'rotate-180': expanded}" class="h-4 w-4 shrink-0 transition-transform duration-200" />
-                            </button>
-                            <div x-show="expanded" x-collapse>
-                                <div class="mt-2 flex flex-col gap-2 pl-4 border-l border-border ml-2">
-                                    <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('sales.*') ? 'text-primary' : '' }}" href="{{ route('sales.index') }}">Sales / POS</a>
-                                    <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('customers.*') ? 'text-primary' : '' }}" href="{{ route('customers.index') }}">Customers</a>
-                                </div>
-                            </div>
-                        </div>
-                        @endif
-
-                        @if(Auth::user()->isAdminRni() && $modules['purchases'])
-                        <div x-data="{ expanded: {{ request()->routeIs(['purchases.*', 'suppliers.*']) ? 'true' : 'false' }} }" class="border-b-0">
-                            <button @click="expanded = !expanded" class="flex flex-1 items-center justify-between py-0 font-semibold transition-all hover:underline [&[data-state=open]>svg]:rotate-180 w-full text-left text-md {{ request()->routeIs(['purchases.*', 'suppliers.*']) ? 'text-primary' : '' }}">
-                                Legacy Purchases
-                                <x-heroicon-o-chevron-down :class="{'rotate-180': expanded}" class="h-4 w-4 shrink-0 transition-transform duration-200" />
-                            </button>
-                            <div x-show="expanded" x-collapse>
-                                <div class="mt-2 flex flex-col gap-2 pl-4 border-l border-border ml-2">
-                                    <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('purchases.*') ? 'text-primary' : '' }}" href="{{ route('purchases.index') }}">Purchases</a>
-                                    <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('suppliers.*') ? 'text-primary' : '' }}" href="{{ route('suppliers.index') }}">Suppliers</a>
-                                </div>
-                            </div>
-                        </div>
-                        @endif
-
-                        <!-- Mobile Finance Accordion -->
-                        @if(Auth::user()->isAdminRni() && $modules['finance'])
-                        <div x-data="{ expanded: {{ request()->routeIs(['finance.*']) ? 'true' : 'false' }} }" class="border-b-0">
-                            <button @click="expanded = !expanded" class="flex flex-1 items-center justify-between py-0 font-semibold transition-all hover:underline [&[data-state=open]>svg]:rotate-180 w-full text-left text-md {{ request()->routeIs(['finance.*']) ? 'text-primary' : '' }}">
-                                Finance
-                                <x-heroicon-o-chevron-down :class="{'rotate-180': expanded}" class="h-4 w-4 shrink-0 transition-transform duration-200" />
-                            </button>
-                            <div x-show="expanded" x-collapse>
-                                <div class="mt-2 flex flex-col gap-2 pl-4 border-l border-border ml-2">
-                                    <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('finance.transactions.index') ? 'text-primary' : '' }}" href="{{ route('finance.transactions.index') }}">Transactions</a>
-                                    <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('finance.categories.index') ? 'text-primary' : '' }}" href="{{ route('finance.categories.index') }}">Categories</a>
-                                </div>
-                            </div>
-                        </div>
-                        @endif
-
-                        <!-- Mobile Users Link -->
-                        @if(Auth::user()->isAdminRni() && $modules['users'])
-                        <a href="{{ route('users.index') }}" class="text-md font-semibold hover:underline border-b pb-4 {{ request()->routeIs('users.*') ? 'text-primary' : '' }}">Users</a>
-                        @endif
-
-                        <!-- Mobile Materials Accordion -->
-                        @if($modules['materials'])
-                        <div x-data="{ expanded: {{ request()->routeIs(['products.*', 'categories.*', 'units.*', 'batches.*']) ? 'true' : 'false' }} }" class="border-b-0">
-                            <button @click="expanded = !expanded" class="flex flex-1 items-center justify-between py-0 font-semibold transition-all hover:underline [&[data-state=open]>svg]:rotate-180 w-full text-left text-md {{ request()->routeIs(['products.*', 'categories.*', 'units.*', 'batches.*']) ? 'text-primary' : '' }}">
-                                Materials
-                                <x-heroicon-o-chevron-down :class="{'rotate-180': expanded}" class="h-4 w-4 shrink-0 transition-transform duration-200" />
-                            </button>
-                            <div x-show="expanded" x-collapse>
-                                <div class="mt-2 flex flex-col gap-2 pl-4 border-l border-border ml-2">
-                                    <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('products.index') ? 'text-primary' : '' }}" href="{{ route('products.index') }}">Materials</a>
-                                    @if(Auth::user()->isAdminRni())
-                                        <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('products.import-opening-stock*') ? 'text-primary' : '' }}" href="{{ route('products.import-opening-stock') }}">Upload Opening Stock</a>
-                                    @endif
-                                    <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('batches.index') ? 'text-primary' : '' }}" href="{{ route('batches.index') }}">Batches</a>
-                                    @if(Auth::user()->isAdminRni())
-                                        <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('storage-locations.*') ? 'text-primary' : '' }}" href="{{ route('storage-locations.index') }}">Storage Locations</a>
-                                    @endif
-                                    @if(Auth::user()->isAdminRni())
-                                        <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('categories.index') ? 'text-primary' : '' }}" href="{{ route('categories.index') }}">Categories</a>
-                                        <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('units.index') ? 'text-primary' : '' }}" href="{{ route('units.index') }}">Units</a>
-                                    @endif
-                                </div>
-                            </div>
-                        </div>
-                        @endif
-
-                        @if($modules['reports'])
-                        <div x-data="{ expanded: {{ request()->routeIs(['reports.*']) ? 'true' : 'false' }} }" class="border-b-0">
-                            <button @click="expanded = !expanded" class="flex flex-1 items-center justify-between py-0 font-semibold transition-all hover:underline [&[data-state=open]>svg]:rotate-180 w-full text-left text-md {{ request()->routeIs(['reports.*']) ? 'text-primary' : '' }}">
-                                Reports
-                                <x-heroicon-o-chevron-down :class="{'rotate-180': expanded}" class="h-4 w-4 shrink-0 transition-transform duration-200" />
-                            </button>
-                            <div x-show="expanded" x-collapse>
-                                <div class="mt-2 flex flex-col gap-2 pl-4 border-l border-border ml-2">
-                                    <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('reports.inventory') ? 'text-primary' : '' }}" href="{{ route('reports.inventory') }}">Current Inventory</a>
-                                    <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('reports.inventory-movement-history*') ? 'text-primary' : '' }}" href="{{ route('reports.inventory-movement-history') }}">Inventory Movement History</a>
-                                    <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('reports.usage-history') ? 'text-primary' : '' }}" href="{{ route('reports.usage-history') }}">Usage History</a>
-                                    <a class="text-sm font-medium hover:underline py-1 {{ request()->routeIs('reports.expiry') ? 'text-primary' : '' }}" href="{{ route('reports.expiry') }}">Expiry Report</a>
-                                </div>
-                            </div>
-                        </div>
-                        @endif
-
-
-                    <!-- Mobile User Menu -->
-                        <div class="pt-4 mt-4 border-t border-border">
-                            <div class="font-medium text-base text-foreground mb-2">{{ Auth::user()->name }}</div>
+                        <div class="mt-4 border-t border-border pt-4">
+                            <div class="mb-2 text-base font-medium text-foreground">{{ $user->name }}</div>
                             <div class="flex flex-col gap-3">
-                                <a href="{{ route('profile.index') }}" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input h-9 px-4 py-2 w-full {{ request()->routeIs('profile.*') ? 'bg-accent text-accent-foreground' : 'bg-background hover:bg-accent hover:text-accent-foreground' }}">
+                                <a href="{{ route('profile.index') }}" class="inline-flex h-9 w-full items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground {{ request()->routeIs('profile.*') ? 'bg-accent text-accent-foreground' : '' }}">
                                     Profile
                                 </a>
-                                @if(Auth::user()->isAdminRni())
-                                    <a href="{{ route('settings.index') }}" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input h-9 px-4 py-2 w-full {{ request()->routeIs('settings.*') ? 'bg-accent text-accent-foreground' : 'bg-background hover:bg-accent hover:text-accent-foreground' }}">
-                                        Settings
-                                    </a>
-                                @endif
                                 <form method="POST" action="{{ route('logout') }}" class="w-full">
                                     @csrf
-                                    <button type="submit" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2 w-full">
+                                    <button type="submit" class="inline-flex h-9 w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
                                         Log Out
                                     </button>
                                 </form>

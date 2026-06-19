@@ -70,7 +70,7 @@
 
                 <div class="space-y-2">
                     <x-input-label for="supplier_id" :value="__('Default Supplier')" />
-                    <div wire:ignore>
+                    <div wire:key="product-supplier-select-{{ $formRevision }}">
                         <x-tom-select
                             id="supplier_id"
                             name="supplier_id"
@@ -90,7 +90,7 @@
                 <!-- Category -->
                 <div class="w-full sm:w-1/2 space-y-2">
                     <x-input-label for="category_id" :value="__('Category')" required />
-                    <div wire:ignore>
+                    <div wire:key="product-category-select-{{ $formRevision }}">
                         <x-tom-select
                             id="category_id"
                             name="category_id"
@@ -107,7 +107,7 @@
                 <!-- Unit -->
                 <div class="w-full sm:w-1/2 space-y-2">
                     <x-input-label for="unit_id" :value="__('Unit')" required />
-                    <div wire:ignore>
+                    <div wire:key="product-unit-select-{{ $formRevision }}">
                         <x-tom-select
                             id="unit_id"
                             name="unit_id"
@@ -215,7 +215,7 @@
 
                     <div class="space-y-2">
                         <x-input-label for="opening_storage_location" :value="__('Opening Storage Location')" />
-                        <div wire:ignore>
+                        <div wire:key="product-storage-location-select-{{ $formRevision }}">
                             <x-tom-select
                             id="opening_storage_location"
                             name="opening_storage_location"

@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.3.4-rni-uat-round2-fix
+
+- fixed procurement material search so purchase and material receipt forms can find all active materials, including zero-stock and newly created records
+- rebuilt navigation into `Dashboard`, `Master Data`, `Inbound`, `Outbound`, `Inventory`, `Reports`, and `Administration` groups while keeping legacy routes intact
+- added shared master-data import support with template download and Excel upload for materials, categories, units, suppliers, customers, and storage locations
+- fixed product edit preselection for category, unit, supplier, and physical form in the Livewire modal workflow
+- expanded legacy purchase attachment support to accept PDF alongside JPG and PNG
+- added printable legacy purchase receipt output from purchase detail
+- replaced the fragile legacy sales print Blade with a stable multi-item printable invoice
+- tightened multi-line sales validation and removed avoidable per-line lazy loading in the sale allocation path
+- expanded the dashboard into `RNI Operations` and `Business Insights` views using cached aggregate data
+- added new `Purchase Analysis`, `Sales Analysis`, and `Roles` pages to support the new navigation structure
+- added regression coverage for procurement search, product edit preselection, PDF attachments, purchase print, sales print, multi-line sales, and master-data import
+
 ## v0.3.2-rni-requirement-complete
 
 - added `products.physical_form` with material create/edit/detail support plus current inventory, batch monitoring, dashboard, and opening stock import coverage

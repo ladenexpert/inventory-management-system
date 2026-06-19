@@ -47,6 +47,9 @@ class StoreSaleRequest extends FormRequest
             'items.*.quantity' => ['required', 'integer', 'min:1'],
             'items.*.unit_price' => ['required', 'numeric', 'min:0'],
             'items.*.discount' => ['nullable', 'numeric', 'min:0'],
+            'items.*.batch_allocations' => ['nullable', 'array'],
+            'items.*.batch_allocations.*.batch_id' => ['required_with:items.*.batch_allocations', 'integer', 'exists:batches,id'],
+            'items.*.batch_allocations.*.quantity' => ['required_with:items.*.batch_allocations', 'integer', 'min:1'],
         ];
     }
 

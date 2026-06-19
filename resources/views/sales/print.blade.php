@@ -1,394 +1,250 @@
+@php($isMaterialUsage = ($context ?? 'sale') === 'material_usage')
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Faktur #{{ $sale->invoice_number }}</title>
+    <title>{{ $isMaterialUsage ? 'Material Usage Slip' : 'Sales Invoice' }} #{{ $sale->invoice_number }}</title>
     <style>
-        @media print {
-            @page {
-                size: A5 landscape;
-                margin: 0;
-            }
-            body {
-                margin: 5mm 10mm;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
+        @page {
+            size: A4;
+            margin: 12mm;
         }
 
         body {
             font-family: Arial, sans-serif;
-            font-size: 10pt;
-            line-height: normal;
-            color: #000;
-            max-width: 210mm;
+            color: #111827;
+            font-size: 12px;
+            margin: 0;
+        }
+
+        .page {
+            max-width: 1000px;
             margin: 0 auto;
-            background: #fff;
-            padding: 10px;
         }
 
-        .container {
-            width: 100%;
-            border: 0px solid #000;
+        .header,
+        .summary,
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            gap: 24px;
         }
 
-        /* HEADER GRID */
         .header {
-            display: flex;
-            width: 100%;
-            margin-bottom: 2px;
-            border-bottom: 2px solid #000;
-            padding-bottom: 5px;
+            border-bottom: 2px solid #111827;
+            padding-bottom: 16px;
+            margin-bottom: 20px;
         }
 
-        .header-left {
-            width: 60%;
-            display: flex;
-            align-items: center;
+        .brand h1 {
+            margin: 0 0 6px;
+            font-size: 22px;
         }
 
-        .logo-box {
-            border: 3px double #000;
-            width: 60px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24pt;
-            font-weight: bold;
-            font-family: 'Times New Roman', serif;
-            margin-right: 10px;
+        .brand p,
+        .meta p,
+        .footer p {
+            margin: 4px 0;
         }
 
-        .company-info {
-            text-align: left;
+        .meta {
+            min-width: 280px;
         }
 
-        .company-name {
-            font-family: 'Times New Roman', serif;
-            font-size: 16pt;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 2px;
+        .summary {
+            margin-bottom: 18px;
         }
 
-        .company-desc {
-            font-size: 8pt;
-            margin-bottom: 2px;
+        .card {
+            border: 1px solid #d1d5db;
+            border-radius: 10px;
+            padding: 12px 14px;
+            flex: 1;
         }
 
-        .company-address {
-            font-size: 8pt;
-        }
-
-        .header-right {
-            width: 40%;
-            text-align: right;
-            padding-left: 20px;
-            font-size: 9pt;
-        }
-
-        .header-row {
-            display: flex;
-            margin-bottom: 5px;
-            align-items: flex-end;
-        }
-
-        .header-right .header-row {
-            justify-content: flex-end !important;
-        }
-
-        .header-label {
-            white-space: nowrap;
-            margin-right: 5px;
-        }
-
-        .header-value {
-            border-bottom: 1px dotted #000;
-            flex-grow: 1;
-            padding-left: 5px;
-        }
-
-        .header-right .header-value {
-            flex-grow: 0;
-            min-width: 150px;
-        }
-            min-width: 150px;
-        }
-
-        /* INVOICE NO ROW */
-        .invoice-row {
-            margin-top: 2px;
-            margin-bottom: 5px;
-            font-weight: bold;
-            font-size: 9pt;
-            display: flex;
-            align-items: center;
-        }
-
-        .invoice-label {
-            margin-right: 5px;
-            font-style: italic;
-        }
-
-        .invoice-value {
-             border-bottom: 1px dotted #000;
-             min-width: 100px;
-             display: inline-block;
-        }
-
-        /* TABLE */
         table {
             width: 100%;
             border-collapse: collapse;
-            border: 1px solid #000;
-            margin-bottom: 5px;
+            margin-bottom: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #d1d5db;
+            padding: 10px;
+            vertical-align: top;
         }
 
         th {
-            border: 1px solid #000;
-            padding: 5px;
-            text-align: center;
-            font-weight: bold;
-            text-align: center;
-            font-weight: bold;
-            background: #f0f0f0;
-            font-size: 8pt;
-            white-space: nowrap;
-        }
-
-        td {
-            border-left: 1px solid #000;
-            border-right: 1px solid #000;
-            border-bottom: 1px solid #000;
-            padding: 4px 5px;
-            font-size: 8pt;
-            vertical-align: middle;
-            height: 20px; /* Minimum height for lines */
-        }
-
-        .col-code { width: 14%; text-align: left; }
-        .col-uom { width: 8%; text-align: center; }
-        .col-name { width: 28%; text-align: left; }
-        .col-qty { width: 8%; text-align: center; }
-        .col-price { width: 14%; text-align: right; }
-        .col-disc { width: 12%; text-align: right; }
-        .col-total { width: 16%; text-align: right; }
-
-        /* FOOTER GRID */
-        .footer {
-            display: flex;
-            margin-top: 5px;
-            align-items: flex-start;
-        }
-
-        .footer-left {
-            width: 25%;
-            text-align: center;
-            font-size: 9pt;
-        }
-
-        .footer-center {
-            width: 45%;
-            padding: 0 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .disclaimer-box {
-            border: 1px solid #000;
-            border-radius: 5px;
-            padding: 8px;
-            font-size: 8pt;
-            text-align: center;
-            background: #f5f5f5;
-            width: 100%;
-        }
-
-        .footer-right {
-            width: 30%;
-        }
-
-        .amount-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 5px;
-            font-size: 10pt;
-            font-weight: bold;
-        }
-
-        .amount-label {
+            background: #f3f4f6;
             text-align: left;
         }
 
-        .amount-value {
+        .text-right {
             text-align: right;
-            border-bottom: 1px solid #ccc;
-            min-width: 80px;
         }
 
-        .signature-space {
-            height: 40px;
-            margin-top: 5px;
+        .muted {
+            color: #6b7280;
         }
 
+        .totals {
+            margin-left: auto;
+            width: 320px;
+        }
+
+        .totals td {
+            border: none;
+            padding: 6px 0;
+        }
+
+        .totals tr.total td {
+            border-top: 2px solid #111827;
+            font-weight: bold;
+            padding-top: 10px;
+        }
+
+        .footer {
+            margin-top: 28px;
+            align-items: flex-end;
+        }
+
+        .signature {
+            width: 240px;
+            border-top: 1px solid #9ca3af;
+            padding-top: 8px;
+            text-align: center;
+        }
+
+        @media print {
+            .no-print {
+                display: none;
+            }
+        }
     </style>
 </head>
-@php($isMaterialUsage = ($context ?? 'sale') === 'material_usage')
 <body>
-
-    <div class="container">
-        <!-- Header -->
+    <div class="page">
         <div class="header">
-            <div class="header-left">
-                <div class="logo-box">TB</div>
-                <div class="company-info">
-                    <div class="company-name">{{ \App\Models\Setting::get('store_name', config('app.name')) }}</div>
-                    <div class="company-desc">{{ $isMaterialUsage ? 'Usage Slip - Raw Material Issuance' : 'Menjual: Bahan Bangunan, Alat Teknik, Cat, Dll.' }}</div>
-                    <div class="company-address">
-                        {{ \App\Models\Setting::get('store_address', 'Jl. Default No. 1') }}<br>
-                        HP. {{ \App\Models\Setting::get('store_phone', '-') }}
-                    </div>
-                </div>
+            <div class="brand">
+                <h1>{{ \App\Models\Setting::get('store_name', config('app.name')) }}</h1>
+                <p>{{ \App\Models\Setting::get('store_address', 'Jl. Default No. 1') }}</p>
+                <p>Phone: {{ \App\Models\Setting::get('store_phone', '-') }}</p>
+                <p class="muted">{{ $isMaterialUsage ? 'Raw material issuance slip' : 'Sales invoice / receipt' }}</p>
             </div>
-            <div class="header-right">
-                <div class="header-row">
-                    <span>{{ ($sale->usage_date ?? $sale->sale_date)->locale('id')->isoFormat('dddd, D MMMM Y') }}</span>
-                </div>
-                <div class="header-row">
-                    <span class="header-label">{{ $isMaterialUsage ? 'Issued By,' : 'Kepada Yth,' }}</span>
-                    <span class="header-value">{{ $isMaterialUsage ? ($sale->issuer->name ?? $sale->creator->name ?? 'Unknown') : ($sale->customer->name ?? 'Guest') }}</span>
-                </div>
+
+            <div class="meta">
+                <p><strong>Document</strong>: {{ $isMaterialUsage ? 'Material Usage Slip' : 'Sales Invoice' }}</p>
+                <p><strong>Number</strong>: {{ $sale->invoice_number }}</p>
+                <p><strong>Date</strong>: {{ optional($sale->usage_date ?? $sale->sale_date)?->format('d M Y') }}</p>
+                <p><strong>Status</strong>: {{ $sale->status->label() }}</p>
+                <p><strong>{{ $isMaterialUsage ? 'Issued By' : 'Customer' }}</strong>:
+                    {{ $isMaterialUsage ? ($sale->issuer->name ?? $sale->creator->name ?? '-') : ($sale->customer->name ?? 'Guest') }}
+                </p>
             </div>
         </div>
 
-        <!-- Invoice No Line -->
-        <div class="invoice-row">
-            <span class="invoice-label">{{ $isMaterialUsage ? 'MATERIAL USAGE SLIP No.' : 'FAKTUR / BON / KONTAN No.' }}</span>
-            <span class="invoice-value">{{ $sale->invoice_number }}</span>
+        <div class="summary">
+            <div class="card">
+                <p><strong>{{ $isMaterialUsage ? 'Purpose' : 'Payment Method' }}</strong></p>
+                <p>{{ $isMaterialUsage ? ($sale->purpose ?? '-') : strtoupper($sale->payment_method->value) }}</p>
+                @if($isMaterialUsage)
+                    <p class="muted">Formula: {{ $sale->formula ?? '-' }}</p>
+                    <p class="muted">Project: {{ $sale->project ?? '-' }}</p>
+                @else
+                    <p class="muted">Issued by {{ $sale->issuer->name ?? $sale->creator->name ?? '-' }}</p>
+                @endif
+            </div>
+            <div class="card">
+                <p><strong>Notes</strong></p>
+                <p>{{ $sale->notes ?: 'No additional notes.' }}</p>
+            </div>
         </div>
 
-        @if($isMaterialUsage)
-        <div class="invoice-row" style="font-weight: normal;">
-            <span class="invoice-label">Purpose</span>
-            <span class="invoice-value">{{ $sale->purpose ?? '-' }}</span>
-        </div>
-        @endif
-
-        <!-- Table -->
         <table>
             <thead>
                 <tr>
-                    <th class="col-code">Kode IERP</th>
-                    <th class="col-uom">UOM</th>
-                    <th class="col-name">{{ $isMaterialUsage ? 'Raw Material' : 'Nama Barang' }}</th>
-                    <th class="col-qty">Qty</th>
-                    <th class="col-price">{{ $isMaterialUsage ? 'Batch' : 'Harga' }}</th>
-                    <th class="col-disc">{{ $isMaterialUsage ? 'Expiry' : 'Diskon' }}</th>
-                    <th class="col-total">{{ $isMaterialUsage ? 'Purpose' : 'Jumlah' }}</th>
+                    <th style="width: 16%">Item Code</th>
+                    <th style="width: 28%">{{ $isMaterialUsage ? 'Raw Material' : 'Product' }}</th>
+                    <th style="width: 10%">Unit</th>
+                    <th style="width: 10%" class="text-right">Qty</th>
+                    <th style="width: 16%">{{ $isMaterialUsage ? 'Batch / Expiry' : 'Unit Price' }}</th>
+                    <th style="width: 10%" class="text-right">{{ $isMaterialUsage ? 'Cost' : 'Discount' }}</th>
+                    <th style="width: 10%" class="text-right">{{ $isMaterialUsage ? 'Allocated Qty' : 'Line Total' }}</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($sale->items as $item)
-                @php
-                    $finalPrice = $item->unit_price - $item->discount;
-                @endphp
-                <tr>
-                    <td class="col-code">{{ $item->product->item_code_ierp ?? $item->product->sku ?? '-' }}</td>
-                    <td class="col-uom">{{ $item->product->unit->symbol ?? $item->product->unit->name ?? '-' }}</td>
-                    <td class="col-name">{{ $item->product->name }}</td>
-                    <td class="col-qty">{{ $item->quantity }}</td>
-                    <td class="col-price">
-                        @if($isMaterialUsage)
-                            {{ $item->saleItemBatches->pluck('batch.batch_number')->filter()->implode(', ') ?: '-' }}
-                        @else
-                            @money($item->unit_price)
-                        @endif
-                    </td>
-                    <td class="col-disc">
-                        @if($isMaterialUsage)
-                            {{ $item->saleItemBatches->map(fn($allocation) => $allocation->batch?->expiry_date?->format('d/m/Y') ?? 'No expiry')->implode(', ') ?: '-' }}
-                        @else
-                            {!! $item->discount > 0 ? "<span>" . format_money($item->discount) . "</span>" : '-' !!}
-                        @endif
-                    </td>
-                    <td class="col-total">{{ $isMaterialUsage ? ($sale->purpose ?? '-') : format_money($item->subtotal) }}</td>
-                </tr>
+                    <tr>
+                        <td>{{ $item->product->item_code_ierp ?? $item->product->sku ?? '-' }}</td>
+                        <td>{{ $item->product->name }}</td>
+                        <td>{{ $item->product->unit->symbol ?? $item->product->unit->name ?? '-' }}</td>
+                        <td class="text-right">{{ number_format($item->quantity) }}</td>
+                        <td>
+                            @if($isMaterialUsage)
+                                {{ $item->saleItemBatches->pluck('batch.batch_number')->filter()->implode(', ') ?: '-' }}
+                                <div class="muted">
+                                    {{ $item->saleItemBatches->map(fn($allocation) => $allocation->batch?->expiry_date?->format('d/m/Y') ?? 'No expiry')->implode(', ') ?: 'No expiry' }}
+                                </div>
+                            @else
+                                {{ format_money($item->unit_price) }}
+                            @endif
+                        </td>
+                        <td class="text-right">
+                            @if($isMaterialUsage)
+                                {{ format_money($item->total_cost) }}
+                            @else
+                                {{ $item->discount > 0 ? format_money($item->discount) : '-' }}
+                            @endif
+                        </td>
+                        <td class="text-right">
+                            {{ $isMaterialUsage ? number_format($item->saleItemBatches->sum('quantity')) : format_money($item->subtotal) }}
+                        </td>
+                    </tr>
                 @endforeach
-
-                {{-- Fill empty rows to maintain size --}}
-                @for($i = 0; $i < max(0, 8 - count($sale->items)); $i++)
-                <tr>
-                    <td>&nbsp;</td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                </tr>
-                @endfor
             </tbody>
         </table>
 
-        <!-- Footer -->
+        @unless($isMaterialUsage)
+            <table class="totals">
+                <tr>
+                    <td>Subtotal</td>
+                    <td class="text-right">{{ format_money($sale->subtotal) }}</td>
+                </tr>
+                <tr>
+                    <td>Total Discount</td>
+                    <td class="text-right">{{ format_money($sale->total_discount) }}</td>
+                </tr>
+                <tr class="total">
+                    <td>Total</td>
+                    <td class="text-right">{{ format_money($sale->total) }}</td>
+                </tr>
+                <tr>
+                    <td>Cash Received</td>
+                    <td class="text-right">{{ format_money($sale->cash_received) }}</td>
+                </tr>
+                <tr>
+                    <td>Change</td>
+                    <td class="text-right">{{ format_money($sale->change) }}</td>
+                </tr>
+            </table>
+        @endunless
+
         <div class="footer">
-            <div class="footer-left">
-                <div>{{ $isMaterialUsage ? 'Requested / Received By' : 'Tanda Terima' }}</div>
-                <div class="signature-space"></div>
-                <div>( .................................... )</div>
-            </div>
-
-            <div class="footer-center">
-                <div class="disclaimer-box">
-                    {{ $isMaterialUsage ? 'Purpose: ' . ($sale->purpose ?? '-') . '. Formula: ' . ($sale->formula ?? '-') . '. Project: ' . ($sale->project ?? '-') : 'Mohon diperiksa bahwa barang dalam keadaan baik pada waktu diterima, barang yang sudah dibeli tidak dapat dikembalikan' }}
-                </div>
-            </div>
-
-            <div class="footer-right">
-                @if(!$isMaterialUsage)
-                <div class="amount-row">
-                    <span class="amount-label">Subtotal</span>
-                    <span class="amount-value">@money($sale->total + $sale->global_discount)</span>
-                </div>
-                @if($sale->global_discount > 0)
-                <div class="amount-row">
-                    <span class="amount-label">Diskon Extra</span>
-                    <span class="amount-value">- @money($sale->global_discount)</span>
-                </div>
-                @endif
-                <div class="amount-row">
-                    <span class="amount-label">Total</span>
-                    <span class="amount-value">@money($sale->total)</span>
-                </div>
-                <div class="amount-row">
-                    <span class="amount-label">Uang Diterima</span>
-                    <span class="amount-value">@money($sale->cash_received)</span>
-                </div>
-                <div class="amount-row">
-                    <span class="amount-label">Kembalian</span>
-                    <span class="amount-value">@money($sale->change)</span>
-                </div>
+            <div>
+                @if($isMaterialUsage)
+                    <p><strong>Requested By:</strong> {{ $sale->requested_by ?? '-' }}</p>
+                    <p><strong>Project:</strong> {{ $sale->project ?? '-' }}</p>
                 @else
-                <div class="amount-row">
-                    <span class="amount-label">Issued By</span>
-                    <span class="amount-value">{{ $sale->issuer->name ?? $sale->creator->name ?? '-' }}</span>
-                </div>
-                <div class="amount-row">
-                    <span class="amount-label">Requested By</span>
-                    <span class="amount-value">{{ $sale->requested_by ?? '-' }}</span>
-                </div>
-                <div class="amount-row">
-                    <span class="amount-label">Project</span>
-                    <span class="amount-value">{{ $sale->project ?? '-' }}</span>
-                </div>
+                    <p><strong>Customer:</strong> {{ $sale->customer->name ?? 'Guest' }}</p>
+                    <p><strong>Payment:</strong> {{ strtoupper($sale->payment_method->value) }}</p>
                 @endif
+            </div>
+            <div class="signature">
+                {{ $isMaterialUsage ? 'Issued By' : 'Authorized Signature' }}
             </div>
         </div>
     </div>
-
 </body>
 </html>
