@@ -165,11 +165,12 @@
         <table>
             <thead>
                 <tr>
-                    <th style="width: 16%">Item Code</th>
-                    <th style="width: 28%">{{ $isMaterialUsage ? 'Raw Material' : 'Product' }}</th>
+                    <th style="width: 12%">SKU</th>
+                    <th style="width: 16%">Item Code IERP</th>
+                    <th style="width: 24%">{{ $isMaterialUsage ? 'Raw Material' : 'Product' }}</th>
                     <th style="width: 10%">Unit</th>
                     <th style="width: 10%" class="text-right">Qty</th>
-                    <th style="width: 16%">{{ $isMaterialUsage ? 'Batch / Expiry' : 'Unit Price' }}</th>
+                    <th style="width: 18%">{{ $isMaterialUsage ? 'Batch / Expiry' : 'Unit Price' }}</th>
                     <th style="width: 10%" class="text-right">{{ $isMaterialUsage ? 'Cost' : 'Discount' }}</th>
                     <th style="width: 10%" class="text-right">{{ $isMaterialUsage ? 'Allocated Qty' : 'Line Total' }}</th>
                 </tr>
@@ -177,7 +178,8 @@
             <tbody>
                 @foreach($sale->items as $item)
                     <tr>
-                        <td>{{ $item->product->item_code_ierp ?? $item->product->sku ?? '-' }}</td>
+                        <td>{{ $item->product->sku_display }}</td>
+                        <td>{{ $item->product->item_code_ierp_display }}</td>
                         <td>{{ $item->product->name }}</td>
                         <td>{{ $item->product->unit->symbol ?? $item->product->unit->name ?? '-' }}</td>
                         <td class="text-right">{{ number_format($item->quantity) }}</td>

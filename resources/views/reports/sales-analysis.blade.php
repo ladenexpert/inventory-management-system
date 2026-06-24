@@ -1,8 +1,14 @@
 <x-app-layout title="Sales Analysis">
     <x-slot name="header">
-        <div>
-            <h2 class="font-semibold text-xl text-foreground leading-tight">Sales Analysis</h2>
-            <p class="mt-1 text-sm text-muted-foreground">Commercial sales performance for the last 30 days.</p>
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+                <h2 class="font-semibold text-xl text-foreground leading-tight">Sales Analysis</h2>
+                <p class="mt-1 text-sm text-muted-foreground">Commercial sales performance for the last 30 days.</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <x-secondary-button :href="route('reports.sales-analysis.export', ['format' => 'xlsx'])">Export XLSX</x-secondary-button>
+                <x-secondary-button :href="route('reports.sales-analysis.export', ['format' => 'csv'])">Export CSV</x-secondary-button>
+            </div>
         </div>
     </x-slot>
 
@@ -52,7 +58,7 @@
                             <div class="flex items-center justify-between gap-3">
                                 <div>
                                     <p class="text-sm font-medium">{{ $material['product_name'] }}</p>
-                                    <p class="text-xs text-muted-foreground">{{ $material['sku'] }}</p>
+                                    <p class="text-xs text-muted-foreground">{{ $material['item_code'] }}</p>
                                 </div>
                                 <span class="rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">{{ number_format($material['total_quantity']) }}</span>
                             </div>

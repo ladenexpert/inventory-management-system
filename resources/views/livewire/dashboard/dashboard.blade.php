@@ -93,6 +93,7 @@
                         <div class="flex items-start justify-between gap-3">
                             <div>
                                 <p class="text-sm font-medium">{{ $batch['product_name'] }}</p>
+                                <p class="text-xs text-muted-foreground">{{ $batch['item_code'] }}</p>
                                 <p class="text-xs text-muted-foreground">{{ $batch['batch_number'] }} | {{ $batch['expiry_date'] }}</p>
                                 <p class="text-xs text-muted-foreground">{{ $batch['storage_location'] }}</p>
                             </div>
@@ -116,6 +117,7 @@
                     @forelse($recentUsage as $usage)
                         <div>
                             <p class="text-sm font-medium">{{ $usage['usage_number'] }}</p>
+                            <p class="text-xs text-muted-foreground">{{ $usage['item_codes'] ?: '-' }}</p>
                             <p class="text-xs text-muted-foreground">{{ $usage['purpose'] }} | Qty {{ $usage['total_qty'] }}</p>
                         </div>
                     @empty
@@ -133,7 +135,7 @@
                         <div class="flex items-center justify-between gap-3">
                             <div>
                                 <p class="text-sm font-medium">{{ $material['product_name'] }}</p>
-                                <p class="text-xs text-muted-foreground">{{ $material['sku'] }}</p>
+                                <p class="text-xs text-muted-foreground">{{ $material['item_code'] }}</p>
                             </div>
                             <span class="rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">{{ number_format($material['total_quantity']) }}</span>
                         </div>
@@ -152,6 +154,7 @@
                         <div class="flex items-center justify-between gap-3">
                             <div>
                                 <p class="text-sm font-medium">{{ $risk['product_name'] }}</p>
+                                <p class="text-xs text-muted-foreground">{{ $risk['item_code'] }}</p>
                                 <p class="text-xs text-muted-foreground">{{ $risk['nearest_expiry_date'] }}</p>
                             </div>
                             <span class="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">{{ number_format($risk['at_risk_quantity']) }}</span>
@@ -171,7 +174,7 @@
                         <div class="flex items-center justify-between gap-3">
                             <div>
                                 <p class="text-sm font-medium">{{ $product['name'] }}</p>
-                                <p class="text-xs text-muted-foreground">{{ $product['sku'] ?? '-' }}</p>
+                                <p class="text-xs text-muted-foreground">{{ $product['item_code'] ?? '-' }}</p>
                             </div>
                             <span class="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold">{{ $product['quantity'] }}/{{ $product['min_stock'] }}</span>
                         </div>
@@ -218,7 +221,7 @@
                         <div class="flex items-center justify-between gap-3">
                             <div>
                                 <p class="text-sm font-medium">{{ $material['product_name'] }}</p>
-                                <p class="text-xs text-muted-foreground">{{ $material['sku'] }}</p>
+                                <p class="text-xs text-muted-foreground">{{ $material['item_code'] }}</p>
                             </div>
                             <span class="rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">{{ number_format($material['total_quantity']) }}</span>
                         </div>
@@ -235,7 +238,7 @@
                         <div class="flex items-center justify-between gap-3">
                             <div>
                                 <p class="text-sm font-medium">{{ $material['product_name'] }}</p>
-                                <p class="text-xs text-muted-foreground">{{ $material['sku'] }}</p>
+                                <p class="text-xs text-muted-foreground">{{ $material['item_code'] }}</p>
                             </div>
                             <span class="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">{{ number_format($material['total_quantity']) }}</span>
                         </div>
@@ -252,7 +255,7 @@
                         <div class="flex items-center justify-between gap-3">
                             <div>
                                 <p class="text-sm font-medium">{{ $material['product_name'] }}</p>
-                                <p class="text-xs text-muted-foreground">{{ $material['sku'] }}</p>
+                                <p class="text-xs text-muted-foreground">{{ $material['item_code'] }}</p>
                             </div>
                             <span class="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold">{{ number_format($material['quantity']) }}</span>
                         </div>

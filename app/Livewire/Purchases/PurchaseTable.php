@@ -66,9 +66,18 @@ final class PurchaseTable extends PowerGridComponent
             ->add('id')
             ->add('invoice_number', fn(Purchase $model) => $model->invoice_number ?: '<span class="italic text-gray-400">-</span>')
             ->add('supplier_name', fn(Purchase $model) => $model->supplier ? $model->supplier->name : '-')
+            ->add('sku_list', function (Purchase $model) {
+                $skus = $model->items
+                    ->map(fn($item) => $item->product?->sku_display)
+                    ->filter()
+                    ->unique()
+                    ->values();
+
+                return $skus->isNotEmpty() ? $skus->implode(', ') : '-';
+            })
             ->add('item_codes', function (Purchase $model) {
                 $codes = $model->items
-                    ->map(fn($item) => $item->product?->item_code_ierp ?: ($item->product?->sku ?: null))
+                    ->map(fn($item) => $item->product?->item_code_ierp_display)
                     ->filter()
                     ->unique()
                     ->values();
@@ -108,6 +117,8 @@ final class PurchaseTable extends PowerGridComponent
             Column::make('Supplier', 'supplier_name', 'supplier_id')
                 ->searchable()
                 ->sortable(),
+
+            Column::make('SKU', 'sku_list'),
 
             Column::make('Item Code IERP', 'item_codes'),
 

@@ -145,6 +145,38 @@ Rules confirmed:
 - Legacy Purchase: finance expense only on `paid`.
 - Legacy Sales / POS: finance income only on `completed`.
 
+## Visibility Consistency Rule
+
+- The `Finance` navigation group is shown only when `module_finance_enabled` is on and the signed-in user is an allowed admin role.
+- In the current RNI UAT role model, that means `admin_rni` can see Finance and `formulator` cannot.
+- Finance transaction validation now exposes `Date`, `Type`, `Category`, `Source`, `Reference`, `Related Document`, `Amount`, and `Created By` directly in the finance list.
+
+## Refresh Rule
+
+- Dashboard and analytics caches are versioned and invalidated immediately after stock or finance mutations.
+- Cache invalidation is triggered after:
+  - material receipt confirmation
+  - legacy purchase receipt
+  - material usage issue
+  - legacy sale / POS completion
+  - sale / usage cancellation or restore
+  - legacy purchase mark-paid
+  - finance transaction create, update, delete, or void
+
+## Item Code IERP Rule
+
+- UI label: `Item Code IERP`
+- Export header: `Item Code IERP`
+- `Item Code IERP` is the nullable legacy IERP code stored in `products.item_code_ierp`.
+- `SKU` remains the internal RMP code and is displayed separately where the screen or export shows both identifiers.
+- If `item_code_ierp` is empty, show `-`.
+
+## Compact Navigation Rule
+
+- The compact top navigation groups the app into `Dashboard`, `Operations`, `Master Data`, `Reports`, and `Administration`.
+- Finance remains accessible through the `Reports` dropdown when `module_finance_enabled` is on and the signed-in user can access finance.
+- Legacy routes and role/module guards remain unchanged; only the menu grouping is compacted.
+
 ## View / Regression Coverage Added
 
 - Added route render coverage for Material Receipt, Legacy Purchase, Material Usage, and Legacy Sales pages in `tests/Feature/TransactionViewRenderTest.php`.

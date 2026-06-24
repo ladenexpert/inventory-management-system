@@ -1,8 +1,14 @@
 <x-app-layout title="Purchase Analysis">
     <x-slot name="header">
-        <div>
-            <h2 class="font-semibold text-xl text-foreground leading-tight">Purchase Analysis</h2>
-            <p class="mt-1 text-sm text-muted-foreground">Inbound and supplier spend visibility for the last 30 days.</p>
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+                <h2 class="font-semibold text-xl text-foreground leading-tight">Purchase Analysis</h2>
+                <p class="mt-1 text-sm text-muted-foreground">Inbound and supplier spend visibility for the last 30 days.</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <x-secondary-button :href="route('reports.purchase-analysis.export', ['format' => 'xlsx'])">Export XLSX</x-secondary-button>
+                <x-secondary-button :href="route('reports.purchase-analysis.export', ['format' => 'csv'])">Export CSV</x-secondary-button>
+            </div>
         </div>
     </x-slot>
 

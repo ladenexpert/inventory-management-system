@@ -119,6 +119,7 @@
                         <table class="w-full text-sm text-left">
                             <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                                 <tr>
+                                    <th class="px-6 py-3">SKU</th>
                                     <th class="px-6 py-3">Item Code IERP</th>
                                     <th class="px-6 py-3">{{ $isMaterialReceipt ? 'Raw Material' : 'Product' }}</th>
                                     <th class="px-6 py-3">Batch No</th>
@@ -135,7 +136,10 @@
                                 @foreach($purchase->items as $item)
                                     <tr class="bg-white hover:bg-gray-50">
                                         <td class="px-6 py-4 text-sm text-gray-500">
-                                            {{ $item->product?->item_code_ierp ?? $item->product?->sku ?? '-' }}
+                                            {{ $item->product?->sku_display ?? '-' }}
+                                        </td>
+                                        <td class="px-6 py-4 text-sm text-gray-500">
+                                            {{ $item->product?->item_code_ierp_display ?? '-' }}
                                         </td>
                                         <td class="px-6 py-4 font-medium text-gray-900">
                                             {{ $item->product?->name ?? '-' }}
@@ -169,7 +173,7 @@
                             </tbody>
                             <tfoot class="bg-gray-50 font-bold">
                                 <tr>
-                                    <td colspan="9" class="px-6 py-4 text-right">{{ $amountLabel }}</td>
+                                    <td colspan="10" class="px-6 py-4 text-right">{{ $amountLabel }}</td>
                                     <td class="px-6 py-4 text-right text-indigo-600 text-lg">
                                         @money($purchase->total)
                                     </td>

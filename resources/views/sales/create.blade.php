@@ -15,7 +15,7 @@
                 <div class="relative z-20 mb-2">
                     <select
                         x-ref="productSelect"
-                        placeholder="Search Products (Name or SKU) [F1]..."
+                        placeholder="Search Products (Name, SKU, or IERP Code) [F1]..."
                         autocomplete="off"
                     ></select>
                 </div>
@@ -532,7 +532,7 @@
                                 this.cart.push({
                                     id: product.id,
                                     name: product.name,
-                                    item_code_ierp: product.item_code_ierp || '',
+                                    item_code_ierp: product.item_code_ierp || '-',
                                     sku: product.sku,
                                     price: product.selling_price,
                                     quantity: 1,
@@ -773,7 +773,7 @@
                                 notes: this.payment.notes,
                                 global_discount: this.globalDiscount,
                                 status: this.saleStatus,
-                                sale_date: new Date().toISOString().slice(0, 10),
+                                sale_date: @js(now()->format('Y-m-d')),
                                 _token: '{{ csrf_token() }}'
                             };
 

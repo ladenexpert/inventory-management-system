@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div>
             <h2 class="font-semibold text-xl text-foreground leading-tight">{{ __('Usage History Report') }}</h2>
-            <p class="text-sm text-muted-foreground mt-1">Export date, RM, batch, quantity, purpose, formula, project, and issuer details.</p>
+            <p class="text-sm text-muted-foreground mt-1">Export date, SKU, Item Code IERP, material name, batch, quantity, purpose, formula, project, and issuer details.</p>
         </div>
     </x-slot>
 

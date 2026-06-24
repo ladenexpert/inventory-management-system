@@ -41,7 +41,7 @@ final class ExpiryReportTable extends PowerGridComponent
     public function datasource(): Builder
     {
         return Batch::query()
-            ->with('product')
+            ->with('product.unit')
             ->whereNotNull('expiry_date');
     }
 
@@ -51,10 +51,14 @@ final class ExpiryReportTable extends PowerGridComponent
 
         return PowerGrid::fields()
             ->add('id')
-            ->add('rm_name', fn (Batch $model) => $model->product?->name ?? '-')
+            ->add('sku', fn (Batch $model) => $model->product?->sku_display ?? '-')
+            ->add('item_code_ierp', fn (Batch $model) => $model->product?->item_code_ierp_display ?? '-')
+            ->add('material_name', fn (Batch $model) => $model->product?->name ?? '-')
             ->add('batch_number')
             ->add('quantity', fn (Batch $model) => (int) $model->available_quantity)
+            ->add('unit', fn (Batch $model) => $model->product?->unit?->symbol ?? $model->product?->unit?->name ?? '-')
             ->add('expiry', fn (Batch $model) => $model->expiry_date?->format('d/m/Y') ?? '-')
+            ->add('storage_location', fn (Batch $model) => $model->resolved_storage_location)
             ->add('status', fn (Batch $model) => $policy->getStatus($model)->label())
             ->add('status_value', fn (Batch $model) => $policy->getStatus($model)->value)
             ->add('days_remaining', function (Batch $model) {
@@ -72,9 +76,13 @@ final class ExpiryReportTable extends PowerGridComponent
     public function columns(): array
     {
         return [
-            Column::make('RM', 'rm_name')->searchable()->sortable(),
+            Column::make('SKU', 'sku')->searchable()->sortable(),
+            Column::make('Item Code IERP', 'item_code_ierp')->searchable()->sortable(),
+            Column::make('Material / Product Name', 'material_name')->searchable()->sortable(),
             Column::make('Batch', 'batch_number')->searchable()->sortable(),
             Column::make('Qty', 'quantity', 'available_quantity')->sortable()->bodyAttribute('text-center'),
+            Column::make('Unit', 'unit'),
+            Column::make('Storage Location', 'storage_location')->searchable()->sortable(),
             Column::make('Expiry', 'expiry', 'expiry_date')->sortable(),
             Column::make('Status', 'status')->sortable(),
             Column::make('Days Remaining', 'days_remaining_label', 'days_remaining')->sortable(),

@@ -127,6 +127,7 @@
                         <table class="w-full text-sm text-left">
                             <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                                 <tr>
+                                    <th class="px-6 py-3">SKU</th>
                                     <th class="px-6 py-3">Item Code IERP</th>
                                     <th class="px-6 py-3">Product</th>
                                     <th class="px-6 py-3">Batch Allocation</th>
@@ -141,7 +142,10 @@
                                 @foreach($sale->items as $item)
                                     <tr class="bg-white hover:bg-gray-50">
                                         <td class="px-6 py-4 text-sm text-gray-500">
-                                            {{ $item->product->item_code_ierp ?? $item->product->sku ?? '-' }}
+                                            {{ $item->product->sku_display }}
+                                        </td>
+                                        <td class="px-6 py-4 text-sm text-gray-500">
+                                            {{ $item->product->item_code_ierp_display }}
                                         </td>
                                         <td class="px-6 py-4 font-medium text-gray-900">
                                             {{ $item->product->name }}
@@ -185,21 +189,21 @@
                             <tfoot class="bg-gray-50 font-bold">
                                 @if($isMaterialUsage)
                                     <tr>
-                                        <td colspan="7" class="px-6 py-4 text-right">Total Issued Cost</td>
+                                        <td colspan="8" class="px-6 py-4 text-right">Total Issued Cost</td>
                                         <td class="px-6 py-4 text-right text-indigo-600 text-lg">
                                             @money($sale->items->sum('total_cost'))
                                         </td>
                                     </tr>
                                 @else
                                     <tr>
-                                        <td colspan="7" class="px-6 py-4 text-right">Subtotal</td>
+                                        <td colspan="8" class="px-6 py-4 text-right">Subtotal</td>
                                         <td class="px-6 py-4 text-right text-gray-700">
                                             @money($sale->subtotal)
                                         </td>
                                     </tr>
                                     @if($sale->total_discount > 0)
                                         <tr>
-                                            <td colspan="7" class="px-6 py-4 text-right text-red-600">Total Discount (Items)</td>
+                                            <td colspan="8" class="px-6 py-4 text-right text-red-600">Total Discount (Items)</td>
                                             <td class="px-6 py-4 text-right text-red-600">
                                                 - @money($sale->total_discount - $sale->global_discount)
                                             </td>
@@ -207,26 +211,26 @@
                                     @endif
                                     @if($sale->global_discount > 0)
                                         <tr>
-                                            <td colspan="7" class="px-6 py-4 text-right text-red-600">Global Discount (Transaction)</td>
+                                            <td colspan="8" class="px-6 py-4 text-right text-red-600">Global Discount (Transaction)</td>
                                             <td class="px-6 py-4 text-right text-red-600">
                                                 - @money($sale->global_discount)
                                             </td>
                                         </tr>
                                     @endif
                                     <tr>
-                                        <td colspan="7" class="px-6 py-4 text-right">Total</td>
+                                        <td colspan="8" class="px-6 py-4 text-right">Total</td>
                                         <td class="px-6 py-4 text-right text-indigo-600 text-lg">
                                             @money($sale->total)
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td colspan="7" class="px-6 py-4 text-right text-gray-600">Cash Received</td>
+                                        <td colspan="8" class="px-6 py-4 text-right text-gray-600">Cash Received</td>
                                         <td class="px-6 py-4 text-right text-gray-800">
                                             @money($sale->cash_received)
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td colspan="7" class="px-6 py-4 text-right text-gray-600">Change</td>
+                                        <td colspan="8" class="px-6 py-4 text-right text-gray-600">Change</td>
                                         <td class="px-6 py-4 text-right text-green-600">
                                             @money($sale->change)
                                         </td>

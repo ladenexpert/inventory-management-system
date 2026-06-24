@@ -31,7 +31,8 @@ Inventory ledger, batch allocation, FEFO behavior, and zero-cost batch handling 
 - inventory views
 - reports
 - dashboard
-- business insights not shown
+- finance
+- business insights
 - user and settings management
 
 ### Formulator
@@ -177,8 +178,8 @@ Menu path:
 
 Columns:
 
-- RM
-- RM Code
+- Item Code IERP
+- Material / Product Name
 - Batch
 - Unit
 - Physical Form
@@ -196,10 +197,13 @@ Columns:
 - Date & Time
 - User
 - Transaction Type
-- RM Name
-- RM Code
+- Material / Product Name
+- Item Code IERP
 - Lot Number
+- Expiry Date
+- Storage Location
 - Quantity
+- Unit
 - Remaining Stock
 - Reference
 - Notes
@@ -218,9 +222,13 @@ Filters:
 Columns:
 
 - Date
-- RM
+- Item Code IERP
+- Material / Product Name
 - Batch
+- Expiry Date
+- Storage Location
 - Qty
+- Unit
 - Purpose
 - Formula
 - Project
@@ -230,9 +238,12 @@ Columns:
 
 Columns:
 
-- RM
+- Item Code IERP
+- Material / Product Name
 - Batch
 - Qty
+- Unit
+- Storage Location
 - Expiry
 - Status
 - Days Remaining
@@ -277,3 +288,21 @@ Focus:
 - top customers
 
 Use `Dashboard` -> `RNI Operations` for operational monitoring and `Dashboard` -> `Business Insights` for management review.
+
+## Immediate Validation Behavior
+
+- After confirming a material receipt or legacy purchase receipt, inventory and movement views reflect the change immediately.
+- After issuing material usage, usage analysis and RNI dashboard usage metrics reflect the change immediately.
+- After marking a legacy purchase as paid, Finance reflects the expense immediately.
+- After completing a legacy sale / POS transaction, Finance and Sales Analysis reflect the income immediately.
+
+## Item Code IERP
+
+- `Item Code IERP` is shown across transaction lists, inventory lists, report screens, and exports.
+- `Item Code IERP` is the optional legacy IERP code, separate from the internal `SKU` / RMP code.
+- If `item_code_ierp` is empty, the system shows `-`.
+
+## Navigation
+
+- The compact top navigation uses `Dashboard`, `Operations`, `Master Data`, `Reports`, and `Administration`.
+- Finance remains available inside `Reports` for finance-enabled admin users such as `admin_rni`.

@@ -93,4 +93,14 @@ class Product extends Model
     {
         return self::PHYSICAL_FORM_OPTIONS[$this->physical_form] ?? '-';
     }
+
+    public function getSkuDisplayAttribute(): string
+    {
+        return $this->sku ?: '-';
+    }
+
+    public function getItemCodeIerpDisplayAttribute(): string
+    {
+        return $this->item_code_ierp ?: '-';
+    }
 }

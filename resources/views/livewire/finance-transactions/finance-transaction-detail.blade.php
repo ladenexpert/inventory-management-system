@@ -52,16 +52,28 @@
                     </div>
 
                     <div class="space-y-1">
-                        <label class="text-sm font-medium leading-none text-muted-foreground">{{ __('External Reference') }}</label>
-                        <p class="text-sm text-foreground font-medium font-mono">{{ $transaction->external_reference ?? '-' }}</p>
+                        <label class="text-sm font-medium leading-none text-muted-foreground">{{ __('Source') }}</label>
+                        <p class="text-sm text-foreground font-medium">{{ $transaction->source_label }}</p>
                     </div>
                 </div>
 
                 <!-- Row 4 -->
                 <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <div class="space-y-1">
+                        <label class="text-sm font-medium leading-none text-muted-foreground">{{ __('Reference') }}</label>
+                        <p class="text-sm text-foreground font-medium font-mono">{{ $transaction->reference_number }}</p>
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-sm font-medium leading-none text-muted-foreground">{{ __('Related Document') }}</label>
+                        <p class="text-sm text-foreground font-medium">{{ $transaction->related_document_label }}</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div class="space-y-1">
                         <label class="text-sm font-medium leading-none text-muted-foreground">{{ __('Created By') }}</label>
-                        <p class="text-sm text-foreground font-medium">{{ $transaction->creator->name }}</p>
+                        <p class="text-sm text-foreground font-medium">{{ $transaction->creator?->name ?? '-' }}</p>
                     </div>
                 </div>
 

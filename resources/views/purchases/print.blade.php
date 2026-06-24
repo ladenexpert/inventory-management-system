@@ -154,7 +154,8 @@
                         <td>{{ $purchase->invoice_number ?: 'PUR-' . $purchase->id }}</td>
                         <td>
                             <strong>{{ $item->product->name }}</strong>
-                            <div>{{ $item->product->item_code_ierp ?? $item->product->sku ?? '-' }}</div>
+                            <div>SKU: {{ $item->product->sku_display }}</div>
+                            <div>Item Code IERP: {{ $item->product->item_code_ierp_display }}</div>
                             <div>Batch: {{ $item->batch?->batch_number ?? $item->batch_number ?? '-' }}</div>
                         </td>
                         <td>{{ number_format($item->quantity) }} {{ $item->product->unit->symbol ?? $item->product->unit->name ?? '' }}</td>

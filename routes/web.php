@@ -120,7 +120,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware(['role:admin_rni', 'module:reports'])->prefix('reports')->name('reports.')->group(function () {
         Route::get('purchase-analysis', [ReportAnalyticsController::class, 'purchaseAnalysis'])->name('purchase-analysis');
+        Route::get('purchase-analysis/export/{format}', [ReportAnalyticsController::class, 'exportPurchaseAnalysis'])->name('purchase-analysis.export');
         Route::get('sales-analysis', [ReportAnalyticsController::class, 'salesAnalysis'])->name('sales-analysis');
+        Route::get('sales-analysis/export/{format}', [ReportAnalyticsController::class, 'exportSalesAnalysis'])->name('sales-analysis.export');
     });
 
     // =========================================================================

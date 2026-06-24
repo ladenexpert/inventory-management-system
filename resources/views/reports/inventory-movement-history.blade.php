@@ -41,13 +41,13 @@
                     </div>
 
                     <div class="space-y-2">
-                        <x-input-label for="rm_code" :value="__('RM Code')" />
-                        <x-text-input id="rm_code" name="rm_code" type="text" :value="$filters['rm_code'] ?? ''" class="block w-full" placeholder="IERP / SKU" />
+                        <x-input-label for="rm_code" :value="__('Item Code IERP / SKU')" />
+                        <x-text-input id="rm_code" name="rm_code" type="text" :value="$filters['rm_code'] ?? ''" class="block w-full" placeholder="Search IERP code or SKU" />
                     </div>
 
                     <div class="space-y-2">
-                        <x-input-label for="rm_name" :value="__('RM Name')" />
-                        <x-text-input id="rm_name" name="rm_name" type="text" :value="$filters['rm_name'] ?? ''" class="block w-full" placeholder="Raw material name" />
+                        <x-input-label for="rm_name" :value="__('Material / Product Name')" />
+                        <x-text-input id="rm_name" name="rm_name" type="text" :value="$filters['rm_name'] ?? ''" class="block w-full" placeholder="Material or product name" />
                     </div>
 
                     <div class="space-y-2">
@@ -81,10 +81,14 @@
                                 <th class="px-4 py-3 text-left font-medium text-gray-500">Date & Time</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500">User</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500">Transaction Type</th>
-                                <th class="px-4 py-3 text-left font-medium text-gray-500">RM Name</th>
-                                <th class="px-4 py-3 text-left font-medium text-gray-500">RM Code</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500">Material / Product Name</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500">SKU</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500">Item Code IERP</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500">Lot Number</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500">Expiry Date</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500">Storage Location</th>
                                 <th class="px-4 py-3 text-right font-medium text-gray-500">Quantity</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500">Unit</th>
                                 <th class="px-4 py-3 text-right font-medium text-gray-500">Remaining Stock</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500">Reference</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500">Notes</th>
@@ -96,17 +100,21 @@
                                     <td class="px-4 py-3 text-gray-700">{{ $row['date_time'] }}</td>
                                     <td class="px-4 py-3 text-gray-700">{{ $row['user'] }}</td>
                                     <td class="px-4 py-3 text-gray-700">{{ $row['transaction_type'] }}</td>
-                                    <td class="px-4 py-3 font-medium text-gray-900">{{ $row['rm_name'] }}</td>
-                                    <td class="px-4 py-3 text-gray-700">{{ $row['rm_code'] }}</td>
+                                    <td class="px-4 py-3 font-medium text-gray-900">{{ $row['material_name'] }}</td>
+                                    <td class="px-4 py-3 text-gray-700">{{ $row['sku'] }}</td>
+                                    <td class="px-4 py-3 text-gray-700">{{ $row['item_code_ierp'] }}</td>
                                     <td class="px-4 py-3 text-gray-700">{{ $row['lot_number'] }}</td>
+                                    <td class="px-4 py-3 text-gray-700">{{ $row['expiry_date'] }}</td>
+                                    <td class="px-4 py-3 text-gray-700">{{ $row['storage_location'] }}</td>
                                     <td class="px-4 py-3 text-right font-medium {{ $row['quantity'] < 0 ? 'text-red-600' : 'text-emerald-600' }}">{{ number_format($row['quantity']) }}</td>
+                                    <td class="px-4 py-3 text-gray-700">{{ $row['unit'] }}</td>
                                     <td class="px-4 py-3 text-right text-gray-700">{{ number_format($row['remaining_stock']) }}</td>
                                     <td class="px-4 py-3 text-gray-700">{{ $row['reference'] }}</td>
                                     <td class="px-4 py-3 text-gray-600">{{ $row['notes'] }}</td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="10" class="px-4 py-10 text-center text-gray-500">No inventory movement history found for the selected filters.</td>
+                                    <td colspan="14" class="px-4 py-10 text-center text-gray-500">No inventory movement history found for the selected filters.</td>
                                 </tr>
                             @endforelse
                         </tbody>

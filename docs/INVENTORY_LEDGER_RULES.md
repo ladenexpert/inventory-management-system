@@ -166,6 +166,19 @@ All stock-changing operations must use the shared product sync routine after bat
 
 This avoids drifting aggregate stock, recursive sync loops, and repeated aggregate queries inside a single transaction flow.
 
+## Dashboard And Report Refresh
+
+- Dashboard and report aggregates may be cached, but cached keys must be invalidated immediately after stock or finance mutations.
+- The cache invalidation point is the end of the stock mutation scope for inventory changes and the finance transaction service for finance changes.
+- This keeps:
+  - current inventory
+  - inventory movement history
+  - dashboard stock metrics
+  - purchase analysis
+  - sales analysis
+  - finance cash-flow metrics
+  immediately consistent after the source transaction is committed.
+
 ## Known Limitations
 
 - `products.quantity` still duplicates batch totals by design

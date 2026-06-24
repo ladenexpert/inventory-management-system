@@ -61,9 +61,18 @@ final class SalesTable extends PowerGridComponent
             ->add('id')
             ->add('invoice_number', fn(Sale $model) => $model->invoice_number ?: '-')
             ->add('customer_name', fn(Sale $model) => $model->customer ? $model->customer->name : 'Guest')
+            ->add('sku_list', function (Sale $model) {
+                $skus = $model->items
+                    ->map(fn($item) => $item->product?->sku_display)
+                    ->filter()
+                    ->unique()
+                    ->values();
+
+                return $skus->isNotEmpty() ? $skus->implode(', ') : '-';
+            })
             ->add('item_codes', function (Sale $model) {
                 $codes = $model->items
-                    ->map(fn($item) => $item->product?->item_code_ierp ?: ($item->product?->sku ?: null))
+                    ->map(fn($item) => $item->product?->item_code_ierp_display)
                     ->filter()
                     ->unique()
                     ->values();
@@ -103,6 +112,8 @@ final class SalesTable extends PowerGridComponent
             Column::make('Customer', 'customer_name', 'customer_id')
                 ->searchable()
                 ->sortable(),
+
+            Column::make('SKU', 'sku_list'),
 
             Column::make('Item Code IERP', 'item_codes'),
 

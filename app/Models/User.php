@@ -69,6 +69,16 @@ class User extends Authenticatable
         return $this->role === UserRole::ADMIN_RNI;
     }
 
+    public function canAccessFinance(): bool
+    {
+        return $this->isAdminRni();
+    }
+
+    public function canAccessAdministration(): bool
+    {
+        return $this->isAdminRni();
+    }
+
     public function isFormulator(): bool
     {
         return $this->role === UserRole::FORMULATOR;

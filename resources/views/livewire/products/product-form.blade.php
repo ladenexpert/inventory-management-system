@@ -32,14 +32,18 @@
                 @endif
 
                 <!-- Item Code IERP -->
-                <x-form-input
-                    name="item_code_ierp"
-                    label="Item Code IERP"
-                    placeholder="e.g. IERP-000123"
-                    type="text"
-                    wire:model="item_code_ierp"
-                    class="{{ !$isEditing ? 'col-span-2' : '' }}"
-                />
+                <div class="{{ !$isEditing ? 'md:col-span-2' : '' }}">
+                    <x-form-input
+                        name="item_code_ierp"
+                        label="Item Code IERP"
+                        placeholder="e.g. IERP-000123"
+                        type="text"
+                        wire:model="item_code_ierp"
+                    />
+                    <p class="mt-2 text-xs text-muted-foreground">
+                        Optional legacy IERP item code. Leave blank for RMP-only materials.
+                    </p>
+                </div>
             </div>
 
             <!-- Product Name -->

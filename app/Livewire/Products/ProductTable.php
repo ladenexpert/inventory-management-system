@@ -55,8 +55,8 @@ final class ProductTable extends PowerGridComponent
     {
         return PowerGrid::fields()
             ->add('id')
-            ->add('sku')
-            ->add('item_code_ierp')
+            ->add('sku', fn (Product $model) => $model->sku_display)
+            ->add('item_code_ierp', fn (Product $model) => $model->item_code_ierp_display)
             ->add('name')
             ->add('name_formatted', function (Product $model) {
                 return $model->is_active ? $model->name : '(DISCONTINUE) ' . $model->name;

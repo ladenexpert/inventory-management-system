@@ -223,7 +223,7 @@
                 return {
                     cart: [],
                     form: {
-                        usage_date: new Date().toISOString().slice(0, 10),
+                        usage_date: @js(now()->format('Y-m-d')),
                         purpose: '',
                         formula: '',
                         project: '',
@@ -339,7 +339,7 @@
                             id: product.id,
                             name: product.name,
                             sku: product.sku,
-                            item_code_ierp: product.item_code_ierp,
+                            item_code_ierp: product.item_code_ierp || '-',
                             unit: product.unit?.symbol || product.unit?.name || '-',
                             price: parseInt(product.price || 0),
                             max_stock: parseInt(product.quantity || 0),
@@ -524,7 +524,7 @@
                         this.cart = [];
                         this.clearErrors();
                         this.form = {
-                            usage_date: new Date().toISOString().slice(0, 10),
+                            usage_date: @js(now()->format('Y-m-d')),
                             purpose: '',
                             formula: '',
                             project: '',

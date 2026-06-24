@@ -2,8 +2,8 @@
 
 @php
 $classes = ($active ?? false)
-            ? 'group inline-flex h-10 w-max items-center justify-center rounded-md bg-muted px-4 py-2 text-sm font-medium transition-colors text-accent-foreground disabled:pointer-events-none disabled:opacity-50'
-            : 'group inline-flex h-10 w-max items-center justify-center rounded-md bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 data-[active]:bg-muted/50 data-[state=open]:bg-muted/50';
+            ? 'group inline-flex h-9 w-max items-center justify-center rounded-md bg-muted px-3 py-2 text-sm font-medium transition-colors text-accent-foreground disabled:pointer-events-none disabled:opacity-50'
+            : 'group inline-flex h-9 w-max items-center justify-center rounded-md bg-background px-3 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 data-[active]:bg-muted/50 data-[state=open]:bg-muted/50';
 @endphp
 
 <div class="relative" x-data="{ open: false }" @click.outside="open = false" @mouseleave="open = false">

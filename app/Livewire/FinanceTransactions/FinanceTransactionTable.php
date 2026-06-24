@@ -50,24 +50,24 @@ final class FinanceTransactionTable extends PowerGridComponent
     public function datasource(): Builder
     {
         return FinanceTransaction::query()
-            ->with(['category', 'creator']);
+            ->with(['category', 'creator', 'reference']);
     }
 
     public function fields(): PowerGridFields
     {
         return PowerGrid::fields()
+            ->add('id')
             ->add('code')
             ->add('transaction_date_formatted', fn (FinanceTransaction $model) => Carbon::parse($model->transaction_date)->format('d/m/Y'))
-            ->add('reference_display', function (FinanceTransaction $model) {
+            ->add('source_label', fn (FinanceTransaction $model) => $model->source_label)
+            ->add('reference_number', fn (FinanceTransaction $model) => $model->reference_number)
+            ->add('related_document', fn (FinanceTransaction $model) => $model->related_document_label)
+            ->add('source_reference_display', function (FinanceTransaction $model) {
                 $tag = $model->reference_type
                     ? '<span class="text-xs font-semibold px-2 py-0.5 rounded bg-blue-100 text-blue-800">Auto</span>'
                     : '<span class="text-xs font-semibold px-2 py-0.5 rounded bg-gray-100 text-gray-800">Manual</span>';
 
-                if (!empty($model->external_reference)) {
-                    return $tag . ' ' . $model->external_reference;
-                }
-
-                return $tag . ' ' . $model->code;
+                return $tag . ' ' . e($model->reference_number);
             })
             ->add('category_name', fn (FinanceTransaction $model) => $model->category->name)
             ->add('type_badge', function (FinanceTransaction $model) {
@@ -82,7 +82,7 @@ final class FinanceTransactionTable extends PowerGridComponent
 
                 return "<div class=\"text-right {$color} font-medium\">{$prefix} " . format_money($model->amount) . "</div>";
             })
-            ->add('creator_name', fn (FinanceTransaction $model) => $model->creator->name)
+            ->add('creator_name', fn (FinanceTransaction $model) => $model->creator?->name ?? '-')
             ->add('created_at')
             ->add('date_period', fn () => '');
     }
@@ -97,9 +97,15 @@ final class FinanceTransactionTable extends PowerGridComponent
             Column::make('Date', 'transaction_date_formatted', 'transaction_date')
                 ->sortable(),
 
-            Column::make('Reference', 'reference_display', 'code')
+            Column::make('Source', 'source_label')
+                ->sortable(false),
+
+            Column::make('Reference', 'source_reference_display', 'external_reference')
                 ->sortable()
                 ->searchable(),
+
+            Column::make('Related Document', 'related_document')
+                ->sortable(false),
 
             Column::make('Period', 'date_period')
                 ->hidden(),

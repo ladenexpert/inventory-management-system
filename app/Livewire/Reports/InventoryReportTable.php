@@ -49,8 +49,9 @@ final class InventoryReportTable extends PowerGridComponent
 
         return PowerGrid::fields()
             ->add('id')
-            ->add('rm_name', fn (Batch $model) => $model->product?->name ?? '-')
-            ->add('rm_code', fn (Batch $model) => $model->product?->item_code_ierp ?: ($model->product?->sku ?? '-'))
+            ->add('product_name', fn (Batch $model) => $model->product?->name ?? '-')
+            ->add('sku', fn (Batch $model) => $model->product?->sku_display ?? '-')
+            ->add('item_code_ierp', fn (Batch $model) => $model->product?->item_code_ierp_display ?? '-')
             ->add('batch_number')
             ->add('uom', fn (Batch $model) => $model->product?->unit?->symbol ?? $model->product?->unit?->name ?? '-')
             ->add('physical_form', fn (Batch $model) => $model->product?->physical_form_label ?? '-')
@@ -65,8 +66,9 @@ final class InventoryReportTable extends PowerGridComponent
     public function columns(): array
     {
         return [
-            Column::make('RM', 'rm_name')->searchable()->sortable(),
-            Column::make('RM Code', 'rm_code')->searchable()->sortable(),
+            Column::make('SKU', 'sku')->searchable()->sortable(),
+            Column::make('Item Code IERP', 'item_code_ierp')->searchable()->sortable(),
+            Column::make('Material / Product Name', 'product_name')->searchable()->sortable(),
             Column::make('Batch', 'batch_number')->searchable()->sortable(),
             Column::make('Unit', 'uom'),
             Column::make('Physical Form', 'physical_form')->searchable()->sortable(),

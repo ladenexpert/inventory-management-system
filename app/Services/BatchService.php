@@ -44,6 +44,7 @@ class BatchService
     public function __construct(
         protected BatchPolicyService $batchPolicyService,
         protected FefoService $fefoService,
+        protected DashboardCacheService $dashboardCache,
     ) {
     }
 
@@ -729,6 +730,8 @@ class BatchService
         foreach ($pendingInventoryLogs as $payload) {
             InventoryLog::create($payload);
         }
+
+        $this->dashboardCache->forgetDashboardData();
     }
 
     protected function resetDeferredStockMutations(): void

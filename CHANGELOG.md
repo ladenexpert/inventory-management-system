@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.4.4-item-code-semantics-and-compact-navigation
+
+- corrected `Item Code IERP` semantics so it now shows only the stored legacy IERP code or `-`, never a fallback from `SKU`
+- split product display helpers into explicit `sku_display` and `item_code_ierp_display` accessors to prevent identifier leakage across tables, dashboards, and exports
+- added separate `SKU` visibility to inventory, movement, usage, purchase, and sales list/report surfaces where both identifiers are needed
+- corrected purchase, sales, and inventory movement exports so `Item Code IERP` no longer inherits `SKU` when null
+- clarified product form guidance that `Item Code IERP` is optional and manually maintained
+- compacted the top navigation into `Dashboard`, `Operations`, `Master Data`, `Reports`, and `Administration` while preserving finance visibility for allowed admin users
+- updated regression coverage for compact navigation and non-fallback `Item Code IERP` behavior in lists, usage analysis fields, and exports
+
+## v0.4.3-finance-report-dashboard-visibility-fix
+
+- restored the top-level `Finance` navigation for finance-enabled admin users and kept it hidden for formulator and non-finance roles
+- standardized finance transaction visibility with explicit `Source`, `Reference`, and `Related Document` fields for purchase/sale validation
+- added dashboard/report cache version invalidation after stock and finance mutations so receipt, usage, sale, and payment results are visible immediately after commit
+- aligned the application timezone with `APP_TIMEZONE` and defaulted UAT date handling to `Asia/Jakarta`
+- tightened purchase and dashboard analytics to count received/paid inbound activity instead of draft or ordered documents
+- introduced `Item Code IERP` visibility across list screens, detail pages, dashboard cards, reports, and exports
+- expanded inventory movement, usage analysis, expiry report, sales analysis, and purchase analysis exports for consistent identity, batch, location, quantity, unit, and amount fields
+- added regression coverage for finance visibility, dashboard/report refresh consistency, finance posting visibility, and identifier consistency
+
 ## v0.3.4-rni-uat-round2-fix
 
 - fixed procurement material search so purchase and material receipt forms can find all active materials, including zero-stock and newly created records

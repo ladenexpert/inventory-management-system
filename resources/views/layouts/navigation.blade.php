@@ -11,7 +11,7 @@
             'href' => route('dashboard', ['view' => 'rni-operations']),
             'active' => request()->routeIs('dashboard') && request('view', 'rni-operations') !== 'business-insights',
         ];
-        if ($user->isAdminRni()) {
+        if ($user->canAccessAdministration()) {
             $dashboardItems[] = [
                 'label' => 'Business Insights',
                 'href' => route('dashboard', ['view' => 'business-insights']),
@@ -45,38 +45,34 @@
         $sections[] = ['label' => 'Master Data', 'icon' => 'master', 'items' => $masterDataItems];
     }
 
-    $inboundItems = [];
+    $operationsItems = [];
     if ($user->isAdminRni() && $modules['rni']) {
-        $inboundItems[] = ['label' => 'Material Receipt', 'href' => route('material-receipts.index'), 'active' => request()->routeIs('material-receipts.*')];
+        $operationsItems[] = ['label' => 'Material Receipt', 'href' => route('material-receipts.index'), 'active' => request()->routeIs('material-receipts.*')];
     }
     if ($user->isAdminRni() && $modules['purchases']) {
-        $inboundItems[] = ['label' => 'Legacy Purchases', 'href' => route('purchases.index'), 'active' => request()->routeIs('purchases.*')];
+        $operationsItems[] = ['label' => 'Legacy Purchases', 'href' => route('purchases.index'), 'active' => request()->routeIs('purchases.*')];
     }
-    if ($inboundItems !== []) {
-        $sections[] = ['label' => 'Inbound', 'icon' => 'inbound', 'items' => $inboundItems];
-    }
-
-    $outboundItems = [];
     if ($modules['rni']) {
-        $outboundItems[] = ['label' => 'Material Usage', 'href' => route('material-usages.index'), 'active' => request()->routeIs('material-usages.*')];
+        $operationsItems[] = ['label' => 'Material Usage', 'href' => route('material-usages.index'), 'active' => request()->routeIs('material-usages.*')];
     }
     if ($user->isAdminRni() && $modules['sales']) {
-        $outboundItems[] = ['label' => 'Legacy Sales', 'href' => route('sales.index'), 'active' => request()->routeIs('sales.*')];
+        $operationsItems[] = ['label' => 'Legacy Sales', 'href' => route('sales.index'), 'active' => request()->routeIs('sales.*')];
     }
-    if ($outboundItems !== []) {
-        $sections[] = ['label' => 'Outbound', 'icon' => 'outbound', 'items' => $outboundItems];
+    if ($modules['reports']) {
+        $operationsItems[] = ['label' => 'Current Inventory', 'href' => route('reports.inventory'), 'active' => request()->routeIs('reports.inventory')];
+        if ($modules['materials']) {
+            $operationsItems[] = ['label' => 'Batch Monitoring', 'href' => route('batches.index'), 'active' => request()->routeIs('batches.*')];
+        }
+        $operationsItems[] = ['label' => 'Inventory Movement History', 'href' => route('reports.inventory-movement-history'), 'active' => request()->routeIs('reports.inventory-movement-history*')];
+    }
+    if ($operationsItems !== []) {
+        $sections[] = ['label' => 'Operations', 'icon' => 'operations', 'items' => $operationsItems];
     }
 
-    $inventoryItems = [];
-    if ($modules['reports']) {
-        $inventoryItems[] = ['label' => 'Current Inventory', 'href' => route('reports.inventory'), 'active' => request()->routeIs('reports.inventory')];
-        if ($modules['materials']) {
-            $inventoryItems[] = ['label' => 'Batch Monitoring', 'href' => route('batches.index'), 'active' => request()->routeIs('batches.*')];
-        }
-        $inventoryItems[] = ['label' => 'Inventory Movement History', 'href' => route('reports.inventory-movement-history'), 'active' => request()->routeIs('reports.inventory-movement-history*')];
-    }
-    if ($inventoryItems !== []) {
-        $sections[] = ['label' => 'Inventory', 'icon' => 'inventory', 'items' => $inventoryItems];
+    $financeItems = [];
+    if ($modules['finance'] && $user->canAccessFinance()) {
+        $financeItems[] = ['label' => 'Transactions', 'href' => route('finance.transactions.index'), 'active' => request()->routeIs('finance.transactions.*')];
+        $financeItems[] = ['label' => 'Categories', 'href' => route('finance.categories.index'), 'active' => request()->routeIs('finance.categories.*')];
     }
 
     $reportItems = [];
@@ -84,21 +80,24 @@
         $reportItems[] = ['label' => 'Inventory Report', 'href' => route('reports.inventory'), 'active' => request()->routeIs('reports.inventory')];
         $reportItems[] = ['label' => 'Expiry Report', 'href' => route('reports.expiry'), 'active' => request()->routeIs('reports.expiry')];
         $reportItems[] = ['label' => 'Usage Analysis', 'href' => route('reports.usage-history'), 'active' => request()->routeIs('reports.usage-history')];
-        if ($user->isAdminRni()) {
+        if ($user->canAccessAdministration()) {
             $reportItems[] = ['label' => 'Purchase Analysis', 'href' => route('reports.purchase-analysis'), 'active' => request()->routeIs('reports.purchase-analysis')];
             $reportItems[] = ['label' => 'Sales Analysis', 'href' => route('reports.sales-analysis'), 'active' => request()->routeIs('reports.sales-analysis')];
         }
+    }
+    if ($financeItems !== []) {
+        $reportItems = array_merge($reportItems, $financeItems);
     }
     if ($reportItems !== []) {
         $sections[] = ['label' => 'Reports', 'icon' => 'reports', 'items' => $reportItems];
     }
 
     $administrationItems = [];
-    if ($user->isAdminRni() && $modules['users']) {
+    if ($user->canAccessAdministration() && $modules['users']) {
         $administrationItems[] = ['label' => 'Users', 'href' => route('users.index'), 'active' => request()->routeIs('users.*')];
         $administrationItems[] = ['label' => 'Roles', 'href' => route('roles.index'), 'active' => request()->routeIs('roles.*')];
     }
-    if ($user->isAdminRni()) {
+    if ($user->canAccessAdministration()) {
         $administrationItems[] = ['label' => 'Module Settings', 'href' => route('settings.index'), 'active' => request()->routeIs('settings.*')];
     }
     if ($administrationItems !== []) {
@@ -109,13 +108,13 @@
 <section class="border-b border-border bg-background py-4">
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8" x-data="{ mobileMenuOpen: false }">
         <nav class="hidden items-center justify-between lg:flex">
-            <div class="flex items-center gap-6">
+            <div class="flex items-center gap-4">
                 <a href="{{ route('dashboard') }}" class="flex items-center gap-2">
                     <x-application-logo class="h-8 w-8 fill-current text-foreground" />
                     <span class="text-md font-semibold tracking-tighter text-foreground">{{ config('app.name', 'Laravel') }}</span>
                 </a>
 
-                <div class="flex items-center gap-1">
+                <div class="flex items-center gap-0.5">
                     @foreach($sections as $section)
                         @php($isSectionActive = collect($section['items'])->contains(fn ($item) => $item['active']))
                         <x-nav-dropdown active="{{ $isSectionActive }}">
@@ -124,11 +123,7 @@
                                     <x-heroicon-o-squares-2x2 class="mr-2 h-4 w-4" />
                                 @elseif($section['icon'] === 'master')
                                     <x-heroicon-o-rectangle-stack class="mr-2 h-4 w-4" />
-                                @elseif($section['icon'] === 'inbound')
-                                    <x-heroicon-o-arrow-down-tray class="mr-2 h-4 w-4" />
-                                @elseif($section['icon'] === 'outbound')
-                                    <x-heroicon-o-arrow-up-tray class="mr-2 h-4 w-4" />
-                                @elseif($section['icon'] === 'inventory')
+                                @elseif($section['icon'] === 'operations')
                                     <x-heroicon-o-cube class="mr-2 h-4 w-4" />
                                 @elseif($section['icon'] === 'reports')
                                     <x-heroicon-o-document-chart-bar class="mr-2 h-4 w-4" />

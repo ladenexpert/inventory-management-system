@@ -3,6 +3,7 @@
 namespace App\Livewire\Reports;
 
 use App\Enums\SaleTransactionType;
+use App\Enums\SaleStatus;
 use App\Models\SaleItemBatch;
 use Illuminate\Database\Eloquent\Builder;
 use PowerComponents\LivewirePowerGrid\Button;
@@ -42,9 +43,11 @@ final class UsageHistoryTable extends PowerGridComponent
     public function datasource(): Builder
     {
         return SaleItemBatch::query()
-            ->with(['batch.product.unit', 'saleItem.product', 'saleItem.sale.creator', 'saleItem.sale.issuer'])
+            ->with(['batch.product.unit', 'saleItem.product.unit', 'saleItem.sale.creator', 'saleItem.sale.issuer'])
             ->whereHas('saleItem.sale', function (Builder $query) {
-                $query->where('transaction_type', SaleTransactionType::MATERIAL_USAGE->value);
+                $query
+                    ->where('transaction_type', SaleTransactionType::MATERIAL_USAGE->value)
+                    ->where('status', '!=', SaleStatus::CANCELLED->value);
 
                 if (auth()->user()?->isFormulator()) {
                     $query->where(function (Builder $nested) {
@@ -62,9 +65,14 @@ final class UsageHistoryTable extends PowerGridComponent
             ->add('id')
             ->add('usage_number', fn (SaleItemBatch $model) => $model->saleItem->sale->invoice_number ?? '-')
             ->add('usage_date', fn (SaleItemBatch $model) => optional($model->saleItem->sale->usage_date ?? $model->saleItem->sale->sale_date)->format('d/m/Y'))
-            ->add('rm_name', fn (SaleItemBatch $model) => $model->batch?->product?->name ?? $model->saleItem->product?->name ?? '-')
+            ->add('sku', fn (SaleItemBatch $model) => $model->batch?->product?->sku_display ?? $model->saleItem->product?->sku_display ?? '-')
+            ->add('item_code_ierp', fn (SaleItemBatch $model) => $model->batch?->product?->item_code_ierp_display ?? $model->saleItem->product?->item_code_ierp_display ?? '-')
+            ->add('material_name', fn (SaleItemBatch $model) => $model->batch?->product?->name ?? $model->saleItem->product?->name ?? '-')
             ->add('batch_number', fn (SaleItemBatch $model) => $model->batch?->batch_number ?? '-')
+            ->add('expiry_date', fn (SaleItemBatch $model) => $model->batch?->expiry_date?->format('d/m/Y') ?? '-')
+            ->add('storage_location', fn (SaleItemBatch $model) => $model->batch?->resolved_storage_location ?? '-')
             ->add('quantity')
+            ->add('unit', fn (SaleItemBatch $model) => $model->batch?->product?->unit?->symbol ?? $model->saleItem->product?->unit?->symbol ?? '-')
             ->add('purpose', fn (SaleItemBatch $model) => $model->saleItem->sale->purpose ?? '-')
             ->add('formula', fn (SaleItemBatch $model) => $model->saleItem->sale->formula ?? '-')
             ->add('project', fn (SaleItemBatch $model) => $model->saleItem->sale->project ?? '-')
@@ -79,9 +87,14 @@ final class UsageHistoryTable extends PowerGridComponent
             Column::action('Action'),
             Column::make('Usage No.', 'usage_number')->searchable()->sortable(),
             Column::make('Date', 'usage_date', 'saleItem.sale.usage_date')->sortable(),
-            Column::make('RM', 'rm_name')->searchable(),
+            Column::make('SKU', 'sku')->searchable(),
+            Column::make('Item Code IERP', 'item_code_ierp')->searchable(),
+            Column::make('Material / Product Name', 'material_name')->searchable(),
             Column::make('Batch', 'batch_number')->searchable(),
+            Column::make('Expiry Date', 'expiry_date'),
+            Column::make('Storage Location', 'storage_location')->searchable(),
             Column::make('Qty', 'quantity')->sortable()->bodyAttribute('text-center'),
+            Column::make('Unit', 'unit'),
             Column::make('Purpose', 'purpose')->searchable(),
             Column::make('Formula', 'formula')->searchable(),
             Column::make('Project', 'project')->searchable(),

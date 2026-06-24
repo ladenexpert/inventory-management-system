@@ -15,6 +15,11 @@ use App\Exceptions\FinanceTransactionException;
 
 class FinanceTransactionService
 {
+    public function __construct(
+        protected DashboardCacheService $dashboardCache,
+    ) {
+    }
+
     /**
      * Record income from a completed sale.
      */
@@ -37,6 +42,8 @@ class FinanceTransactionService
                 'created_by' => $sale->created_by ?? Auth::id() ?? 1,
             ]
         );
+
+        $this->dashboardCache->forgetDashboardData();
     }
 
     /**
@@ -61,6 +68,8 @@ class FinanceTransactionService
                 'created_by' => $purchase->created_by ?? Auth::id() ?? 1,
             ]
         );
+
+        $this->dashboardCache->forgetDashboardData();
     }
 
     /**
@@ -71,6 +80,8 @@ class FinanceTransactionService
         FinanceTransaction::where('reference_type', get_class($model))
             ->where('reference_id', $model->id)
             ->delete();
+
+        $this->dashboardCache->forgetDashboardData();
     }
 
     /**
@@ -80,7 +91,7 @@ class FinanceTransactionService
     {
         try {
             return DB::transaction(function () use ($data) {
-                return FinanceTransaction::create([
+                $transaction = FinanceTransaction::create([
                     'code' => $this->generateTransactionCode(),
                     'transaction_date' => $data->transaction_date,
                     'finance_category_id' => $data->finance_category_id,
@@ -89,6 +100,10 @@ class FinanceTransactionService
                     'external_reference' => $data->external_reference,
                     'created_by' => $data->created_by,
                 ]);
+
+                $this->dashboardCache->forgetDashboardData();
+
+                return $transaction;
             });
         } catch (\Exception $e) {
             throw new FinanceTransactionException('Failed to create transaction: ' . $e->getMessage());
@@ -113,6 +128,9 @@ class FinanceTransactionService
                     'description' => $data->description,
                     'external_reference' => $data->external_reference,
                 ]);
+
+                $this->dashboardCache->forgetDashboardData();
+
                 return $transaction;
             });
         } catch (\Exception $e) {
@@ -135,6 +153,7 @@ class FinanceTransactionService
 
         try {
             $transaction->delete();
+            $this->dashboardCache->forgetDashboardData();
         } catch (\Exception $e) {
             throw new FinanceTransactionException('Failed to delete transaction: ' . $e->getMessage());
         }

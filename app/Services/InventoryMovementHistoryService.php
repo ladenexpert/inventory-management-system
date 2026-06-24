@@ -16,6 +16,7 @@ class InventoryMovementHistoryService
                 'product.unit',
                 'batch',
                 'purchase.creator',
+                'purchaseItem',
                 'sale.creator',
                 'sale.issuer',
             ])
@@ -68,10 +69,14 @@ class InventoryMovementHistoryService
             'date_time' => $log->created_at?->format('Y-m-d H:i:s') ?? '-',
             'user' => $userName,
             'transaction_type' => $log->movement_type_label,
-            'rm_name' => $log->product?->name ?? '-',
-            'rm_code' => $log->product?->item_code_ierp ?: ($log->product?->sku ?? '-'),
+            'material_name' => $log->product?->name ?? '-',
+            'sku' => $log->product?->sku_display ?? '-',
+            'item_code_ierp' => $log->product?->item_code_ierp_display ?? '-',
             'lot_number' => $log->batch?->batch_number ?? '-',
+            'expiry_date' => $log->batch?->expiry_date?->format('Y-m-d') ?? '-',
+            'storage_location' => $log->batch?->resolved_storage_location ?? $log->purchaseItem?->storage_location ?? '-',
             'quantity' => (int) $log->quantity,
+            'unit' => $log->product?->unit?->symbol ?? $log->product?->unit?->name ?? '-',
             'remaining_stock' => (int) $log->quantity_after,
             'reference' => $log->purchase?->invoice_number
                 ?? $log->sale?->invoice_number

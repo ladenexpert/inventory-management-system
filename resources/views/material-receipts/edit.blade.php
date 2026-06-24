@@ -18,7 +18,7 @@
                         'key' => 'existing-' . $item->id,
                         'product_id' => $item->product_id,
                         'product_name' => $item->product->name,
-                        'product_code' => $item->product->item_code_ierp ?: $item->product->sku,
+                        'product_code' => 'SKU: ' . $item->product->sku_display . ' | Item Code IERP: ' . $item->product->item_code_ierp_display,
                         'batch_number' => $item->batch_number,
                         'expiry_date' => optional($item->expiry_date)->format('Y-m-d'),
                         'storage_location' => $item->storage_location,
