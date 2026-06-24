@@ -64,45 +64,47 @@ class SaleService
                 $totalSubtotal = 0;
                 $totalDiscount = 0;
 
-                foreach ($data->items as $itemData) {
-                    $product = $products->get($itemData->product_id);
+                $this->batchService->withinStockMutationScope(function () use ($data, $products, $sale, &$totalSubtotal, &$totalDiscount) {
+                    foreach ($data->items as $itemData) {
+                        $product = $products->get($itemData->product_id);
 
-                    if (!$product) {
-                        throw SaleException::productNotFound($itemData->product_id);
+                        if (!$product) {
+                            throw SaleException::productNotFound($itemData->product_id);
+                        }
+
+                        // Use the line unit price from request snapshot (POS line), fallback to master product price.
+                        $unitPrice = $itemData->unit_price > 0 ? $itemData->unit_price : $product->selling_price;
+                        $quantity = $itemData->quantity;
+                        $discount = $itemData->discount;
+
+                        if ($discount > $unitPrice) {
+                            throw SaleException::invalidDiscount("Item discount (" . format_money($discount) . ") cannot exceed unit price (" . format_money($unitPrice) . ") for product '{$product->name}'.");
+                        }
+
+                        $finalPrice = $unitPrice - $discount;
+                        $subtotal   = $finalPrice * $quantity;
+                        $allocations = $this->batchService->reserveBatches($product, $quantity, $itemData->batch_allocations);
+                        $totalCost = collect($allocations)->sum(fn(array $allocation) => $allocation['quantity'] * $allocation['unit_cost']);
+
+                        $saleItem = SaleItem::create([
+                            'sale_id' => $sale->id,
+                            'product_id' => $product->id,
+                            'quantity' => $quantity,
+                            'cost_price' => $quantity > 0 ? (int) round($totalCost / $quantity) : 0,
+                            'total_cost' => $totalCost,
+                            'unit_price' => $unitPrice,
+                            'discount' => $discount,
+                            'final_price' => $finalPrice,
+                            'subtotal' => $subtotal,
+                        ]);
+                        $saleItem->setRelation('product', $product);
+
+                        $this->batchService->recordSaleItemAllocations($sale, $saleItem, $allocations);
+
+                        $totalSubtotal += $subtotal;
+                        $totalDiscount += $discount * $quantity;
                     }
-
-                    // Use the line unit price from request snapshot (POS line), fallback to master product price.
-                    $unitPrice = $itemData->unit_price > 0 ? $itemData->unit_price : $product->selling_price;
-                    $quantity = $itemData->quantity;
-                    $discount = $itemData->discount;
-
-                    if ($discount > $unitPrice) {
-                        throw SaleException::invalidDiscount("Item discount (" . format_money($discount) . ") cannot exceed unit price (" . format_money($unitPrice) . ") for product '{$product->name}'.");
-                    }
-
-                    $finalPrice = $unitPrice - $discount;
-                    $subtotal   = $finalPrice * $quantity;
-                    $allocations = $this->batchService->reserveBatches($product, $quantity, $itemData->batch_allocations);
-                    $totalCost = collect($allocations)->sum(fn(array $allocation) => $allocation['quantity'] * $allocation['unit_cost']);
-
-                    $saleItem = SaleItem::create([
-                        'sale_id' => $sale->id,
-                        'product_id' => $product->id,
-                        'quantity' => $quantity,
-                        'cost_price' => $quantity > 0 ? (int) round($totalCost / $quantity) : 0,
-                        'total_cost' => $totalCost,
-                        'unit_price' => $unitPrice,
-                        'discount' => $discount,
-                        'final_price' => $finalPrice,
-                        'subtotal' => $subtotal,
-                    ]);
-                    $saleItem->setRelation('product', $product);
-
-                    $this->batchService->recordSaleItemAllocations($sale, $saleItem, $allocations);
-
-                    $totalSubtotal += $subtotal;
-                    $totalDiscount += $discount * $quantity;
-                }
+                });
 
                 if ($data->global_discount > $totalSubtotal) {
                     throw SaleException::invalidDiscount("Global discount (" . format_money($data->global_discount) . ") cannot exceed subtotal (" . format_money($totalSubtotal) . ").");
@@ -153,37 +155,40 @@ class SaleService
     {
         return DB::transaction(function () use ($sale, $reason) {
             try {
-                if ($sale->status === SaleStatus::CANCELLED) {
-                    throw SaleException::invalidStatus('cancel', $sale->status->label(), ['id' => $sale->id]);
+                $lockedSale = Sale::query()
+                    ->lockForUpdate()
+                    ->with(['items.product', 'items.saleItemBatches.batch'])
+                    ->findOrFail($sale->id);
+
+                if ($lockedSale->status === SaleStatus::CANCELLED) {
+                    throw SaleException::invalidStatus('cancel', $lockedSale->status->label(), ['id' => $lockedSale->id]);
                 }
 
-                // Restore stock for completed or pending sales
-                if (in_array($sale->status, [SaleStatus::COMPLETED, SaleStatus::PENDING])) {
-                    $sale->loadMissing('items.product', 'items.saleItemBatches.batch');
+                if (in_array($lockedSale->status, [SaleStatus::COMPLETED, SaleStatus::PENDING], true)) {
+                    $this->batchService->withinStockMutationScope(function () use ($lockedSale) {
+                        foreach ($lockedSale->items as $item) {
+                            if ($item->product) {
+                                $restored = $this->batchService->restoreSaleItemBatches($lockedSale, $item);
 
-                    foreach ($sale->items as $item) {
-                        if ($item->product) {
-                            $restored = $this->batchService->restoreSaleItemBatches($sale, $item);
-
-                            if (!$restored) {
-                                $this->batchService->restoreSaleItemWithoutRecordedAllocations($sale, $item);
+                                if (!$restored) {
+                                    $this->batchService->restoreSaleItemWithoutRecordedAllocations($lockedSale, $item);
+                                }
                             }
                         }
-                    }
+                    });
                 }
 
                 $updateData = ['status' => SaleStatus::CANCELLED];
 
                 if ($reason) {
-                    $updateData['notes'] = ($sale->notes ? $sale->notes . "\n" : '') . "[Cancelled]: " . $reason;
+                    $updateData['notes'] = ($lockedSale->notes ? $lockedSale->notes . "\n" : '') . "[Cancelled]: " . $reason;
                 }
 
-                $sale->update($updateData);
+                $lockedSale->update($updateData);
 
-                // Void Finance
-                $this->financeService->voidTransaction($sale);
+                $this->financeService->voidTransaction($lockedSale);
 
-                return $sale;
+                return $lockedSale->refresh();
 
             } catch (Exception $e) {
                 if ($e instanceof SaleException)
@@ -201,35 +206,37 @@ class SaleService
     public function completeSale(Sale $sale, array $paymentData = []): Sale
     {
         return DB::transaction(function () use ($sale, $paymentData) {
-            if ($sale->status !== SaleStatus::PENDING) {
-                throw SaleException::invalidStatus('complete', $sale->status->label(), ['id' => $sale->id]);
+            $lockedSale = Sale::query()
+                ->lockForUpdate()
+                ->findOrFail($sale->id);
+
+            if ($lockedSale->status !== SaleStatus::PENDING) {
+                throw SaleException::invalidStatus('complete', $lockedSale->status->label(), ['id' => $lockedSale->id]);
             }
 
             $updateData = ['status' => SaleStatus::COMPLETED];
 
             if (!empty($paymentData)) {
-                $updateData['cash_received'] = $paymentData['cash_received'] ?? $sale->cash_received;
+                $updateData['cash_received'] = $paymentData['cash_received'] ?? $lockedSale->cash_received;
 
-                if ($sale->payment_method === PaymentMethod::CASH && $updateData['cash_received'] < $sale->total) {
-                    throw SaleException::insufficientPayment($sale->total, $updateData['cash_received']);
+                if ($lockedSale->payment_method === PaymentMethod::CASH && $updateData['cash_received'] < $lockedSale->total) {
+                    throw SaleException::insufficientPayment($lockedSale->total, $updateData['cash_received']);
                 }
 
-                // Calculate Change
-                if ($sale->payment_method === PaymentMethod::CASH && $updateData['cash_received'] >= $sale->total) {
-                    $updateData['change'] = $updateData['cash_received'] - $sale->total;
+                if ($lockedSale->payment_method === PaymentMethod::CASH && $updateData['cash_received'] >= $lockedSale->total) {
+                    $updateData['change'] = $updateData['cash_received'] - $lockedSale->total;
                 } else {
                     $updateData['change'] = 0;
                 }
             }
 
-            $sale->update($updateData);
+            $lockedSale->update($updateData);
 
-            // Sync Finance
-            if ($sale->transaction_type->createsFinanceIncome()) {
-                $this->financeService->recordIncomeFromSale($sale);
+            if ($lockedSale->transaction_type->createsFinanceIncome()) {
+                $this->financeService->recordIncomeFromSale($lockedSale);
             }
 
-            return $sale;
+            return $lockedSale->refresh();
         });
     }
 
@@ -239,34 +246,35 @@ class SaleService
     public function restoreSale(Sale $sale): Sale
     {
         return DB::transaction(function () use ($sale) {
-            if ($sale->status !== SaleStatus::CANCELLED) {
-                throw SaleException::invalidStatus('restore', $sale->status->label(), ['id' => $sale->id]);
+            $lockedSale = Sale::query()
+                ->lockForUpdate()
+                ->with(['items.product', 'items.saleItemBatches.batch'])
+                ->findOrFail($sale->id);
+
+            if ($lockedSale->status !== SaleStatus::CANCELLED) {
+                throw SaleException::invalidStatus('restore', $lockedSale->status->label(), ['id' => $lockedSale->id]);
             }
 
-            // Must re-deduct stock
-            $sale->loadMissing('items.product', 'items.saleItemBatches.batch');
+            $this->batchService->withinStockMutationScope(function () use ($lockedSale) {
+                foreach ($lockedSale->items as $item) {
+                    $product = $item->product()->lockForUpdate()->find($item->product_id);
 
-            foreach ($sale->items as $item) {
-                $product = $item->product()->lockForUpdate()->find($item->product_id);
+                    if (!$product) {
+                        throw SaleException::productNotFound($item->product_id);
+                    }
 
-                if (!$product) {
-                    throw SaleException::productNotFound($item->product_id);
+                    $reapplied = $this->batchService->reapplySaleItemBatches($lockedSale, $item);
+
+                    if (!$reapplied) {
+                        $allocations = $this->batchService->reserveBatches($product, $item->quantity);
+                        $this->batchService->recordSaleItemAllocations($lockedSale, $item, $allocations);
+                    }
                 }
+            });
 
-                $reapplied = $this->batchService->reapplySaleItemBatches($sale, $item);
+            $lockedSale->update(['status' => SaleStatus::PENDING]);
 
-                if (!$reapplied) {
-                    $allocations = $this->batchService->reserveBatches($product, $item->quantity);
-                    $this->batchService->recordSaleItemAllocations($sale, $item, $allocations);
-                }
-            }
-
-            // Restore to PENDING
-            $sale->update(['status' => SaleStatus::PENDING]);
-
-            // No Finance Sync needed as it goes to PENDING
-
-            return $sale;
+            return $lockedSale->refresh();
         });
     }
 
@@ -280,16 +288,18 @@ class SaleService
     public function deleteSale(Sale $sale): void
     {
         DB::transaction(function () use ($sale) {
-            if ($sale->status !== SaleStatus::CANCELLED) {
-                throw SaleException::invalidStatus('delete', $sale->status->label(), ['id' => $sale->id]);
+            $lockedSale = Sale::query()
+                ->lockForUpdate()
+                ->findOrFail($sale->id);
+
+            if ($lockedSale->status !== SaleStatus::CANCELLED) {
+                throw SaleException::invalidStatus('delete', $lockedSale->status->label(), ['id' => $lockedSale->id]);
             }
 
-            // Void Finance (Just in case)
-            $this->financeService->voidTransaction($sale);
+            $this->financeService->voidTransaction($lockedSale);
 
-            // Manually delete items first due to restrictOnDelete constraint
-            $sale->items()->delete();
-            $sale->delete();
+            $lockedSale->items()->delete();
+            $lockedSale->delete();
         });
     }
 

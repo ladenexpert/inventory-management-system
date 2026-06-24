@@ -94,14 +94,15 @@ class SalesController extends Controller
 
     public function destroy(Request $request, Sale $sale, SaleService $saleService)
     {
+        abort_unless($sale->transaction_type === SaleTransactionType::SALE, 404);
+
         // // Authorization: Only creator can cancel
         // if ($sale->created_by !== Auth::id()) {
         //     abort(403, 'You can only cancel your own sales.');
         // }
 
         try {
-            $reason = $request->input('reason');
-            $saleService->cancelSale($sale, $reason);
+            $sale = $saleService->cancelSale($sale, $request->input('reason'));
             return redirect()->route('sales.index')->with('success', 'Sale cancelled successfully.');
         } catch (\Exception $e) {
             return back()->with('error', $e->getMessage());
@@ -126,14 +127,16 @@ class SalesController extends Controller
 
     public function restore(Sale $sale, SaleService $saleService)
     {
+        abort_unless($sale->transaction_type === SaleTransactionType::SALE, 404);
+
         // // Authorization: Only creator can restore
         // if ($sale->created_by !== Auth::id()) {
         //     abort(403, 'You can only restore your own sales.');
         // }
 
         try {
-            $saleService->restoreSale($sale);
-            return redirect()->back()->with('success', 'Sale restored to Pending.');
+            $sale = $saleService->restoreSale($sale);
+            return redirect()->route('sales.show', $sale)->with('success', 'Sale restored to pending.');
         } catch (\Exception $e) {
             return back()->with('error', $e->getMessage());
         }
@@ -141,12 +144,14 @@ class SalesController extends Controller
 
     public function complete(Request $request, Sale $sale, SaleService $saleService)
     {
+        abort_unless($sale->transaction_type === SaleTransactionType::SALE, 404);
+
         try {
             $paymentData = $request->only(['cash_received', 'change']);
 
-            $saleService->completeSale($sale, $paymentData);
+            $sale = $saleService->completeSale($sale, $paymentData);
 
-            return redirect()->back()->with('success', 'Sale marked as completed.');
+            return redirect()->route('sales.show', $sale)->with('success', 'Sale marked as completed.');
 
         } catch (\Exception $e) {
             return back()->with('error', $e->getMessage());

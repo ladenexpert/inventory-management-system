@@ -145,9 +145,9 @@ class MaterialUsageController extends Controller
         abort_unless($sale->transaction_type === SaleTransactionType::MATERIAL_USAGE, 404);
 
         try {
-            $saleService->restoreSale($sale);
+            $sale = $saleService->restoreSale($sale);
 
-            return back()->with('success', 'Material usage restored to pending.');
+            return redirect()->route('material-usages.show', $sale)->with('success', 'Material usage restored to pending.');
         } catch (\Throwable $e) {
             return back()->with('error', $e->getMessage());
         }
@@ -158,9 +158,9 @@ class MaterialUsageController extends Controller
         abort_unless($sale->transaction_type === SaleTransactionType::MATERIAL_USAGE, 404);
 
         try {
-            $saleService->completeSale($sale, []);
+            $sale = $saleService->completeSale($sale, []);
 
-            return back()->with('success', 'Material usage marked as completed.');
+            return redirect()->route('material-usages.show', $sale)->with('success', 'Material usage marked as completed.');
         } catch (\Throwable $e) {
             return back()->with('error', $e->getMessage());
         }

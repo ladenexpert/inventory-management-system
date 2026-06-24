@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ $isMaterialUsage ? 'Material Usage Slip' : 'Sales Invoice' }} #{{ $sale->invoice_number }}</title>
+    <title>{{ $isMaterialUsage ? 'Material Usage Slip' : 'Legacy Sales Invoice' }} #{{ $sale->invoice_number }}</title>
     <style>
         @page {
             size: A4;
@@ -131,11 +131,11 @@
                 <h1>{{ \App\Models\Setting::get('store_name', config('app.name')) }}</h1>
                 <p>{{ \App\Models\Setting::get('store_address', 'Jl. Default No. 1') }}</p>
                 <p>Phone: {{ \App\Models\Setting::get('store_phone', '-') }}</p>
-                <p class="muted">{{ $isMaterialUsage ? 'Raw material issuance slip' : 'Sales invoice / receipt' }}</p>
+                <p class="muted">{{ $isMaterialUsage ? 'Raw material issuance slip' : 'Legacy sales invoice / receipt' }}</p>
             </div>
 
             <div class="meta">
-                <p><strong>Document</strong>: {{ $isMaterialUsage ? 'Material Usage Slip' : 'Sales Invoice' }}</p>
+                <p><strong>Document</strong>: {{ $isMaterialUsage ? 'Material Usage Slip' : 'Legacy Sales Invoice' }}</p>
                 <p><strong>Number</strong>: {{ $sale->invoice_number }}</p>
                 <p><strong>Date</strong>: {{ optional($sale->usage_date ?? $sale->sale_date)?->format('d M Y') }}</p>
                 <p><strong>Status</strong>: {{ $sale->status->label() }}</p>
@@ -206,7 +206,7 @@
             </tbody>
         </table>
 
-        @unless($isMaterialUsage)
+        @if(! $isMaterialUsage)
             <table class="totals">
                 <tr>
                     <td>Subtotal</td>
@@ -229,7 +229,7 @@
                     <td class="text-right">{{ format_money($sale->change) }}</td>
                 </tr>
             </table>
-        @endunless
+        @endif
 
         <div class="footer">
             <div>

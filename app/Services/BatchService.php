@@ -18,10 +18,65 @@ use Illuminate\Support\Str;
 
 class BatchService
 {
+    /**
+     * Stock mutations may happen several times inside one DB transaction.
+     * Defer product cache sync + inventory log writes until the outer scope completes.
+     *
+     * @var int
+     */
+    protected int $deferredStockMutationDepth = 0;
+
+    /**
+     * @var array<int, array{product: Product, expected_quantity: int|null}>
+     */
+    protected array $pendingProductSyncs = [];
+
+    /**
+     * @var list<array<string, int|string|null>>
+     */
+    protected array $pendingInventoryLogs = [];
+
+    /**
+     * @var array<int, bool>
+     */
+    protected static array $syncingProducts = [];
+
     public function __construct(
         protected BatchPolicyService $batchPolicyService,
         protected FefoService $fefoService,
     ) {
+    }
+
+    public function withinStockMutationScope(callable $callback): mixed
+    {
+        $outermostScope = $this->deferredStockMutationDepth === 0;
+        $this->deferredStockMutationDepth++;
+
+        try {
+            $result = $callback();
+        } catch (\Throwable $exception) {
+            $this->deferredStockMutationDepth--;
+
+            if ($outermostScope) {
+                $this->resetDeferredStockMutations();
+            }
+
+            throw $exception;
+        }
+
+        $this->deferredStockMutationDepth--;
+
+        if ($outermostScope) {
+            try {
+                $this->flushDeferredStockMutations();
+            } catch (\Throwable $exception) {
+                $this->resetDeferredStockMutations();
+
+                throw $exception;
+            }
+        }
+
+        return $result;
     }
 
     /**
@@ -49,7 +104,7 @@ class BatchService
             return;
         }
 
-        $this->syncProductQuantity($product, $batchQuantity);
+        $this->queueProductSync($product, $batchQuantity);
     }
 
     public function createBatchFromPurchaseItem(Purchase $purchase, PurchaseItem $item): Batch
@@ -85,6 +140,8 @@ class BatchService
             'notes' => $purchase->notes,
         ]);
 
+        $this->queueProductSync($product, $productQuantityAfter);
+
         $this->logInventoryMovement(
             product: $product,
             batch: $batch,
@@ -96,8 +153,6 @@ class BatchService
             purchaseItem: $item,
             notes: "Batch {$batch->batch_number} received via purchase #{$purchase->id}. Batch availability: 0 -> {$item->quantity}.",
         );
-
-        $this->syncProductQuantity($product, $productQuantityAfter);
 
         return $batch;
     }
@@ -117,8 +172,6 @@ class BatchService
         if ($quantity <= 0) {
             return null;
         }
-
-        $this->ensureBatchCoverage($product);
 
         $productQuantityBefore = $this->sumAvailableQuantity($product);
         $productQuantityAfter = $productQuantityBefore + $quantity;
@@ -145,6 +198,8 @@ class BatchService
             'notes' => $notes,
         ]);
 
+        $this->queueProductSync($product, $productQuantityAfter);
+
         $this->logInventoryMovement(
             product: $product,
             batch: $batch,
@@ -154,8 +209,6 @@ class BatchService
             quantityAfter: $productQuantityAfter,
             notes: trim("Batch {$batch->batch_number} created with availability 0 -> {$quantity}. " . ($notes ?? '')),
         );
-
-        $this->syncProductQuantity($product, $productQuantityAfter);
 
         return $batch;
     }
@@ -172,7 +225,7 @@ class BatchService
         $currentQuantity = $this->sumAvailableQuantity($product);
 
         if ($targetQuantity === $currentQuantity) {
-            $this->syncProductQuantity($product);
+            $this->queueProductSync($product);
             return;
         }
 
@@ -206,7 +259,7 @@ class BatchService
             );
         }
 
-        $this->syncProductQuantity($product, $targetQuantity);
+        $this->queueProductSync($product, $targetQuantity);
     }
 
     /**
@@ -363,7 +416,7 @@ class BatchService
             $productQuantityRunning = $productQuantityAfter;
         }
 
-        $this->syncProductQuantity($saleItem->product, $productQuantityRunning);
+        $this->queueProductSync($saleItem->product, $productQuantityRunning);
 
         return true;
     }
@@ -432,7 +485,7 @@ class BatchService
             $productQuantityRunning = $productQuantityAfter;
         }
 
-        $this->syncProductQuantity($saleItem->product, $productQuantityRunning);
+        $this->queueProductSync($saleItem->product, $productQuantityRunning);
 
         return true;
     }
@@ -453,6 +506,13 @@ class BatchService
 
     public function syncProductQuantity(Product $product, ?int $expectedQuantity = null): int
     {
+        if (self::$syncingProducts[$product->id] ?? false) {
+            return (int) $product->quantity;
+        }
+
+        self::$syncingProducts[$product->id] = true;
+
+        try {
         $summary = $product->batches()
             ->selectRaw('COALESCE(SUM(available_quantity), 0) as quantity')
             ->selectRaw('COALESCE(SUM(available_quantity * unit_cost), 0) as inventory_cost_value')
@@ -474,9 +534,22 @@ class BatchService
             $updateData['purchase_price'] = (int) round($inventoryCostValue / $quantity);
         }
 
-        $product->update($updateData);
+        $dirtyData = [];
+
+        foreach ($updateData as $field => $value) {
+            if ((int) $product->getAttribute($field) !== (int) $value) {
+                $dirtyData[$field] = $value;
+            }
+        }
+
+        if ($dirtyData !== []) {
+            $product->forceFill($dirtyData)->saveQuietly();
+        }
 
         return $quantity;
+        } finally {
+            unset(self::$syncingProducts[$product->id]);
+        }
     }
 
     public function sumAvailableQuantity(Product $product): int
@@ -499,7 +572,7 @@ class BatchService
         ?Sale $sale = null,
         ?SaleItem $saleItem = null,
         ?string $notes = null,
-    ): InventoryLog {
+    ): ?InventoryLog {
         if (!$batch && !$purchase && !$sale) {
             throw new \Exception('Inventory log must have at least one reference (batch, purchase, or sale).');
         }
@@ -513,7 +586,7 @@ class BatchService
             'movement_type' => $movementType,
         ]);
 
-        return InventoryLog::create([
+        $payload = [
             'product_id' => $product->id,
             'batch_id' => $batch?->id,
             'purchase_id' => $purchase?->id,
@@ -525,7 +598,15 @@ class BatchService
             'quantity_before' => $quantityBefore,
             'quantity_after' => $quantityAfter,
             'notes' => $notes,
-        ]);
+        ];
+
+        if ($this->isDeferringStockMutations()) {
+            $this->pendingInventoryLogs[] = $payload;
+
+            return null;
+        }
+
+        return InventoryLog::create($payload);
     }
 
     /**
@@ -599,9 +680,61 @@ class BatchService
             $productQuantityRunning = $productQuantityAfter;
         }
 
-        $this->syncProductQuantity($product, $productQuantityRunning);
+        $this->queueProductSync($product, $productQuantityRunning);
 
         return $allocations;
+    }
+
+    protected function isDeferringStockMutations(): bool
+    {
+        return $this->deferredStockMutationDepth > 0;
+    }
+
+    protected function queueProductSync(Product $product, ?int $expectedQuantity = null): int
+    {
+        if (!$this->isDeferringStockMutations()) {
+            return $this->syncProductQuantity($product, $expectedQuantity);
+        }
+
+        $pendingSync = $this->pendingProductSyncs[$product->id] ?? [
+            'product' => $product,
+            'expected_quantity' => null,
+        ];
+
+        $pendingSync['product'] = $product;
+
+        if ($expectedQuantity !== null || !isset($this->pendingProductSyncs[$product->id])) {
+            $pendingSync['expected_quantity'] = $expectedQuantity;
+        }
+
+        $this->pendingProductSyncs[$product->id] = $pendingSync;
+
+        return $expectedQuantity ?? (int) $product->quantity;
+    }
+
+    protected function flushDeferredStockMutations(): void
+    {
+        $pendingProductSyncs = $this->pendingProductSyncs;
+        $pendingInventoryLogs = $this->pendingInventoryLogs;
+
+        $this->resetDeferredStockMutations();
+
+        foreach ($pendingProductSyncs as $pendingSync) {
+            $productId = $pendingSync['product']->id;
+            $product = Product::query()->lockForUpdate()->findOrFail($productId);
+
+            $this->syncProductQuantity($product, $pendingSync['expected_quantity']);
+        }
+
+        foreach ($pendingInventoryLogs as $payload) {
+            InventoryLog::create($payload);
+        }
+    }
+
+    protected function resetDeferredStockMutations(): void
+    {
+        $this->pendingProductSyncs = [];
+        $this->pendingInventoryLogs = [];
     }
 
     protected function assertNonNegativeQuantity(int $quantity, string $label, array $context = []): void

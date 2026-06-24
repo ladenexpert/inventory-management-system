@@ -106,130 +106,173 @@ class PurchaseService
     public function markAsOrdered(Purchase $purchase): void
     {
         DB::transaction(function () use ($purchase) {
-            if ($purchase->status !== PurchaseStatus::DRAFT) {
-                throw PurchaseException::invalidStatus('order', $purchase->status->label(), ['id' => $purchase->id]);
+            $lockedPurchase = Purchase::query()
+                ->lockForUpdate()
+                ->withCount('items')
+                ->findOrFail($purchase->id);
+
+            if ($lockedPurchase->status !== PurchaseStatus::DRAFT) {
+                throw PurchaseException::invalidStatus('order', $lockedPurchase->status->label(), ['id' => $lockedPurchase->id]);
             }
 
-            if ($purchase->items()->count() === 0) {
-                throw PurchaseException::updateFailed("Cannot order a purchase with no items.", ['id' => $purchase->id]);
+            if ($lockedPurchase->items_count === 0) {
+                throw PurchaseException::updateFailed("Cannot order a purchase with no items.", ['id' => $lockedPurchase->id]);
             }
 
-            $purchase->update(['status' => PurchaseStatus::ORDERED]);
+            $lockedPurchase->update(['status' => PurchaseStatus::ORDERED]);
         });
     }
 
-    public function markAsReceived(Purchase $purchase): void
+    public function markAsReceived(Purchase $purchase, array $receiptData = []): void
     {
-        DB::transaction(function () use ($purchase) {
-            if (!in_array($purchase->status, [PurchaseStatus::ORDERED, PurchaseStatus::DRAFT])) {
-                throw PurchaseException::invalidStatus('receive', $purchase->status->label(), ['id' => $purchase->id]);
+        DB::transaction(function () use ($purchase, $receiptData) {
+            $lockedPurchase = Purchase::query()
+                ->lockForUpdate()
+                ->with('items')
+                ->findOrFail($purchase->id);
+
+            if (!in_array($lockedPurchase->status, [PurchaseStatus::ORDERED, PurchaseStatus::DRAFT], true)) {
+                throw PurchaseException::invalidStatus('receive', $lockedPurchase->status->label(), ['id' => $lockedPurchase->id]);
             }
 
-            if (!$purchase->isMaterialReceipt() && empty($purchase->invoice_number)) {
-                throw PurchaseException::missingReference('Invoice Number', ['id' => $purchase->id]);
+            if (!empty($receiptData)) {
+                $lockedPurchase->update($receiptData);
             }
 
-            if (!$purchase->isMaterialReceipt() && empty($purchase->proof_image)) {
-                throw PurchaseException::missingReference('Proof Image', ['id' => $purchase->id]);
+            if (!$lockedPurchase->isMaterialReceipt() && empty($lockedPurchase->invoice_number)) {
+                throw PurchaseException::missingReference('Invoice Number', ['id' => $lockedPurchase->id]);
             }
 
-            // Update Stock
-            foreach ($purchase->items as $item) {
-                $product = Product::where('id', $item->product_id)->lockForUpdate()->first();
+            if (!$lockedPurchase->isMaterialReceipt() && empty($lockedPurchase->proof_image)) {
+                throw PurchaseException::missingReference('Proof Image', ['id' => $lockedPurchase->id]);
+            }
 
-                if ($product) {
-                    $oldBuyPrice = (int) $product->purchase_price;
-                    $oldSellPrice = (int) $product->selling_price;
+            $productPriceSnapshots = [];
 
-                    $this->batchService->createBatchFromPurchaseItem($purchase, $item);
-                    $product->refresh();
+            $this->batchService->withinStockMutationScope(function () use ($lockedPurchase, &$productPriceSnapshots) {
+                foreach ($lockedPurchase->items as $item) {
+                    $product = Product::where('id', $item->product_id)->lockForUpdate()->first();
 
-                    // purchase_price is synchronized from batch valuation (AVCO) by BatchService.
-                    // selling_price remains a commercial decision and follows explicit purchase line input when provided.
-                    $updateData = [];
-                    $priceChangeLog = "";
-                    $hasPriceChange = false;
+                    if (!$product) {
+                        continue;
+                    }
 
-                    // Check for Purchase Price Change (AVCO after receipt)
-                    if ($oldBuyPrice !== (int) $product->purchase_price) {
+                    $productPriceSnapshots[$product->id] = [
+                        'old_buy_price' => $productPriceSnapshots[$product->id]['old_buy_price'] ?? (int) $product->purchase_price,
+                        'old_sell_price' => $productPriceSnapshots[$product->id]['old_sell_price'] ?? (int) $product->selling_price,
+                        'selling_price' => $item->selling_price ?? ($productPriceSnapshots[$product->id]['selling_price'] ?? null),
+                    ];
+
+                    $this->batchService->createBatchFromPurchaseItem($lockedPurchase, $item);
+                }
+            });
+
+            foreach ($productPriceSnapshots as $productId => $snapshot) {
+                $product = Product::whereKey($productId)->lockForUpdate()->first();
+
+                if (!$product) {
+                    continue;
+                }
+
+                // purchase_price is synchronized from batch valuation (AVCO) by BatchService.
+                // selling_price remains a commercial decision and follows explicit purchase line input when provided.
+                $updateData = [];
+                $priceChangeLog = '';
+                $hasPriceChange = false;
+
+                if ((int) $snapshot['old_buy_price'] !== (int) $product->purchase_price) {
+                    $hasPriceChange = true;
+                    $oldBuy = format_money((int) $snapshot['old_buy_price']);
+                    $newBuy = format_money((int) $product->purchase_price);
+                    $priceChangeLog .= "\n- Buying Price (AVCO): {$oldBuy} -> {$newBuy}";
+                }
+
+                if ($snapshot['selling_price'] !== null) {
+                    $updateData['selling_price'] = (int) $snapshot['selling_price'];
+
+                    if ((int) $snapshot['old_sell_price'] !== (int) $snapshot['selling_price']) {
                         $hasPriceChange = true;
-                        $oldBuy = format_money($oldBuyPrice);
-                        $newBuy = format_money((int) $product->purchase_price);
-                        $priceChangeLog .= "\n- Buying Price (AVCO): {$oldBuy} -> {$newBuy}";
+                        $oldSell = format_money((int) $snapshot['old_sell_price']);
+                        $newSell = format_money((int) $snapshot['selling_price']);
+                        $priceChangeLog .= "\n- Selling Price: {$oldSell} -> {$newSell}";
                     }
+                }
 
-                    // Check for Selling Price Change
-                    if ($item->selling_price !== null) {
-                        $updateData['selling_price'] = $item->selling_price;
-                        if ($oldSellPrice !== (int) $item->selling_price) {
-                            $hasPriceChange = true;
-                            $oldSell = format_money($oldSellPrice);
-                            $newSell = format_money($item->selling_price);
-                            $priceChangeLog .= "\n- Selling Price: {$oldSell} -> {$newSell}";
-                        }
-                    }
+                if ($hasPriceChange) {
+                    $timestamp = now()->format('Y-m-d H:i');
+                    $ref = $lockedPurchase->invoice_number ? "Invoice #{$lockedPurchase->invoice_number}" : "Purchase #{$lockedPurchase->id}";
+                    $logHeader = "\n\n[System Log - {$timestamp}] Price update via {$ref}:";
+                    $updateData['notes'] = trim(($product->notes ?? '') . $logHeader . $priceChangeLog);
+                }
 
-                    // Append to Notes if prices changed
-                    if ($hasPriceChange) {
-                        $timestamp = now()->format('Y-m-d H:i');
-                        $ref = $purchase->invoice_number ? "Invoice #{$purchase->invoice_number}" : "Purchase #{$purchase->id}";
-                        $logHeader = "\n\n[System Log - {$timestamp}] Price update via {$ref}:";
-                        $updateData['notes'] = TRIM(($product->notes ?? '') . $logHeader . $priceChangeLog);
-                    }
-
-                    if (!empty($updateData)) {
-                        $product->update($updateData);
-                    }
+                if (!empty($updateData)) {
+                    $product->update($updateData);
                 }
             }
 
-            $purchase->update(['status' => PurchaseStatus::RECEIVED]);
+            $lockedPurchase->update(['status' => PurchaseStatus::RECEIVED]);
         });
     }
 
     public function markAsPaid(Purchase $purchase): void
     {
         DB::transaction(function () use ($purchase) {
-            if (!in_array($purchase->status, [PurchaseStatus::ORDERED, PurchaseStatus::RECEIVED])) {
-                throw PurchaseException::invalidStatus('pay', $purchase->status->label(), ['id' => $purchase->id]);
+            $lockedPurchase = Purchase::query()
+                ->lockForUpdate()
+                ->with('supplier')
+                ->findOrFail($purchase->id);
+
+            if ($lockedPurchase->isMaterialReceipt()) {
+                throw PurchaseException::updateFailed('Material receipts cannot be marked as paid.', ['id' => $lockedPurchase->id]);
             }
 
-            // Strict Validation for Payment
-            if (!$purchase->isMaterialReceipt() && empty($purchase->invoice_number)) {
-                throw PurchaseException::missingReference('Invoice Number', ['id' => $purchase->id]);
+            if (!in_array($lockedPurchase->status, [PurchaseStatus::ORDERED, PurchaseStatus::RECEIVED], true)) {
+                throw PurchaseException::invalidStatus('pay', $lockedPurchase->status->label(), ['id' => $lockedPurchase->id]);
             }
 
-            if (!$purchase->isMaterialReceipt() && empty($purchase->proof_image)) {
-                throw PurchaseException::missingReference('Proof Image', ['id' => $purchase->id]);
+            if (empty($lockedPurchase->invoice_number)) {
+                throw PurchaseException::missingReference('Invoice Number', ['id' => $lockedPurchase->id]);
             }
 
-            $purchase->update(['status' => PurchaseStatus::PAID]);
+            if (empty($lockedPurchase->proof_image)) {
+                throw PurchaseException::missingReference('Proof Image', ['id' => $lockedPurchase->id]);
+            }
 
-            $this->financeService->recordExpenseFromPurchase($purchase);
+            $lockedPurchase->update(['status' => PurchaseStatus::PAID]);
+
+            $this->financeService->recordExpenseFromPurchase($lockedPurchase);
         });
     }
 
     public function cancelPurchase(Purchase $purchase): void
     {
         DB::transaction(function () use ($purchase) {
-            if ($purchase->status === PurchaseStatus::RECEIVED || $purchase->status === PurchaseStatus::PAID) {
-                throw PurchaseException::invalidStatus('cancel', $purchase->status->label(), ['id' => $purchase->id]);
+            $lockedPurchase = Purchase::query()
+                ->lockForUpdate()
+                ->findOrFail($purchase->id);
+
+            if ($lockedPurchase->status === PurchaseStatus::RECEIVED || $lockedPurchase->status === PurchaseStatus::PAID) {
+                throw PurchaseException::invalidStatus('cancel', $lockedPurchase->status->label(), ['id' => $lockedPurchase->id]);
             }
 
-            $purchase->update(['status' => PurchaseStatus::CANCELLED]);
+            $lockedPurchase->update(['status' => PurchaseStatus::CANCELLED]);
 
-            $this->financeService->voidTransaction($purchase);
+            $this->financeService->voidTransaction($lockedPurchase);
         });
     }
 
     public function restoreToDraft(Purchase $purchase): void
     {
         DB::transaction(function () use ($purchase) {
-            if ($purchase->status !== PurchaseStatus::CANCELLED) {
-                throw PurchaseException::invalidStatus('restore', $purchase->status->label(), ['id' => $purchase->id]);
+            $lockedPurchase = Purchase::query()
+                ->lockForUpdate()
+                ->findOrFail($purchase->id);
+
+            if ($lockedPurchase->status !== PurchaseStatus::CANCELLED) {
+                throw PurchaseException::invalidStatus('restore', $lockedPurchase->status->label(), ['id' => $lockedPurchase->id]);
             }
 
-            $purchase->update(['status' => PurchaseStatus::DRAFT]);
+            $lockedPurchase->update(['status' => PurchaseStatus::DRAFT]);
         });
     }
 

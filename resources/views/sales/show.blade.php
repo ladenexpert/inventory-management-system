@@ -1,9 +1,20 @@
-@php($isMaterialUsage = ($context ?? 'sale') === 'material_usage')
-<x-app-layout title="{{ $isMaterialUsage ? 'Material Usage Details' : 'Sale Details' }}">
+@php
+    $isMaterialUsage = ($context ?? 'sale') === 'material_usage';
+    $pageTitle = $isMaterialUsage ? 'Material Usage Details' : 'Legacy Sale Details';
+    $infoTitle = $isMaterialUsage ? 'Material Usage Information' : 'Legacy Sale Information';
+    $infoDescription = $isMaterialUsage
+        ? 'Details of the issued raw material transaction.'
+        : 'Details of the legacy sales transaction.';
+    $documentLabel = $isMaterialUsage ? 'Usage Number' : 'Invoice Number';
+    $unitAmountLabel = $isMaterialUsage ? 'Unit Cost' : 'Price';
+    $adjustmentLabel = $isMaterialUsage ? 'Total Cost' : 'Discount';
+    $lineTotalLabel = $isMaterialUsage ? 'Issued Cost' : 'Subtotal';
+@endphp
+<x-app-layout :title="$pageTitle">
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-foreground leading-tight">
-                {{ $isMaterialUsage ? __('Material Usage Details') : __('Sale Details') }} #{{ $sale->invoice_number ?: $sale->id }}
+                {{ __($pageTitle) }} #{{ $sale->invoice_number ?: $sale->id }}
             </h2>
             <div class="flex items-center gap-2">
                 <x-secondary-button href="{{ route($indexRoute ?? 'sales.index') }}">
@@ -25,8 +36,8 @@
                     <!-- Header Info -->
                     <div class="flex items-start justify-between border-b border-gray-100 pb-4 mb-6">
                         <div>
-                            <h3 class="text-lg font-medium text-gray-900">{{ $isMaterialUsage ? __('Material Usage Information') : __('Sale Information') }}</h3>
-                            <p class="text-sm text-gray-500">{{ $isMaterialUsage ? __('Details of the issued raw material transaction') : __('Details of the sales transaction') }}</p>
+                            <h3 class="text-lg font-medium text-gray-900">{{ __($infoTitle) }}</h3>
+                            <p class="text-sm text-gray-500">{{ __($infoDescription) }}</p>
                         </div>
                         <div class="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs font-medium border border-slate-200">
                             ID: #{{ $sale->id }}
@@ -43,7 +54,7 @@
                         @endif
 
                         <!-- Invoice -->
-                        <x-detail-item :label="$isMaterialUsage ? 'Usage Number' : 'Invoice Number'" :value="$sale->invoice_number ?? '-'">
+                        <x-detail-item :label="$documentLabel" :value="$sale->invoice_number ?? '-'">
                             <x-heroicon-o-document-text class="w-4 h-4 text-gray-400" />
                         </x-detail-item>
 
@@ -121,9 +132,9 @@
                                     <th class="px-6 py-3">Batch Allocation</th>
                                     <th class="px-6 py-3">UOM</th>
                                     <th class="px-6 py-3 text-center">Qty</th>
-                                    <th class="px-6 py-3 text-right">Price</th>
-                                    <th class="px-6 py-3 text-right">Discount</th>
-                                    <th class="px-6 py-3 text-right">Subtotal</th>
+                                    <th class="px-6 py-3 text-right">{{ $unitAmountLabel }}</th>
+                                    <th class="px-6 py-3 text-right">{{ $adjustmentLabel }}</th>
+                                    <th class="px-6 py-3 text-right">{{ $lineTotalLabel }}</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">
@@ -156,58 +167,71 @@
                                             {{ number_format($item->quantity) }}
                                         </td>
                                         <td class="px-6 py-4 text-right">
-                                            @money($item->unit_price)
+                                            @money($isMaterialUsage ? ($item->cost_price ?: $item->unit_price) : $item->unit_price)
                                         </td>
-                                        <td class="px-6 py-4 text-right text-red-500">
-                                            {!! $item->discount > 0 ? "- <span>" . format_money($item->discount) . "</span>" : '-' !!}
+                                        <td class="px-6 py-4 text-right {{ $isMaterialUsage ? 'text-gray-700' : 'text-red-500' }}">
+                                            @if($isMaterialUsage)
+                                                @money($item->total_cost)
+                                            @else
+                                                {!! $item->discount > 0 ? "- <span>" . format_money($item->discount) . "</span>" : '-' !!}
+                                            @endif
                                         </td>
                                         <td class="px-6 py-4 text-right font-medium">
-                                            @money($item->subtotal)
+                                            @money($isMaterialUsage ? $item->total_cost : $item->subtotal)
                                         </td>
                                     </tr>
                                 @endforeach
                             </tbody>
                             <tfoot class="bg-gray-50 font-bold">
-                                <tr>
-                                    <td colspan="7" class="px-6 py-4 text-right">Subtotal</td>
-                                    <td class="px-6 py-4 text-right text-gray-700">
-                                        @money($sale->subtotal)
-                                    </td>
-                                </tr>
-                                @if($sale->total_discount > 0)
+                                @if($isMaterialUsage)
                                     <tr>
-                                        <td colspan="7" class="px-6 py-4 text-right text-red-600">Total Discount (Items)</td>
-                                        <td class="px-6 py-4 text-right text-red-600">
-                                            - @money($sale->total_discount - $sale->global_discount)
+                                        <td colspan="7" class="px-6 py-4 text-right">Total Issued Cost</td>
+                                        <td class="px-6 py-4 text-right text-indigo-600 text-lg">
+                                            @money($sale->items->sum('total_cost'))
+                                        </td>
+                                    </tr>
+                                @else
+                                    <tr>
+                                        <td colspan="7" class="px-6 py-4 text-right">Subtotal</td>
+                                        <td class="px-6 py-4 text-right text-gray-700">
+                                            @money($sale->subtotal)
+                                        </td>
+                                    </tr>
+                                    @if($sale->total_discount > 0)
+                                        <tr>
+                                            <td colspan="7" class="px-6 py-4 text-right text-red-600">Total Discount (Items)</td>
+                                            <td class="px-6 py-4 text-right text-red-600">
+                                                - @money($sale->total_discount - $sale->global_discount)
+                                            </td>
+                                        </tr>
+                                    @endif
+                                    @if($sale->global_discount > 0)
+                                        <tr>
+                                            <td colspan="7" class="px-6 py-4 text-right text-red-600">Global Discount (Transaction)</td>
+                                            <td class="px-6 py-4 text-right text-red-600">
+                                                - @money($sale->global_discount)
+                                            </td>
+                                        </tr>
+                                    @endif
+                                    <tr>
+                                        <td colspan="7" class="px-6 py-4 text-right">Total</td>
+                                        <td class="px-6 py-4 text-right text-indigo-600 text-lg">
+                                            @money($sale->total)
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="7" class="px-6 py-4 text-right text-gray-600">Cash Received</td>
+                                        <td class="px-6 py-4 text-right text-gray-800">
+                                            @money($sale->cash_received)
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="7" class="px-6 py-4 text-right text-gray-600">Change</td>
+                                        <td class="px-6 py-4 text-right text-green-600">
+                                            @money($sale->change)
                                         </td>
                                     </tr>
                                 @endif
-                                @if($sale->global_discount > 0)
-                                    <tr>
-                                        <td colspan="7" class="px-6 py-4 text-right text-red-600">Global Discount (Transaction)</td>
-                                        <td class="px-6 py-4 text-right text-red-600">
-                                            - @money($sale->global_discount)
-                                        </td>
-                                    </tr>
-                                @endif
-                                <tr>
-                                    <td colspan="7" class="px-6 py-4 text-right">Total</td>
-                                    <td class="px-6 py-4 text-right text-indigo-600 text-lg">
-                                        @money($sale->total)
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td colspan="7" class="px-6 py-4 text-right text-gray-600">Cash Received</td>
-                                    <td class="px-6 py-4 text-right text-gray-800">
-                                        @money($sale->cash_received)
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td colspan="7" class="px-6 py-4 text-right text-gray-600">Change</td>
-                                    <td class="px-6 py-4 text-right text-green-600">
-                                        @money($sale->change)
-                                    </td>
-                                </tr>
                             </tfoot>
                         </table>
                     </div>
@@ -238,15 +262,15 @@
                     {{-- Complete / Pay Action --}}
                     <x-primary-button
                         class="!bg-green-600 hover:!bg-green-700 focus:!ring-green-500"
-                        @click="confirmAction('{{ route($completeRoute ?? 'sales.complete', $sale) }}', 'PATCH', '{{ $isMaterialUsage ? 'Complete Material Usage' : 'Complete Sale' }}', '{{ $isMaterialUsage ? 'Mark this material usage as completed?' : 'Mark this sale as Completed? This confirms payment has been received.' }}', '{{ $isMaterialUsage ? 'Complete Usage' : 'Complete Sale' }}', '!bg-green-600 hover:!bg-green-700 focus:!ring-green-500')"
+                        @click="confirmAction('{{ route($completeRoute ?? 'sales.complete', $sale) }}', 'PATCH', '{{ $isMaterialUsage ? 'Complete Material Usage' : 'Complete Legacy Sale' }}', '{{ $isMaterialUsage ? 'Mark this material usage as completed?' : 'Mark this legacy sale as completed? This confirms payment has been received.' }}', '{{ $isMaterialUsage ? 'Complete Usage' : 'Complete Legacy Sale' }}', '!bg-green-600 hover:!bg-green-700 focus:!ring-green-500')"
                     >
-                        {{ $isMaterialUsage ? __('Complete Usage') : __('Complete Sale') }}
+                        {{ $isMaterialUsage ? __('Complete Usage') : __('Complete Legacy Sale') }}
                     </x-primary-button>
 
                     {{-- Cancel Pending Action (Modal) --}}
                     <div x-data="{ cancelOpen: false }">
                         <x-danger-button @click="cancelOpen = true">
-                            {{ __('Cancel Sale') }}
+                            {{ $isMaterialUsage ? __('Cancel Usage') : __('Cancel Legacy Sale') }}
                         </x-danger-button>
 
                         <!-- Cancel Modal -->
@@ -287,7 +311,7 @@
                                             {{ __('Back') }}
                                         </x-secondary-button>
                                         <x-danger-button type="submit">
-                                            {{ $isMaterialUsage ? __('Cancel Usage') : __('Cancel Sale') }}
+                                            {{ $isMaterialUsage ? __('Cancel Usage') : __('Cancel Legacy Sale') }}
                                         </x-danger-button>
                                     </div>
                                 </form>
@@ -300,9 +324,9 @@
                     {{-- Cancel Action --}}
                     <x-secondary-button
                         class="text-red-600 hover:bg-red-50 border-red-200"
-                        @click="confirmAction('{{ route($destroyRoute ?? 'sales.destroy', $sale) }}', 'DELETE', '{{ $isMaterialUsage ? 'Cancel Material Usage' : 'Cancel Sale' }}', '{{ $isMaterialUsage ? 'Are you sure you want to cancel this material usage? Stock will be returned.' : 'Are you sure you want to cancel (VOID) this sale? Stocks will be returned.' }}', '{{ $isMaterialUsage ? 'Yes, Cancel Usage' : 'Yes, Cancel Sale' }}', '!bg-red-600 hover:!bg-red-700 focus:!ring-red-500')"
+                        @click="confirmAction('{{ route($destroyRoute ?? 'sales.destroy', $sale) }}', 'DELETE', '{{ $isMaterialUsage ? 'Cancel Material Usage' : 'Cancel Legacy Sale' }}', '{{ $isMaterialUsage ? 'Are you sure you want to cancel this material usage? Stock will be returned.' : 'Are you sure you want to cancel this legacy sale? Stock will be returned.' }}', '{{ $isMaterialUsage ? 'Yes, Cancel Usage' : 'Yes, Cancel Legacy Sale' }}', '!bg-red-600 hover:!bg-red-700 focus:!ring-red-500')"
                     >
-                        {{ $isMaterialUsage ? __('Cancel Usage') : __('Cancel Sale') }}
+                        {{ $isMaterialUsage ? __('Cancel Usage') : __('Cancel Legacy Sale') }}
                     </x-secondary-button>
                 @endif
 
@@ -310,7 +334,7 @@
                     {{-- Restore Action --}}
                     <x-secondary-button
                         class="bg-gray-800 text-white hover:bg-gray-700 focus:ring-gray-500"
-                        @click="confirmAction('{{ route($restoreRoute ?? 'sales.restore', $sale) }}', 'PATCH', '{{ $isMaterialUsage ? 'Restore Material Usage' : 'Restore Sale' }}', '{{ $isMaterialUsage ? 'Restore this usage to pending status?' : 'Restore this sale to Pending status? You can then complete it again.' }}', 'Restore to Pending', '!bg-gray-800 hover:!bg-gray-700 text-white')"
+                        @click="confirmAction('{{ route($restoreRoute ?? 'sales.restore', $sale) }}', 'PATCH', '{{ $isMaterialUsage ? 'Restore Material Usage' : 'Restore Legacy Sale' }}', '{{ $isMaterialUsage ? 'Restore this usage to pending status?' : 'Restore this legacy sale to pending status? You can then complete it again.' }}', 'Restore to Pending', '!bg-gray-800 hover:!bg-gray-700 text-white')"
                     >
                         {{ __('Restore to Pending') }}
                     </x-secondary-button>

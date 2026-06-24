@@ -1,8 +1,8 @@
-<x-app-layout title="Create Purchase">
+<x-app-layout title="Create Legacy Purchase">
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-foreground leading-tight">
-                {{ __('Create Purchase') }}
+                {{ __('Create Legacy Purchase') }}
             </h2>
             <x-secondary-button href="{{ route('purchases.index') }}">
                 &larr; {{ __('Back to List') }}

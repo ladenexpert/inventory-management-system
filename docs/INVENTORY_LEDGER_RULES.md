@@ -159,8 +159,12 @@ All stock-changing operations must use the shared product sync routine after bat
 
 - recalculate `products.quantity`
 - optionally recalculate product average purchase price from remaining batch valuation
+- treat sync as a one-way cache update from `batches.available_quantity` to `products.quantity`
+- update `products.quantity` quietly so the cache refresh does not trigger another stock sync pass
+- synchronize once per affected product at the end of the transaction stock movement scope when possible
+- write `inventory_logs` after the batch movement and product cache sync are finalized for that scope
 
-This avoids drifting aggregate stock and duplicate sync logic across services.
+This avoids drifting aggregate stock, recursive sync loops, and repeated aggregate queries inside a single transaction flow.
 
 ## Known Limitations
 

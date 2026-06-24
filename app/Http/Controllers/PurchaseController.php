@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Auth;
 use App\Exceptions\PurchaseException;
 use App\Http\Requests\StorePurchaseRequest;
 use App\Http\Requests\UpdatePurchaseRequest;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Storage;
 
 class PurchaseController extends Controller
 {
@@ -53,12 +55,10 @@ class PurchaseController extends Controller
 
             $purchase = $this->service->createPurchase($purchaseData, Auth::id());
 
-            $targetRoute = $request->input('context') === 'material_receipt'
-                ? 'material-receipts.show'
-                : 'purchases.show';
-
-            return redirect()->route($targetRoute, $purchase)
-                ->with('success', 'Purchase created successfully.');
+            return $this->redirectToPurchaseDetail($purchase)
+                ->with('success', $purchase->isMaterialReceipt()
+                    ? 'Material receipt created successfully.'
+                    : 'Legacy purchase created successfully.');
 
         } catch (PurchaseException $e) {
             return back()->withInput()->with('error', $e->getMessage());
@@ -117,12 +117,12 @@ class PurchaseController extends Controller
 
             $this->service->updatePurchase($purchase, $purchaseData);
 
-            $targetRoute = $request->input('context') === 'material_receipt'
-                ? 'material-receipts.show'
-                : 'purchases.show';
+            $purchase->refresh();
 
-            return redirect()->route($targetRoute, $purchase)
-                ->with('success', 'Purchase updated successfully.');
+            return $this->redirectToPurchaseDetail($purchase)
+                ->with('success', $purchase->isMaterialReceipt()
+                    ? 'Material receipt updated successfully.'
+                    : 'Legacy purchase updated successfully.');
 
         } catch (PurchaseException $e) {
             return back()->withInput()->with('error', $e->getMessage());
@@ -140,7 +140,9 @@ class PurchaseController extends Controller
 
         try {
             $this->service->deletePurchase($purchase);
-            return redirect()->route('purchases.index')->with('success', 'Purchase deleted successfully.');
+            return $this->redirectToPurchaseIndex($purchase)->with('success', $purchase->isMaterialReceipt()
+                ? 'Material receipt deleted successfully.'
+                : 'Legacy purchase deleted successfully.');
         } catch (PurchaseException $e) {
             return back()->with('error', $e->getMessage());
         } catch (\Exception $e) {
@@ -152,7 +154,11 @@ class PurchaseController extends Controller
     {
         try {
             $this->service->markAsOrdered($purchase);
-            return back()->with('success', 'Purchase marked as ordered.');
+            $purchase->refresh();
+
+            return $this->redirectToPurchaseDetail($purchase)->with('success', $purchase->isMaterialReceipt()
+                ? 'Material receipt marked as planned.'
+                : 'Legacy purchase marked as ordered.');
         } catch (PurchaseException $e) {
             return back()->with('error', $e->getMessage());
         } catch (\Exception $e) {
@@ -174,6 +180,8 @@ class PurchaseController extends Controller
 
         $request->validate($rules);
 
+        $storedProofPath = null;
+
         try {
             $updateData = [];
 
@@ -182,20 +190,29 @@ class PurchaseController extends Controller
             }
 
             if ($request->hasFile('proof_image')) {
-                $updateData['proof_image'] = $request->file('proof_image')->store('proofs', 'public');
+                $storedProofPath = $request->file('proof_image')->store('proofs', 'public');
+                $updateData['proof_image'] = $storedProofPath;
             }
 
-            if (!empty($updateData)) {
-                $purchase->update($updateData);
-            }
+            $this->service->markAsReceived($purchase, $updateData);
 
-            $this->service->markAsReceived($purchase);
+            $purchase->refresh();
 
-            return back()->with('success', 'Purchase received and stock updated.');
+            return $this->redirectToPurchaseDetail($purchase)->with('success', $purchase->isMaterialReceipt()
+                ? 'Material receipt confirmed and stock updated.'
+                : 'Legacy purchase received and stock updated.');
 
         } catch (PurchaseException $e) {
+            if (!empty($storedProofPath)) {
+                Storage::disk('public')->delete($storedProofPath);
+            }
+
             return back()->with('error', $e->getMessage());
         } catch (\Exception $e) {
+            if (!empty($storedProofPath)) {
+                Storage::disk('public')->delete($storedProofPath);
+            }
+
             return back()->with('error', 'Error receiving purchase: ' . $e->getMessage());
         }
     }
@@ -220,7 +237,11 @@ class PurchaseController extends Controller
 
         try {
             $this->service->cancelPurchase($purchase);
-            return back()->with('success', 'Purchase order cancelled.');
+            $purchase->refresh();
+
+            return $this->redirectToPurchaseDetail($purchase)->with('success', $purchase->isMaterialReceipt()
+                ? 'Material receipt cancelled.'
+                : 'Legacy purchase cancelled.');
         } catch (PurchaseException $e) {
             return back()->with('error', $e->getMessage());
         } catch (\Exception $e) {
@@ -232,7 +253,9 @@ class PurchaseController extends Controller
     {
         try {
             $this->service->markAsPaid($purchase);
-            return back()->with('success', 'Purchase marked as paid.');
+            $purchase->refresh();
+
+            return $this->redirectToPurchaseDetail($purchase)->with('success', 'Legacy purchase marked as paid.');
         } catch (PurchaseException $e) {
             return back()->with('error', $e->getMessage());
         } catch (\Exception $e) {
@@ -249,11 +272,25 @@ class PurchaseController extends Controller
 
         try {
             $this->service->restoreToDraft($purchase);
-            return back()->with('success', 'Purchase restored to draft.');
+            $purchase->refresh();
+
+            return $this->redirectToPurchaseDetail($purchase)->with('success', $purchase->isMaterialReceipt()
+                ? 'Material receipt restored to draft.'
+                : 'Legacy purchase restored to draft.');
         } catch (PurchaseException $e) {
             return back()->with('error', $e->getMessage());
         } catch (\Exception $e) {
             return back()->with('error', 'Error restoring purchase: ' . $e->getMessage());
         }
+    }
+
+    private function redirectToPurchaseDetail(Purchase $purchase): RedirectResponse
+    {
+        return redirect()->route($purchase->isMaterialReceipt() ? 'material-receipts.show' : 'purchases.show', $purchase);
+    }
+
+    private function redirectToPurchaseIndex(Purchase $purchase): RedirectResponse
+    {
+        return redirect()->route($purchase->isMaterialReceipt() ? 'material-receipts.index' : 'purchases.index');
     }
 }

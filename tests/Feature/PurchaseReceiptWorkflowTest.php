@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\PurchaseStatus;
 use App\Models\Batch;
+use App\Models\FinanceTransaction;
 use App\Models\InventoryLog;
 use App\Models\Product;
 use App\Models\Purchase;
@@ -153,5 +154,45 @@ class PurchaseReceiptWorkflowTest extends TestCase
             'purchase_id' => $purchase->id,
             'batch_number' => 'LEG-REC-002',
         ]);
+    }
+
+    public function test_material_receipt_cannot_be_marked_paid_or_post_finance(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create([
+            'quantity' => 0,
+            'purchase_price' => 4000,
+            'selling_price' => 7000,
+        ]);
+
+        $purchase = Purchase::create([
+            'supplier_id' => null,
+            'purchase_date' => now(),
+            'total' => 20000,
+            'status' => PurchaseStatus::RECEIVED,
+            'created_by' => $user->id,
+            'entry_context' => 'material_receipt',
+        ]);
+
+        PurchaseItem::create([
+            'purchase_id' => $purchase->id,
+            'product_id' => $product->id,
+            'batch_number' => 'RNI-REC-PAID-001',
+            'expiry_date' => now()->addMonths(4)->toDateString(),
+            'storage_location' => 'RM-Z1 - Pilot Rack',
+            'quantity' => 5,
+            'unit_price' => 4000,
+            'selling_price' => 7000,
+            'subtotal' => 20000,
+        ]);
+
+        $response = $this->actingAs($user)
+            ->from(route('material-receipts.show', $purchase))
+            ->patch(route('purchases.mark-paid', $purchase));
+
+        $response->assertRedirect(route('material-receipts.show', $purchase));
+        $response->assertSessionHas('error');
+        $this->assertSame(PurchaseStatus::RECEIVED, $purchase->fresh()->status);
+        $this->assertSame(0, FinanceTransaction::count());
     }
 }

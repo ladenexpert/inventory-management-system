@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Purchase Receipt #{{ $purchase->invoice_number ?: $purchase->id }}</title>
+    <title>Legacy Purchase Receipt #{{ $purchase->invoice_number ?: $purchase->id }}</title>
     <style>
         @page {
             size: A4;
@@ -114,7 +114,7 @@
                 <p>Phone: {{ \App\Models\Setting::get('store_phone', '-') }}</p>
             </div>
             <div>
-                <p><strong>Document</strong>: Purchase Receipt</p>
+                <p><strong>Document</strong>: Legacy Purchase Receipt</p>
                 <p><strong>Number</strong>: {{ $purchase->invoice_number ?: 'PUR-' . $purchase->id }}</p>
                 <p><strong>Date</strong>: {{ $purchase->purchase_date->format('d M Y') }}</p>
                 <p><strong>Status</strong>: {{ $purchase->status->label() }}</p>

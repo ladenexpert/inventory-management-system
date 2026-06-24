@@ -49,18 +49,20 @@ class ProductService
                     : null;
 
                 if ($data->quantity > 0) {
-                    $this->batchService->createManualInboundBatch(
-                        product: $product,
-                        quantity: $data->quantity,
-                        unitCost: $data->purchase_price,
-                        sellingPrice: $data->selling_price,
-                        source: 'opening_balance',
-                        notes: 'Opening balance created from initial product setup.',
-                        batchNumber: $data->opening_batch_number,
-                        expiryDate: $data->opening_expiry_date,
-                        storageLocation: $openingLocation?->display_label ?? $data->opening_storage_location,
-                        storageLocationId: $data->opening_storage_location_id,
-                    );
+                    $this->batchService->withinStockMutationScope(function () use ($product, $data, $openingLocation) {
+                        $this->batchService->createManualInboundBatch(
+                            product: $product,
+                            quantity: $data->quantity,
+                            unitCost: $data->purchase_price,
+                            sellingPrice: $data->selling_price,
+                            source: 'opening_balance',
+                            notes: 'Opening balance created from initial product setup.',
+                            batchNumber: $data->opening_batch_number,
+                            expiryDate: $data->opening_expiry_date,
+                            storageLocation: $openingLocation?->display_label ?? $data->opening_storage_location,
+                            storageLocationId: $data->opening_storage_location_id,
+                        );
+                    });
                 }
 
                 return $product->refresh();
@@ -100,13 +102,15 @@ class ProductService
                     'notes' => $data->notes,
                 ]);
 
-                $this->batchService->adjustProductQuantity(
-                    product: $lockedProduct,
-                    targetQuantity: $targetQuantity,
-                    unitCost: $data->purchase_price,
-                    sellingPrice: $data->selling_price,
-                    notes: 'Stock adjusted from product form update.'
-                );
+                $this->batchService->withinStockMutationScope(function () use ($lockedProduct, $targetQuantity, $data) {
+                    $this->batchService->adjustProductQuantity(
+                        product: $lockedProduct,
+                        targetQuantity: $targetQuantity,
+                        unitCost: $data->purchase_price,
+                        sellingPrice: $data->selling_price,
+                        notes: 'Stock adjusted from product form update.'
+                    );
+                });
 
                 return $lockedProduct->refresh();
 

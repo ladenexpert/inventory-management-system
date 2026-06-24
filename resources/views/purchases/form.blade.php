@@ -6,6 +6,11 @@
         ? strtolower(pathinfo($purchase->proof_image, PATHINFO_EXTENSION))
         : null;
     $proofIsPdf = $proofExtension === 'pdf';
+    $searchPlaceholder = $isMaterialReceipt ? 'Search raw material to add...' : 'Search product to add...';
+    $itemEntityLabel = $isMaterialReceipt ? 'Raw material' : 'Product';
+    $submitLabel = isset($purchase->id)
+        ? ($isMaterialReceipt ? 'Update Material Receipt' : 'Update Legacy Purchase')
+        : ($isMaterialReceipt ? 'Create Material Receipt' : 'Create Legacy Purchase');
 @endphp
 <div class="space-y-6">
     <!-- Header Input Section -->
@@ -403,7 +408,7 @@
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <span x-text="loading ? 'Processing...' : ({{ isset($purchase->id) ? ($isMaterialReceipt ? '`Update Material Receipt`' : '`Update Purchase`') : ($isMaterialReceipt ? '`Create Material Receipt`' : '`Create Purchase`') }})"></span>
+            <span x-text="loading ? 'Processing...' : @js($submitLabel)"></span>
         </x-primary-button>
     </div>
 </div>
@@ -581,7 +586,7 @@
 
                 window.dispatchEvent(new CustomEvent('toast', {
                     detail: {
-                        message: 'Product "' + product.text + '" added as a new batch row.',
+                        message: @js($itemEntityLabel) + ' "' + product.text + '" added as a new batch row.',
                         type: 'success'
                     }
                 }));
@@ -591,7 +596,7 @@
                 let self = this;
                 this.waitForTomSelect(() => {
                     let ts = new TomSelect(el, {
-                        placeholder: 'Search Product to Add...',
+                        placeholder: @js($searchPlaceholder),
                         preload: 'focus',
                         valueField: 'value',
                         labelField: 'text',

@@ -1,25 +1,41 @@
-@php($isMaterialReceipt = ($context ?? null) === 'material_receipt')
-<x-app-layout title="{{ $isMaterialReceipt ? 'Material Receipt Details' : 'Purchase Details' }}">
-    @php
-        $proofExtension = $purchase->proof_image ? strtolower(pathinfo($purchase->proof_image, PATHINFO_EXTENSION)) : null;
-        $proofLabel = $proofExtension === 'pdf' ? 'View Attachment PDF' : 'View Attachment';
-    @endphp
+@php
+    $isMaterialReceipt = ($context ?? null) === 'material_receipt';
+    $pageTitle = $isMaterialReceipt ? 'Material Receipt Details' : 'Legacy Purchase Details';
+    $infoTitle = $isMaterialReceipt ? 'Material Receipt Information' : 'Legacy Purchase Information';
+    $infoDescription = $isMaterialReceipt
+        ? 'Details of the material receipt transaction.'
+        : 'Details of the legacy purchase transaction.';
+    $invoiceLabel = $isMaterialReceipt ? 'Receipt Reference' : 'Invoice Number';
+    $proofFieldLabel = $isMaterialReceipt ? 'Receipt Evidence' : 'Proof of Receipt';
+    $amountLabel = $isMaterialReceipt ? 'Total Receipt Value' : 'Total Purchase Value';
+    $buyingLabel = $isMaterialReceipt ? 'Unit Cost' : 'Buying Price';
+    $sellingLabel = $isMaterialReceipt ? 'Reference Price' : 'Selling Price';
+    $proofExtension = $purchase->proof_image ? strtolower(pathinfo($purchase->proof_image, PATHINFO_EXTENSION)) : null;
+    $proofLabel = $proofExtension === 'pdf' ? 'View Attachment PDF' : 'View Attachment';
+    $receiveModalOpen = $errors->has('invoice_number') || $errors->has('proof_image');
+    $backRoute = $indexRoute ?? 'purchases.index';
+    $editRouteName = $editRoute ?? 'purchases.edit';
+@endphp
+
+<x-app-layout :title="$pageTitle">
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-foreground leading-tight">
-                {{ $isMaterialReceipt ? __('Material Receipt Details') : __('Purchase Details') }} #{{ $purchase->invoice_number ?: $purchase->id }}
+                {{ __($pageTitle) }} #{{ $purchase->invoice_number ?: $purchase->id }}
             </h2>
             <div class="flex items-center gap-2">
-                <x-secondary-button href="{{ route($indexRoute ?? 'purchases.index') }}">
+                <x-secondary-button href="{{ route($backRoute) }}">
                     &larr; {{ __('Back to List') }}
                 </x-secondary-button>
-                @unless($isMaterialReceipt)
+
+                @if(! $isMaterialReceipt)
                     <x-secondary-button href="{{ route('purchases.print', $purchase) }}" target="_blank">
                         {{ __('Print Receipt') }}
                     </x-secondary-button>
-                @endunless
-                @if(in_array($purchase->status, [\App\Enums\PurchaseStatus::DRAFT, \App\Enums\PurchaseStatus::ORDERED]))
-                    <x-secondary-button href="{{ route($editRoute ?? 'purchases.edit', $purchase) }}">
+                @endif
+
+                @if(in_array($purchase->status, [\App\Enums\PurchaseStatus::DRAFT, \App\Enums\PurchaseStatus::ORDERED], true))
+                    <x-secondary-button href="{{ route($editRouteName, $purchase) }}">
                         {{ __('Edit') }}
                     </x-secondary-button>
                 @endif
@@ -29,43 +45,35 @@
 
     <div class="py-4">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
-            <!-- Main Info Card -->
             <div class="bg-white shadow-sm sm:rounded-lg overflow-hidden border border-gray-200">
                 <div class="p-6">
-                    <!-- Header Info -->
                     <div class="flex items-start justify-between border-b border-gray-100 pb-4 mb-6">
                         <div>
-                            <h3 class="text-lg font-medium text-gray-900">{{ $isMaterialReceipt ? __('Material Receipt Information') : __('Purchase Information') }}</h3>
-                            <p class="text-sm text-gray-500">{{ $isMaterialReceipt ? __('Details of the material receipt transaction') : __('Details of the purchase transaction') }}</p>
+                            <h3 class="text-lg font-medium text-gray-900">{{ __($infoTitle) }}</h3>
+                            <p class="text-sm text-gray-500">{{ __($infoDescription) }}</p>
                         </div>
                         <div class="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs font-medium border border-slate-200">
                             ID: #{{ $purchase->id }}
                         </div>
                     </div>
 
-                    <!-- Content Grid -->
                     <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                        <!-- Supplier -->
                         <x-detail-item label="Supplier" :value="$purchase->supplier?->name ?? '-'">
                             <x-heroicon-o-building-storefront class="w-4 h-4 text-gray-400" />
                         </x-detail-item>
 
-                        <!-- Invoice -->
-                        <x-detail-item label="Invoice Number" :value="$purchase->invoice_number ?? '-'">
+                        <x-detail-item :label="$invoiceLabel" :value="$purchase->invoice_number ?? '-'">
                             <x-heroicon-o-document-text class="w-4 h-4 text-gray-400" />
                         </x-detail-item>
 
-                        <!-- Purchase Date -->
-                        <x-detail-item :label="$isMaterialReceipt ? 'Receipt Date' : 'Purchase Date'" :value="$purchase->purchase_date->format('d M Y')">
+                        <x-detail-item :label="$isMaterialReceipt ? 'Receipt Date' : 'Purchase Date'" :value="$purchase->purchase_date?->format('d M Y') ?? '-'">
                             <x-heroicon-o-calendar class="w-4 h-4 text-gray-400" />
                         </x-detail-item>
 
-                        <!-- Due Date -->
-                        <x-detail-item label="Due Date" :value="$purchase->due_date ? $purchase->due_date->format('d M Y') : '-'">
+                        <x-detail-item label="Due Date" :value="$purchase->due_date?->format('d M Y') ?? '-'">
                             <x-heroicon-o-calendar class="w-4 h-4 text-gray-400" />
                         </x-detail-item>
 
-                        <!-- Status -->
                         <div>
                             <label class="text-sm font-medium leading-none text-gray-500">Status</label>
                             <div class="mt-1">
@@ -75,20 +83,17 @@
                             </div>
                         </div>
 
-                        <!-- Total Amount -->
-                        <x-detail-item label="Total Amount" :value="format_money($purchase->total)">
+                        <x-detail-item :label="$amountLabel" :value="format_money($purchase->total)">
                             <x-heroicon-o-banknotes class="w-4 h-4 text-gray-400" />
                         </x-detail-item>
 
-                        <!-- Created By -->
                         <x-detail-item label="Created By" :value="$purchase->creator->name ?? 'Unknown'">
                             <x-heroicon-o-user class="w-4 h-4 text-gray-400" />
                         </x-detail-item>
 
-                        <!-- Proof Image -->
                         @if($purchase->proof_image)
                             <div>
-                                <label class="text-sm font-medium leading-none text-gray-500">{{ $isMaterialReceipt ? 'Receipt Evidence' : 'Proof of Receipt' }}</label>
+                                <label class="text-sm font-medium leading-none text-gray-500">{{ $proofFieldLabel }}</label>
                                 <div class="mt-1">
                                     <a href="{{ Storage::url($purchase->proof_image) }}" target="_blank" class="text-indigo-600 hover:underline text-sm flex items-center gap-1">
                                         <x-heroicon-o-paper-clip class="w-4 h-4" />
@@ -97,36 +102,32 @@
                                 </div>
                             </div>
                         @else
-                            <x-detail-item :label="$isMaterialReceipt ? 'Receipt Evidence' : 'Proof of Receipt'" value="-" />
+                            <x-detail-item :label="$proofFieldLabel" value="-" />
                         @endif
                     </div>
 
-                    <!-- Notes -->
                     <div class="mt-6 pt-6 border-t border-gray-100">
                         <div class="space-y-1">
-                            <label class="text-sm font-medium leading-none text-gray-500">
-                                Notes
-                            </label>
+                            <label class="text-sm font-medium leading-none text-gray-500">Notes</label>
                             <div class="bg-gray-50 p-3 rounded-md border border-gray-100">
                                 <p class="text-sm text-slate-700 italic leading-relaxed">{{ $purchase->notes ?: 'No additional notes.' }}</p>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Items Table Section -->
                     <div class="mt-6 border-t overflow-x-auto">
                         <table class="w-full text-sm text-left">
                             <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                                 <tr>
                                     <th class="px-6 py-3">Item Code IERP</th>
-                                    <th class="px-6 py-3">Product</th>
+                                    <th class="px-6 py-3">{{ $isMaterialReceipt ? 'Raw Material' : 'Product' }}</th>
                                     <th class="px-6 py-3">Batch No</th>
                                     <th class="px-6 py-3">Expiry</th>
                                     <th class="px-6 py-3">Storage Location</th>
                                     <th class="px-6 py-3">UOM</th>
                                     <th class="px-6 py-3 text-center">Quantity</th>
-                                    <th class="px-6 py-3 text-right">Buying Price</th>
-                                    <th class="px-6 py-3 text-right">Selling Price</th>
+                                    <th class="px-6 py-3 text-right">{{ $buyingLabel }}</th>
+                                    <th class="px-6 py-3 text-right">{{ $sellingLabel }}</th>
                                     <th class="px-6 py-3 text-right">Subtotal</th>
                                 </tr>
                             </thead>
@@ -134,10 +135,10 @@
                                 @foreach($purchase->items as $item)
                                     <tr class="bg-white hover:bg-gray-50">
                                         <td class="px-6 py-4 text-sm text-gray-500">
-                                            {{ $item->product->item_code_ierp ?? $item->product->sku ?? '-' }}
+                                            {{ $item->product?->item_code_ierp ?? $item->product?->sku ?? '-' }}
                                         </td>
                                         <td class="px-6 py-4 font-medium text-gray-900">
-                                            {{ $item->product->name }}
+                                            {{ $item->product?->name ?? '-' }}
                                         </td>
                                         <td class="px-6 py-4 text-sm text-gray-600">
                                             {{ $item->batch?->batch_number ?? $item->batch_number ?? '-' }}
@@ -149,7 +150,7 @@
                                             {{ $item->batch?->resolved_storage_location ?? $item->storageLocation?->display_label ?? $item->storage_location ?? '-' }}
                                         </td>
                                         <td class="px-6 py-4 text-sm text-gray-500">
-                                            {{ $item->product->unit->symbol ?? $item->product->unit->name ?? '-' }}
+                                            {{ $item->product?->unit?->symbol ?? $item->product?->unit?->name ?? '-' }}
                                         </td>
                                         <td class="px-6 py-4 text-center">
                                             {{ number_format($item->quantity) }}
@@ -168,7 +169,7 @@
                             </tbody>
                             <tfoot class="bg-gray-50 font-bold">
                                 <tr>
-                                    <td colspan="9" class="px-6 py-4 text-right">Total</td>
+                                    <td colspan="9" class="px-6 py-4 text-right">{{ $amountLabel }}</td>
                                     <td class="px-6 py-4 text-right text-indigo-600 text-lg">
                                         @money($purchase->total)
                                     </td>
@@ -179,78 +180,71 @@
                 </div>
             </div>
 
-            <!-- Action Buttons Workflow -->
-            <div x-data="{
-                actionUrl: '',
-                actionMethod: '',
-                modalTitle: '',
-                modalMessage: '',
-                confirmButtonText: '',
-                confirmButtonClass: '',
-
-                confirmAction(url, method, title, message, btnText, btnClass) {
-                    // Manual DOM manipulation to ensure reliability
-                    document.getElementById('confirmation-form').action = url;
-                    document.getElementById('confirmation-method').value = method;
-
-                    this.modalTitle = title;
-                    this.modalMessage = message;
-                    this.confirmButtonText = btnText;
-                    this.confirmButtonClass = btnClass;
-                    $dispatch('open-modal', { name: 'confirmation-modal' });
-                }
-            }" class="flex flex-col sm:flex-row justify-end gap-4">
-
+            <div
+                x-data="{
+                    modalTitle: '',
+                    modalMessage: '',
+                    confirmButtonText: '',
+                    confirmButtonClass: '',
+                    confirmAction(url, method, title, message, btnText, btnClass) {
+                        document.getElementById('confirmation-form').action = url;
+                        document.getElementById('confirmation-method').value = method;
+                        this.modalTitle = title;
+                        this.modalMessage = message;
+                        this.confirmButtonText = btnText;
+                        this.confirmButtonClass = btnClass;
+                        $dispatch('open-modal', { name: 'confirmation-modal' });
+                    }
+                }"
+                class="flex flex-col sm:flex-row justify-end gap-4"
+            >
                 @if($purchase->status === \App\Enums\PurchaseStatus::DRAFT)
-
-                    {{-- Delete Action --}}
                     <x-danger-button
                         type="button"
-                        @click="confirmAction('{{ route('purchases.destroy', $purchase) }}', 'DELETE', 'Delete Draft', 'Are you sure you want to delete this draft? This action cannot be undone.', 'Delete Draft', '!bg-red-600 hover:!bg-red-700 focus:!ring-red-500')"
+                        @click="confirmAction('{{ route('purchases.destroy', $purchase) }}', 'DELETE', '{{ $isMaterialReceipt ? 'Delete Draft Receipt' : 'Delete Draft Purchase' }}', '{{ $isMaterialReceipt ? 'Are you sure you want to delete this draft material receipt?' : 'Are you sure you want to delete this draft legacy purchase?' }}', '{{ $isMaterialReceipt ? 'Delete Draft Receipt' : 'Delete Draft Purchase' }}', '!bg-red-600 hover:!bg-red-700 focus:!ring-red-500')"
                     >
-                        {{ __('Delete Draft') }}
+                        {{ $isMaterialReceipt ? __('Delete Draft Receipt') : __('Delete Draft Purchase') }}
                     </x-danger-button>
 
-                    {{-- Order Action --}}
                     <x-primary-button
                         type="button"
                         class="!bg-sky-600 hover:!bg-sky-700 focus:!ring-sky-500"
-                        @click="confirmAction('{{ route('purchases.mark-ordered', $purchase) }}', 'PATCH', 'Mark as Ordered', 'Are you sure you want to mark this purchase as ordered? The stock will not be updated until items are received.', 'Mark as Ordered', '!bg-sky-600 hover:!bg-sky-700 focus:!ring-sky-500')"
+                        @click="confirmAction('{{ route('purchases.mark-ordered', $purchase) }}', 'PATCH', '{{ $isMaterialReceipt ? 'Mark Receipt as Planned' : 'Mark Purchase as Ordered' }}', '{{ $isMaterialReceipt ? 'Are you sure you want to mark this material receipt as planned? Stock will move only after confirmation.' : 'Are you sure you want to mark this legacy purchase as ordered? Stock will move only after receipt.' }}', '{{ $isMaterialReceipt ? 'Mark as Planned' : 'Mark as Ordered' }}', '!bg-sky-600 hover:!bg-sky-700 focus:!ring-sky-500')"
                     >
-                            {{ $isMaterialReceipt ? __('Mark as Planned') : __('Mark as Ordered') }}
+                        {{ $isMaterialReceipt ? __('Mark as Planned') : __('Mark as Ordered') }}
                     </x-primary-button>
-
                 @elseif($purchase->status === \App\Enums\PurchaseStatus::ORDERED)
-
-                    {{-- Cancel Action --}}
                     <x-secondary-button
                         type="button"
                         class="text-red-600 hover:bg-red-50 border-red-200"
-                        @click="confirmAction('{{ route('purchases.cancel', $purchase) }}', 'PATCH', 'Cancel Order', 'Are you sure you want to cancel this order?', 'Cancel Order', '!bg-red-600 hover:!bg-red-700 focus:!ring-red-500')"
+                        @click="confirmAction('{{ route('purchases.cancel', $purchase) }}', 'PATCH', '{{ $isMaterialReceipt ? 'Cancel Material Receipt' : 'Cancel Purchase Order' }}', '{{ $isMaterialReceipt ? 'Are you sure you want to cancel this material receipt draft?' : 'Are you sure you want to cancel this legacy purchase order?' }}', '{{ $isMaterialReceipt ? 'Cancel Receipt' : 'Cancel Order' }}', '!bg-red-600 hover:!bg-red-700 focus:!ring-red-500')"
                     >
-                        {{ __('Cancel Order') }}
+                        {{ $isMaterialReceipt ? __('Cancel Receipt') : __('Cancel Order') }}
                     </x-secondary-button>
 
-                    {{-- Receive Action Trigger (Modal) --}}
-                    <div x-data="{ open: @if($errors->has('invoice_number') || $errors->has('proof_image')) true @else false @endif }">
-                        <x-primary-button @click="open = true" class="!bg-green-600 hover:!bg-green-700 focus:!ring-green-500">
+                    <div x-data="{ open: @js($receiveModalOpen) }">
+                        <x-primary-button
+                            type="button"
+                            @click="open = true"
+                            class="!bg-green-600 hover:!bg-green-700 focus:!ring-green-500"
+                        >
                             <x-heroicon-o-check-circle class="w-5 h-5 mr-1" />
-                            {{ __('Receive Items') }}
+                            {{ $isMaterialReceipt ? __('Confirm Material Receipt') : __('Receive Items') }}
                         </x-primary-button>
 
-                        <!-- Modal Backdrop -->
-                        <div x-show="open"
-                             style="display: none;"
-                             x-transition.opacity
-                             class="fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-75 flex items-center justify-center p-4">
-
-                            <!-- Modal Content -->
-                            <div @click.outside="open = false"
-                                 x-transition.scale
-                                 class="relative bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
-
+                        <div
+                            x-show="open"
+                            style="display: none;"
+                            x-transition.opacity
+                            class="fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-75 flex items-center justify-center p-4"
+                        >
+                            <div
+                                @click.outside="open = false"
+                                x-transition.scale
+                                class="relative bg-white rounded-lg max-w-md w-full p-6 shadow-xl"
+                            >
                                 <h3 class="text-lg font-medium text-gray-900 mb-4">
-                                    {{ $isMaterialReceipt ? 'Receive Material Receipt #' : 'Receive Purchase #' }}{{ $purchase->invoice_number ?? $purchase->id }}
+                                    {{ $isMaterialReceipt ? 'Confirm Material Receipt #' : 'Receive Purchase #' }}{{ $purchase->invoice_number ?? $purchase->id }}
                                 </h3>
 
                                 <form
@@ -264,29 +258,31 @@
                                     @method('PATCH')
 
                                     <div class="space-y-4">
-                                        <!-- Invoice Section -->
                                         @if($purchase->invoice_number)
                                             <div class="bg-gray-50 p-3 rounded-md border border-gray-200">
-                                                <span class="block text-xs font-medium text-gray-500 uppercase">Invoice Number</span>
+                                                <span class="block text-xs font-medium text-gray-500 uppercase">{{ $invoiceLabel }}</span>
                                                 <span class="text-sm font-semibold text-gray-900">{{ $purchase->invoice_number }}</span>
                                             </div>
                                         @else
                                             <div class="space-y-2">
-                                                <x-input-label for="invoice_number" :value="$isMaterialReceipt ? __('Final Invoice Number (Optional)') : __('Final Invoice Number')" :required="!$isMaterialReceipt" />
+                                                <x-input-label
+                                                    for="invoice_number"
+                                                    :value="$isMaterialReceipt ? __('Final Receipt Reference (Optional)') : __('Final Invoice Number')"
+                                                    :required="! $isMaterialReceipt"
+                                                />
                                                 <x-text-input
                                                     id="invoice_number"
                                                     name="invoice_number"
                                                     :value="old('invoice_number')"
-                                                    placeholder="INV...."
+                                                    placeholder="INV..."
                                                 />
                                                 <x-input-error :messages="$errors->get('invoice_number')" class="mt-2" />
                                             </div>
                                         @endif
 
-                                        <!-- Proof Section -->
                                         @if($purchase->proof_image)
                                             <div class="bg-gray-50 p-3 rounded-md border border-gray-200">
-                                                <span class="block text-xs font-medium text-gray-500 uppercase mb-1">Proof of Receipt</span>
+                                                <span class="block text-xs font-medium text-gray-500 uppercase mb-1">{{ $proofFieldLabel }}</span>
                                                 <a href="{{ Storage::url($purchase->proof_image) }}" target="_blank" class="text-indigo-600 hover:underline text-sm flex items-center gap-1">
                                                     <x-heroicon-o-paper-clip class="w-4 h-4" />
                                                     {{ $proofLabel }}
@@ -294,90 +290,93 @@
                                             </div>
                                         @else
                                             <div class="space-y-2">
-                                                <x-input-label for="proof_image" :value="$isMaterialReceipt ? __('Upload Receipt Evidence (Optional)') : __('Upload Proof of Receipt')" :required="!$isMaterialReceipt" />
+                                                <x-input-label
+                                                    for="proof_image"
+                                                    :value="$isMaterialReceipt ? __('Upload Receipt Evidence (Optional)') : __('Upload Proof of Receipt')"
+                                                    :required="! $isMaterialReceipt"
+                                                />
                                                 <input
                                                     id="proof_image"
                                                     type="file"
                                                     name="proof_image"
                                                     accept=".pdf,image/jpeg,image/png"
-                                                    class="block w-full text-sm text-gray-500
-                                                        file:mr-4 file:py-2 file:px-4
-                                                        file:rounded-md file:border-0
-                                                        file:text-sm file:font-semibold
-                                                        file:bg-indigo-50 file:text-indigo-700
-                                                        hover:file:bg-indigo-100"
+                                                    class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
                                                 />
-                                                <p class="text-xs text-gray-500">{{ $isMaterialReceipt ? 'Optional for RNI receipts. PDF/JPG/PNG max 2MB.' : 'PDF, JPG, or PNG max 2MB.' }}</p>
+                                                <p class="text-xs text-gray-500">
+                                                    {{ $isMaterialReceipt ? 'Optional for RNI receipts. PDF/JPG/PNG max 2MB.' : 'PDF, JPG, or PNG max 2MB.' }}
+                                                </p>
                                                 <x-input-error :messages="$errors->get('proof_image')" class="mt-2" />
                                             </div>
-                                        @endif
-
-                                        @if($purchase->invoice_number && $purchase->proof_image)
-                                            <p class="text-xs text-green-600 mt-3 font-medium flex items-center">
-                                                <x-heroicon-o-check-circle class="w-4 h-4 mr-1" />
-                                                Data complete. Ready to receive.
-                                            </p>
                                         @endif
                                     </div>
 
                                     <div class="mt-6 flex justify-end gap-3">
-                                        <x-secondary-button type="button" @click="open = false" x-bind:disabled="submitting">
-                                            Cancel
+                                        <x-secondary-button
+                                            type="button"
+                                            @click="open = false"
+                                            x-bind:disabled="submitting"
+                                        >
+                                            {{ __('Cancel') }}
                                         </x-secondary-button>
+
                                         <x-primary-button
+                                            type="submit"
                                             class="!bg-green-600 hover:!bg-green-700 focus:!ring-green-500"
                                             x-bind:class="submitting ? 'opacity-75 cursor-not-allowed' : ''"
                                             x-bind:disabled="submitting"
                                         >
-                                            <svg x-show="submitting" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <svg
+                                                x-show="submitting"
+                                                class="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                fill="none"
+                                                viewBox="0 0 24 24"
+                                            >
                                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                             </svg>
-                                                {{ $isMaterialReceipt ? __('Confirm Material Receipt') : __('Confirm Receipt') }}
+                                            {{ $isMaterialReceipt ? __('Confirm Material Receipt') : __('Confirm Receipt') }}
                                         </x-primary-button>
                                     </div>
                                 </form>
                             </div>
                         </div>
                     </div>
-
                 @elseif($purchase->status === \App\Enums\PurchaseStatus::RECEIVED)
-
-                    {{-- Pay Action --}}
-                    <x-primary-button
-                        type="button"
-                        class="!bg-emerald-600 hover:!bg-emerald-700 focus:!ring-emerald-500"
-                        @click="confirmAction('{{ route('purchases.mark-paid', $purchase) }}', 'PATCH', 'Mark as Paid', 'Are you sure you want to mark this purchase as paid? This assumes the full amount has been paid.', 'Mark as Paid', '!bg-emerald-600 hover:!bg-emerald-700 focus:!ring-emerald-500')"
-                    >
-                        <x-heroicon-o-currency-dollar class="w-5 h-5 mr-1" />
-                        {{ __('Mark as Paid') }}
-                    </x-primary-button>
-
+                    @if(! $isMaterialReceipt)
+                        <x-primary-button
+                            type="button"
+                            class="!bg-emerald-600 hover:!bg-emerald-700 focus:!ring-emerald-500"
+                            @click="confirmAction('{{ route('purchases.mark-paid', $purchase) }}', 'PATCH', 'Mark Legacy Purchase as Paid', 'Are you sure you want to mark this legacy purchase as paid? This will create the related finance expense entry.', 'Mark as Paid', '!bg-emerald-600 hover:!bg-emerald-700 focus:!ring-emerald-500')"
+                        >
+                            <x-heroicon-o-currency-dollar class="w-5 h-5 mr-1" />
+                            {{ __('Mark as Paid') }}
+                        </x-primary-button>
+                    @endif
                 @elseif($purchase->status === \App\Enums\PurchaseStatus::CANCELLED)
-
-                    {{-- Restore Action --}}
                     <x-secondary-button
                         type="button"
-                        @click="confirmAction('{{ route('purchases.restore-draft', $purchase) }}', 'PATCH', 'Restore to Draft', 'Restore this purchase to Draft status? You can edit it again.', 'Restore to Draft', '!bg-gray-800 hover:!bg-gray-700 text-white')"
+                        @click="confirmAction('{{ route('purchases.restore-draft', $purchase) }}', 'PATCH', '{{ $isMaterialReceipt ? 'Restore Material Receipt Draft' : 'Restore Legacy Purchase Draft' }}', '{{ $isMaterialReceipt ? 'Restore this material receipt to draft so it can be edited again?' : 'Restore this legacy purchase to draft so it can be edited again?' }}', '{{ $isMaterialReceipt ? 'Restore Receipt Draft' : 'Restore Purchase Draft' }}', '!bg-gray-800 hover:!bg-gray-700 text-white')"
                     >
-                        {{ __('Restore to Draft') }}
+                        {{ $isMaterialReceipt ? __('Restore Receipt Draft') : __('Restore Purchase Draft') }}
                     </x-secondary-button>
-
                 @endif
 
-                <!-- Shared Confirmation Modal -->
                 <x-modal name="confirmation-modal">
                     <div class="p-6" x-data="{ submitting: false }">
                         <h2 class="text-lg font-medium text-gray-900" x-text="modalTitle"></h2>
-
                         <p class="mt-1 text-sm text-gray-600" x-text="modalMessage"></p>
 
                         <div class="mt-6 flex justify-end">
-                            <x-secondary-button x-on:click="$dispatch('close-modal', { name: 'confirmation-modal' })" x-bind:disabled="submitting">
+                            <x-secondary-button
+                                type="button"
+                                x-on:click="$dispatch('close-modal', { name: 'confirmation-modal' })"
+                                x-bind:disabled="submitting"
+                            >
                                 {{ __('Cancel') }}
                             </x-secondary-button>
 
-                            <form id="confirmation-form" method="POST" class="ml-3" x-ref="confirmForm" @submit.prevent>
+                            <form id="confirmation-form" method="POST" class="ml-3" x-ref="confirmForm">
                                 @csrf
                                 <input type="hidden" id="confirmation-method" name="_method" value="">
 
@@ -388,7 +387,13 @@
                                     x-bind:disabled="submitting"
                                     @click="submitting = true; $refs.confirmForm.submit()"
                                 >
-                                    <svg x-show="submitting" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <svg
+                                        x-show="submitting"
+                                        class="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                    >
                                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                     </svg>
@@ -398,7 +403,6 @@
                         </div>
                     </div>
                 </x-modal>
-
             </div>
         </div>
     </div>

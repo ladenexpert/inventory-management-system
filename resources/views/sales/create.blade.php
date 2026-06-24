@@ -1,4 +1,4 @@
-<x-app-layout title="POS">
+<x-app-layout title="Legacy Sales / POS">
     <div class="mx-auto sm:px-6 lg:px-8 py-4"
          x-data="pos()"
          x-init="init()"

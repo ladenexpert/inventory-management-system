@@ -20,7 +20,7 @@ class PurchaseRouteSmokeTest extends TestCase
         $this->actingAs($user)
             ->get(route('purchases.create'))
             ->assertOk()
-            ->assertSee('Create Purchase');
+            ->assertSee('Create Legacy Purchase');
 
         $this->actingAs($user)
             ->get(route('material-receipts.create'))
@@ -43,7 +43,7 @@ class PurchaseRouteSmokeTest extends TestCase
         $this->actingAs($user)
             ->get(route('purchases.edit', $purchase))
             ->assertOk()
-            ->assertSee('Edit Purchase');
+            ->assertSee('Edit Legacy Purchase');
 
         $receipt = Purchase::create([
             'supplier_id' => $supplier->id,
