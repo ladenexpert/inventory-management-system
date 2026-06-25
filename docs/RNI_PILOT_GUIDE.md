@@ -4,6 +4,11 @@
 
 This guide explains the day-to-day RNI workflow now available in RMP for the pilot rollout.
 
+Environment note:
+
+- The default application setup uses database-backed cache, sessions, and queue storage.
+- Run `php artisan migrate --seed` or `php artisan migrate:fresh --seed` before commands such as `php artisan optimize:clear` on local, UAT, or production environments.
+
 Core pilot flow:
 
 1. Upload opening stock
@@ -37,10 +42,33 @@ Inventory ledger, batch allocation, FEFO behavior, and zero-cost batch handling 
 
 ### Formulator
 
-- material usage
+- read-only usage monitoring
 - inventory views
 - reports
 - dashboard
+- export-enabled report access
+- no finance access
+- no inventory value access by default
+
+### RM Desk
+
+- create `Material Usage`
+- view all usage records
+- cancel or restore only usage created by themselves
+- inventory views
+- reports
+- dashboard
+- export-enabled report access
+- no finance access
+- no inventory value access by default
+
+## Access Control Notes
+
+- Navigation, direct URLs, action buttons, and shared lookup endpoints now follow the same role-permission rules.
+- `Finance` and `Inventory Value` are permission-controlled. They are available to `Admin RNI` by default and hidden from `Formulator` and `RM Desk` by default.
+- `Business Insights` is shown only to users who can access finance or inventory value data.
+- `Formulator` can monitor usage but cannot create, confirm, cancel, restore, or delete usage transactions.
+- `RM Desk` can create usage and can only cancel or restore usage where `sales.created_by` matches their own user id.
 
 ## Opening Stock
 
@@ -110,6 +138,7 @@ Notes:
 
 - Receipt confirmation still uses the existing receiving engine.
 - Batch creation and stock updates happen only through the receipt workflow.
+- `Batch No.` remains unique in RMP. If the same supplier/manufacturer batch number is received again in a different receipt, add an internal suffix or reference such as `B240601-2`, `B240601-DN001`, or `B240601-20260625`.
 
 ## Material Usage
 
@@ -139,6 +168,7 @@ Notes:
 - FEFO behavior is preserved.
 - Manual batch allocation is still validated against batch availability and expiry rules.
 - Material usage does not create sales revenue records.
+- Usage cost is now derived server-side from the reserved batch allocation. The browser no longer submits the authoritative cost snapshot.
 
 ## Batch Monitoring
 
@@ -163,7 +193,7 @@ The table includes:
 - storage location
 - quantity
 - expiry
-- inventory value
+- inventory value when the signed-in role has permission
 - lifecycle status
 
 Use filters and export from the same page when needed.
@@ -187,7 +217,7 @@ Columns:
 - Storage Location
 - Qty
 - Expiry
-- Value
+- Value for users with permission
 - Status
 
 ### Inventory Movement History
@@ -233,6 +263,8 @@ Columns:
 - Formula
 - Project
 - User
+
+Usage detail and print views for `Formulator` and `RM Desk` remain operational, but cost/value fields are hidden unless the role has inventory value permission.
 
 ### Expiry Report
 
@@ -287,7 +319,7 @@ Focus:
 - top suppliers
 - top customers
 
-Use `Dashboard` -> `RNI Operations` for operational monitoring and `Dashboard` -> `Business Insights` for management review.
+Use `Dashboard` -> `RNI Operations` for operational monitoring and `Dashboard` -> `Business Insights` for management review when the role has permission to see sensitive metrics.
 
 ## Immediate Validation Behavior
 
@@ -306,3 +338,4 @@ Use `Dashboard` -> `RNI Operations` for operational monitoring and `Dashboard` -
 
 - The compact top navigation uses `Dashboard`, `Operations`, `Master Data`, `Reports`, and `Administration`.
 - Finance remains available inside `Reports` for finance-enabled admin users such as `admin_rni`.
+- Menu visibility now follows the seeded role-permission matrix, but the underlying routes remain in place and are blocked server-side when the role lacks permission.

@@ -12,6 +12,7 @@ use App\Enums\PaymentMethod;
 use App\Enums\SaleTransactionType;
 use App\Exceptions\SaleException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Database\QueryException;
 
 class SaleService
 {
@@ -28,122 +29,148 @@ class SaleService
      */
     public function createSale(SaleData $data): Sale
     {
-        return DB::transaction(function () use ($data) {
+        $maxAttempts = 5;
+
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
             try {
-                // Lock products for update
-                $productIds = collect($data->items)->pluck('product_id')->sort()->values()->all();
+                return DB::transaction(function () use ($data) {
+                    try {
+                        // Lock products for update
+                        $productIds = collect($data->items)->pluck('product_id')->sort()->values()->all();
 
-                $products = Product::whereIn('id', $productIds)
-                    ->lockForUpdate()
-                    ->get()
-                    ->keyBy('id');
+                        $products = Product::whereIn('id', $productIds)
+                            ->lockForUpdate()
+                            ->get()
+                            ->keyBy('id');
 
-                $sale = Sale::create([
-                    'invoice_number' => $this->generateReferenceNumber($data->transaction_type),
-                    'transaction_type' => $data->transaction_type,
-                    'customer_id' => $data->customer_id,
-                    'created_by' => $data->created_by,
-                    'sale_date' => $data->sale_date,
-                    'usage_date' => $data->usage_date,
-                    'status' => $data->status,
-                    'payment_method' => $data->payment_method,
-                    'purpose' => $data->purpose,
-                    'formula' => $data->formula,
-                    'project' => $data->project,
-                    'requested_by' => $data->requested_by,
-                    'issued_by' => $data->issued_by ?? $data->created_by,
-                    'notes' => $data->notes,
-                    'cash_received' => $data->cash_received,
-                    'change' => $data->change,
-                    'subtotal' => 0,
-                    'global_discount' => $data->global_discount,
-                    'total_discount' => 0,
-                    'total' => 0,
-                ]);
-
-                $totalSubtotal = 0;
-                $totalDiscount = 0;
-
-                $this->batchService->withinStockMutationScope(function () use ($data, $products, $sale, &$totalSubtotal, &$totalDiscount) {
-                    foreach ($data->items as $itemData) {
-                        $product = $products->get($itemData->product_id);
-
-                        if (!$product) {
-                            throw SaleException::productNotFound($itemData->product_id);
-                        }
-
-                        // Use the line unit price from request snapshot (POS line), fallback to master product price.
-                        $unitPrice = $itemData->unit_price > 0 ? $itemData->unit_price : $product->selling_price;
-                        $quantity = $itemData->quantity;
-                        $discount = $itemData->discount;
-
-                        if ($discount > $unitPrice) {
-                            throw SaleException::invalidDiscount("Item discount (" . format_money($discount) . ") cannot exceed unit price (" . format_money($unitPrice) . ") for product '{$product->name}'.");
-                        }
-
-                        $finalPrice = $unitPrice - $discount;
-                        $subtotal   = $finalPrice * $quantity;
-                        $allocations = $this->batchService->reserveBatches($product, $quantity, $itemData->batch_allocations);
-                        $totalCost = collect($allocations)->sum(fn(array $allocation) => $allocation['quantity'] * $allocation['unit_cost']);
-
-                        $saleItem = SaleItem::create([
-                            'sale_id' => $sale->id,
-                            'product_id' => $product->id,
-                            'quantity' => $quantity,
-                            'cost_price' => $quantity > 0 ? (int) round($totalCost / $quantity) : 0,
-                            'total_cost' => $totalCost,
-                            'unit_price' => $unitPrice,
-                            'discount' => $discount,
-                            'final_price' => $finalPrice,
-                            'subtotal' => $subtotal,
+                        $sale = Sale::create([
+                            'invoice_number' => $this->generateReferenceNumber($data->transaction_type),
+                            'transaction_type' => $data->transaction_type,
+                            'customer_id' => $data->customer_id,
+                            'created_by' => $data->created_by,
+                            'sale_date' => $data->sale_date,
+                            'usage_date' => $data->usage_date,
+                            'status' => $data->status,
+                            'payment_method' => $data->payment_method,
+                            'purpose' => $data->purpose,
+                            'formula' => $data->formula,
+                            'project' => $data->project,
+                            'requested_by' => $data->requested_by,
+                            'issued_by' => $data->issued_by ?? $data->created_by,
+                            'notes' => $data->notes,
+                            'cash_received' => $data->cash_received,
+                            'change' => $data->change,
+                            'subtotal' => 0,
+                            'global_discount' => $data->global_discount,
+                            'total_discount' => 0,
+                            'total' => 0,
                         ]);
-                        $saleItem->setRelation('product', $product);
 
-                        $this->batchService->recordSaleItemAllocations($sale, $saleItem, $allocations);
+                        $totalSubtotal = 0;
+                        $totalDiscount = 0;
+                        $isMaterialUsage = $data->transaction_type === SaleTransactionType::MATERIAL_USAGE;
 
-                        $totalSubtotal += $subtotal;
-                        $totalDiscount += $discount * $quantity;
+                        $this->batchService->withinStockMutationScope(function () use ($data, $products, $sale, $isMaterialUsage, &$totalSubtotal, &$totalDiscount) {
+                            foreach ($data->items as $itemData) {
+                                $product = $products->get($itemData->product_id);
+
+                                if (!$product) {
+                                    throw SaleException::productNotFound($itemData->product_id);
+                                }
+
+                                $quantity = $itemData->quantity;
+                                $discount = $itemData->discount;
+                                $allocations = $this->batchService->reserveBatches($product, $quantity, $itemData->batch_allocations);
+                                $totalCost = collect($allocations)->sum(fn(array $allocation) => $allocation['quantity'] * $allocation['unit_cost']);
+                                $calculatedCostPrice = $quantity > 0 ? (int) round($totalCost / $quantity) : 0;
+                                $unitPrice = $isMaterialUsage
+                                    ? $calculatedCostPrice
+                                    : ($itemData->unit_price > 0 ? $itemData->unit_price : (int) $product->selling_price);
+
+                                if ($discount > $unitPrice) {
+                                    throw SaleException::invalidDiscount("Item discount (" . format_money($discount) . ") cannot exceed unit price (" . format_money($unitPrice) . ") for product '{$product->name}'.");
+                                }
+
+                                $finalPrice = $unitPrice - $discount;
+                                $subtotal = $finalPrice * $quantity;
+
+                                $saleItem = SaleItem::create([
+                                    'sale_id' => $sale->id,
+                                    'product_id' => $product->id,
+                                    'quantity' => $quantity,
+                                    'cost_price' => $calculatedCostPrice,
+                                    'total_cost' => $totalCost,
+                                    'unit_price' => $unitPrice,
+                                    'discount' => $discount,
+                                    'final_price' => $finalPrice,
+                                    'subtotal' => $subtotal,
+                                ]);
+                                $saleItem->setRelation('product', $product);
+
+                                $this->batchService->recordSaleItemAllocations($sale, $saleItem, $allocations);
+
+                                $totalSubtotal += $subtotal;
+                                $totalDiscount += $discount * $quantity;
+                            }
+                        });
+
+                        if ($data->global_discount > $totalSubtotal) {
+                            throw SaleException::invalidDiscount("Global discount (" . format_money($data->global_discount) . ") cannot exceed subtotal (" . format_money($totalSubtotal) . ").");
+                        }
+
+                        $total = $totalSubtotal - $data->global_discount;
+
+                        if ($data->status === SaleStatus::COMPLETED) {
+                            if ($data->payment_method === \App\Enums\PaymentMethod::CASH && $data->cash_received < $total) {
+                                throw SaleException::insufficientPayment($total, $data->cash_received);
+                            }
+                        }
+
+                        $change = 0;
+
+                        // Calculate change if payment method is cash
+                        if ($data->payment_method === \App\Enums\PaymentMethod::CASH && $data->cash_received >= $total) {
+                            $change = $data->cash_received - $total;
+                        }
+
+                        $sale->update([
+                            'subtotal' => $totalSubtotal,
+                            'total_discount' => $totalDiscount + $data->global_discount,
+                            'global_discount' => $data->global_discount,
+                            'total' => $total,
+                            'change' => $change,
+                        ]);
+
+                        if ($sale->status === SaleStatus::COMPLETED && $sale->transaction_type->createsFinanceIncome()) {
+                            $this->financeService->recordIncomeFromSale($sale);
+                        }
+
+                        return $sale;
+
+                    } catch (Exception $e) {
+                        if ($e instanceof SaleException || ($e instanceof QueryException && $this->isInvoiceNumberCollision($e))) {
+                            throw $e;
+                        }
+
+                        throw SaleException::creationFailed($e->getMessage(), ['data' => $data]);
                     }
                 });
-
-                if ($data->global_discount > $totalSubtotal) {
-                    throw SaleException::invalidDiscount("Global discount (" . format_money($data->global_discount) . ") cannot exceed subtotal (" . format_money($totalSubtotal) . ").");
+            } catch (QueryException $e) {
+                if (!$this->isInvoiceNumberCollision($e)) {
+                    throw SaleException::creationFailed($e->getMessage(), ['data' => $data]);
                 }
 
-                $total = $totalSubtotal - $data->global_discount;
-
-                if ($data->status === SaleStatus::COMPLETED) {
-                    if ($data->payment_method === \App\Enums\PaymentMethod::CASH && $data->cash_received < $total) {
-                        throw SaleException::insufficientPayment($total, $data->cash_received);
-                    }
-                }
-                $change = 0;
-
-                // Calculate change if payment method is cash
-                if ($data->payment_method === \App\Enums\PaymentMethod::CASH && $data->cash_received >= $total) {
-                    $change = $data->cash_received - $total;
+                if ($attempt === $maxAttempts) {
+                    throw SaleException::creationFailed('Failed to generate a unique transaction number. Please try again.', ['data' => $data]);
                 }
 
-                $sale->update([
-                    'subtotal' => $totalSubtotal,
-                    'total_discount' => $totalDiscount + $data->global_discount,
-                    'global_discount' => $data->global_discount,
-                    'total' => $total,
-                    'change' => $change,
-                ]);
-
-                if ($sale->status === SaleStatus::COMPLETED && $sale->transaction_type->createsFinanceIncome()) {
-                    $this->financeService->recordIncomeFromSale($sale);
-                }
-
-                return $sale;
-
-            } catch (Exception $e) {
-                if ($e instanceof SaleException)
-                    throw $e;
-                throw SaleException::creationFailed($e->getMessage(), ['data' => $data]);
+                usleep(50000);
+            } catch (SaleException $e) {
+                throw $e;
             }
-        });
+        }
+
+        throw SaleException::creationFailed('Failed to generate a unique transaction number. Please try again.', ['data' => $data]);
     }
 
     /**
@@ -307,7 +334,7 @@ class SaleService
      * Generate unique invoice number.
      * Format: INV.YYMMDD.0001
      */
-    private function generateReferenceNumber(SaleTransactionType $transactionType): string
+    protected function generateReferenceNumber(SaleTransactionType $transactionType): string
     {
         $prefix = $transactionType->referencePrefix() . '.' . date('ymd') . '.';
 
@@ -321,5 +348,15 @@ class SaleService
 
         $lastNumber = (int) substr($latest->invoice_number, -4);
         return $prefix . str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
+    }
+
+    protected function isInvoiceNumberCollision(QueryException $exception): bool
+    {
+        $message = strtolower($exception->getMessage());
+
+        return str_contains($message, 'sales.invoice_number')
+            || str_contains($message, 'sales_invoice_number_unique')
+            || str_contains($message, 'unique constraint failed: sales.invoice_number')
+            || str_contains($message, "for key 'sales_invoice_number_unique'");
     }
 }

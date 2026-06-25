@@ -11,6 +11,8 @@ class FinanceCategoryController extends Controller
 {
     public function search(Request $request)
     {
+        abort_unless($request->user()?->hasPermission('finance', 'view'), 403);
+
         $query = $request->input('q') ?? $request->input('search');
         $cacheKey = 'finance_categories_search_' . md5((string) $query);
 

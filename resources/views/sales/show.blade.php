@@ -1,4 +1,5 @@
 @php
+    $user = auth()->user();
     $isMaterialUsage = ($context ?? 'sale') === 'material_usage';
     $pageTitle = $isMaterialUsage ? 'Material Usage Details' : 'Legacy Sale Details';
     $infoTitle = $isMaterialUsage ? 'Material Usage Information' : 'Legacy Sale Information';
@@ -6,9 +7,14 @@
         ? 'Details of the issued raw material transaction.'
         : 'Details of the legacy sales transaction.';
     $documentLabel = $isMaterialUsage ? 'Usage Number' : 'Invoice Number';
-    $unitAmountLabel = $isMaterialUsage ? 'Unit Cost' : 'Price';
-    $adjustmentLabel = $isMaterialUsage ? 'Total Cost' : 'Discount';
-    $lineTotalLabel = $isMaterialUsage ? 'Issued Cost' : 'Subtotal';
+    $canViewUsageValue = !$isMaterialUsage || (($user?->canViewInventoryValue() ?? false) || ($user?->canAccessFinance() ?? false));
+    $ownsMaterialUsage = $isMaterialUsage && $user && $sale->created_by === $user->id;
+    $canCompleteUsage = !$isMaterialUsage || (($user?->hasPermission('material_usage', 'confirm') ?? false) && (!($user?->isRmDesk() ?? false) || $ownsMaterialUsage));
+    $canCancelUsage = !$isMaterialUsage || (($user?->hasPermission('material_usage', 'cancel') ?? false) && (!($user?->isRmDesk() ?? false) || $ownsMaterialUsage));
+    $canRestoreUsage = !$isMaterialUsage || (($user?->hasPermission('material_usage', 'restore') ?? false) && (!($user?->isRmDesk() ?? false) || $ownsMaterialUsage));
+    $unitAmountLabel = $isMaterialUsage && !$canViewUsageValue ? 'Visibility' : ($isMaterialUsage ? 'Unit Cost' : 'Price');
+    $adjustmentLabel = $isMaterialUsage && !$canViewUsageValue ? 'Visibility' : ($isMaterialUsage ? 'Total Cost' : 'Discount');
+    $lineTotalLabel = $isMaterialUsage && !$canViewUsageValue ? 'Visibility' : ($isMaterialUsage ? 'Issued Cost' : 'Subtotal');
 @endphp
 <x-app-layout :title="$pageTitle">
     <x-slot name="header">
@@ -171,17 +177,29 @@
                                             {{ number_format($item->quantity) }}
                                         </td>
                                         <td class="px-6 py-4 text-right">
-                                            @money($isMaterialUsage ? ($item->cost_price ?: $item->unit_price) : $item->unit_price)
+                                            @if($isMaterialUsage && !$canViewUsageValue)
+                                                <span class="text-gray-400">Restricted</span>
+                                            @else
+                                                @money($isMaterialUsage ? ($item->cost_price ?: $item->unit_price) : $item->unit_price)
+                                            @endif
                                         </td>
                                         <td class="px-6 py-4 text-right {{ $isMaterialUsage ? 'text-gray-700' : 'text-red-500' }}">
                                             @if($isMaterialUsage)
-                                                @money($item->total_cost)
+                                                @if($canViewUsageValue)
+                                                    @money($item->total_cost)
+                                                @else
+                                                    <span class="text-gray-400">Restricted</span>
+                                                @endif
                                             @else
                                                 {!! $item->discount > 0 ? "- <span>" . format_money($item->discount) . "</span>" : '-' !!}
                                             @endif
                                         </td>
                                         <td class="px-6 py-4 text-right font-medium">
-                                            @money($isMaterialUsage ? $item->total_cost : $item->subtotal)
+                                            @if($isMaterialUsage && !$canViewUsageValue)
+                                                <span class="text-gray-400">Restricted</span>
+                                            @else
+                                                @money($isMaterialUsage ? $item->total_cost : $item->subtotal)
+                                            @endif
                                         </td>
                                     </tr>
                                 @endforeach
@@ -191,7 +209,11 @@
                                     <tr>
                                         <td colspan="8" class="px-6 py-4 text-right">Total Issued Cost</td>
                                         <td class="px-6 py-4 text-right text-indigo-600 text-lg">
-                                            @money($sale->items->sum('total_cost'))
+                                            @if($canViewUsageValue)
+                                                @money($sale->items->sum('total_cost'))
+                                            @else
+                                                <span class="text-gray-400">Restricted</span>
+                                            @endif
                                         </td>
                                     </tr>
                                 @else
@@ -262,7 +284,7 @@
                 }
             }" class="flex flex-col sm:flex-row justify-end gap-4">
 
-                @if($sale->status === \App\Enums\SaleStatus::PENDING)
+                @if($sale->status === \App\Enums\SaleStatus::PENDING && $canCompleteUsage)
                     {{-- Complete / Pay Action --}}
                     <x-primary-button
                         class="!bg-green-600 hover:!bg-green-700 focus:!ring-green-500"
@@ -270,7 +292,9 @@
                     >
                         {{ $isMaterialUsage ? __('Complete Usage') : __('Complete Legacy Sale') }}
                     </x-primary-button>
+                @endif
 
+                @if($sale->status === \App\Enums\SaleStatus::PENDING && $canCancelUsage)
                     {{-- Cancel Pending Action (Modal) --}}
                     <div x-data="{ cancelOpen: false }">
                         <x-danger-button @click="cancelOpen = true">
@@ -324,7 +348,7 @@
                     </div>
                 @endif
 
-                @if($sale->status === \App\Enums\SaleStatus::COMPLETED)
+                @if($sale->status === \App\Enums\SaleStatus::COMPLETED && $canCancelUsage)
                     {{-- Cancel Action --}}
                     <x-secondary-button
                         class="text-red-600 hover:bg-red-50 border-red-200"
@@ -334,7 +358,7 @@
                     </x-secondary-button>
                 @endif
 
-                @if($sale->status === \App\Enums\SaleStatus::CANCELLED)
+                @if($sale->status === \App\Enums\SaleStatus::CANCELLED && $canRestoreUsage)
                     {{-- Restore Action --}}
                     <x-secondary-button
                         class="bg-gray-800 text-white hover:bg-gray-700 focus:ring-gray-500"

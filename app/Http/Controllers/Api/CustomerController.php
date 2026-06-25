@@ -14,6 +14,12 @@ class CustomerController extends Controller
 {
     public function search(Request $request)
     {
+        abort_unless($request->user()?->hasAnyPermission([
+            ['master_data', 'view'],
+            ['legacy_sales', 'create'],
+            ['legacy_sales', 'update'],
+        ]), 403);
+
         $query = $request->input('q') ?? $request->input('search');
         $cacheKey = 'customers_search_' . md5($query);
 
@@ -40,6 +46,11 @@ class CustomerController extends Controller
 
     public function store(Request $request, CustomerService $customerService)
     {
+        abort_unless($request->user()?->hasAnyPermission([
+            ['master_data', 'create'],
+            ['legacy_sales', 'create'],
+        ]), 403);
+
         try {
             $validated = $request->validate([
                 'name' => 'required|string|max:255',

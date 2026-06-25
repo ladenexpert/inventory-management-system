@@ -100,6 +100,26 @@ Follow these steps to set up the project locally for development or testing.
     php artisan migrate:fresh --seed
     ```
 
+    Database-backed framework infrastructure is part of the default setup:
+    - `CACHE_STORE=database`
+    - `SESSION_DRIVER=database`
+    - `QUEUE_CONNECTION=database`
+
+    So migrations must be executed before commands such as:
+    ```bash
+    php artisan optimize:clear
+    php artisan route:list
+    php artisan test
+    ```
+
+    Required infrastructure tables now include:
+    - `cache`
+    - `cache_locks`
+    - `sessions`
+    - `jobs`
+    - `job_batches`
+    - `failed_jobs`
+
 8. **Link storage for media/image files:**
     ```bash
     php artisan storage:link

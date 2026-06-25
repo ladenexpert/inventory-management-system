@@ -1,4 +1,7 @@
-@php($isMaterialUsage = ($context ?? 'sale') === 'material_usage')
+@php
+    $isMaterialUsage = ($context ?? 'sale') === 'material_usage';
+    $canViewUsageValue = !$isMaterialUsage || ((auth()->user()?->canViewInventoryValue() ?? false) || (auth()->user()?->canAccessFinance() ?? false));
+@endphp
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -171,8 +174,8 @@
                     <th style="width: 10%">Unit</th>
                     <th style="width: 10%" class="text-right">Qty</th>
                     <th style="width: 18%">{{ $isMaterialUsage ? 'Batch / Expiry' : 'Unit Price' }}</th>
-                    <th style="width: 10%" class="text-right">{{ $isMaterialUsage ? 'Cost' : 'Discount' }}</th>
-                    <th style="width: 10%" class="text-right">{{ $isMaterialUsage ? 'Allocated Qty' : 'Line Total' }}</th>
+                    <th style="width: 10%" class="text-right">{{ $isMaterialUsage ? ($canViewUsageValue ? 'Cost' : 'Visibility') : 'Discount' }}</th>
+                    <th style="width: 10%" class="text-right">{{ $isMaterialUsage ? ($canViewUsageValue ? 'Allocated Qty' : 'Visibility') : 'Line Total' }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -195,13 +198,13 @@
                         </td>
                         <td class="text-right">
                             @if($isMaterialUsage)
-                                {{ format_money($item->total_cost) }}
+                                {{ $canViewUsageValue ? format_money($item->total_cost) : 'Restricted' }}
                             @else
                                 {{ $item->discount > 0 ? format_money($item->discount) : '-' }}
                             @endif
                         </td>
                         <td class="text-right">
-                            {{ $isMaterialUsage ? number_format($item->saleItemBatches->sum('quantity')) : format_money($item->subtotal) }}
+                            {{ $isMaterialUsage ? ($canViewUsageValue ? number_format($item->saleItemBatches->sum('quantity')) : 'Restricted') : format_money($item->subtotal) }}
                         </td>
                     </tr>
                 @endforeach

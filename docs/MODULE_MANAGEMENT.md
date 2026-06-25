@@ -8,6 +8,12 @@ Modules can now be enabled or disabled without deleting code. Disabled modules a
 - blocked at guarded routes with a friendly dashboard redirect
 - left intact in the codebase for later re-enable
 
+This sits alongside the v0.4.5 role-permission layer:
+
+- module flags decide whether a capability is globally enabled
+- role permissions decide whether a signed-in user can see or execute that capability
+- sensitive finance and inventory value data still require permission even when the parent module is enabled
+
 ## Current modules
 
 - `module_rni_enabled`
@@ -73,10 +79,8 @@ Disabled modules are removed from both:
 The current grouped navigation is:
 
 - `Dashboard`
+- `Operations`
 - `Master Data`
-- `Inbound`
-- `Outbound`
-- `Inventory`
 - `Reports`
 - `Administration`
 
@@ -99,6 +103,13 @@ Import-related visibility notes:
 - master data import routes are only exposed from the relevant master data pages
 - opening stock import remains under `Materials`
 - disabling `materials`, `sales`, or `purchases` still hides the related master pages that expose those import entry points
+
+Role-permission visibility notes:
+
+- `Admin RNI` keeps full access by default
+- `Formulator` is read-only / export-only for RNI monitoring
+- `RM Desk` can create usage and cancel or restore only their own usage
+- `Finance` and `Inventory Value` surfaces stay hidden unless the role has the matching permission
 
 ## Operational recommendation
 

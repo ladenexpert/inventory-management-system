@@ -11,6 +11,12 @@ class UnitController extends Controller
 {
     public function search(Request $request)
     {
+        abort_unless($request->user()?->hasAnyPermission([
+            ['master_data', 'view'],
+            ['materials', 'create'],
+            ['materials', 'update'],
+        ]), 403);
+
         $query = $request->input('q');
 
         $units = Cache::rememberForever('units_list_all', function () {

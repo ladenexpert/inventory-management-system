@@ -30,7 +30,9 @@ final class ProductTable extends PowerGridComponent
 
     public function setUp(): array
     {
-        $this->showCheckBox();
+        if ($this->canManageMaterials()) {
+            $this->showCheckBox();
+        }
 
         return [
             PowerGrid::exportable('product_export_' . now()->format('Y_m_d'))
@@ -53,7 +55,7 @@ final class ProductTable extends PowerGridComponent
 
     public function fields(): PowerGridFields
     {
-        return PowerGrid::fields()
+        $fields = PowerGrid::fields()
             ->add('id')
             ->add('sku', fn (Product $model) => $model->sku_display)
             ->add('item_code_ierp', fn (Product $model) => $model->item_code_ierp_display)
@@ -89,11 +91,26 @@ final class ProductTable extends PowerGridComponent
             ->add('is_active_export', fn(Product $model) => $model->is_active ? 'true' : 'false')
             ->add('created_at')
             ->add('created_at_formatted', fn(Product $model) => $model->created_at->format('d/m/Y H:i'));
+
+        if ($this->canViewSensitiveValues()) {
+            $fields
+                ->add('purchase_price_formatted', fn(Product $model) => format_money($model->purchase_price))
+                ->add('selling_price_formatted', fn(Product $model) => format_money($model->selling_price))
+                ->add('margin_formatted', function(Product $model) {
+                    $margin = $model->selling_price - $model->purchase_price;
+                    $percentage = $model->purchase_price > 0 ? ($margin / $model->purchase_price) * 100 : 0;
+
+                    return format_money($margin) .
+                        ' <span class="text-xs text-gray-500">(' . round($percentage, 1) . '%)</span>';
+                });
+        }
+
+        return $fields;
     }
 
     public function columns(): array
     {
-        return [
+        $columns = [
             Column::action('Action'),
 
             Column::make('ID', 'id')
@@ -137,18 +154,6 @@ final class ProductTable extends PowerGridComponent
                 ->sortable()
                 ->searchable(),
 
-            Column::make('Buying Price', 'purchase_price_formatted', 'purchase_price')
-                ->sortable()
-                ->bodyAttribute('text-right'),
-
-            Column::make('Selling Price', 'selling_price_formatted', 'selling_price')
-                ->sortable()
-                ->bodyAttribute('text-right'),
-
-            Column::make('Margin', 'margin_formatted')
-                ->bodyAttribute('text-right text-indigo-600')
-                ->visibleInExport(false),
-
             Column::make('Qty', 'quantity')
                 ->sortable()
                 ->bodyAttribute('text-center'),
@@ -184,6 +189,24 @@ final class ProductTable extends PowerGridComponent
                 ->hidden()
                 ->visibleInExport(true),
         ];
+
+        if ($this->canViewSensitiveValues()) {
+            array_splice($columns, 10, 0, [
+                Column::make('Buying Price', 'purchase_price_formatted', 'purchase_price')
+                    ->sortable()
+                    ->bodyAttribute('text-right'),
+
+                Column::make('Selling Price', 'selling_price_formatted', 'selling_price')
+                    ->sortable()
+                    ->bodyAttribute('text-right'),
+
+                Column::make('Margin', 'margin_formatted')
+                    ->bodyAttribute('text-right text-indigo-600')
+                    ->visibleInExport(false),
+            ]);
+        }
+
+        return $columns;
     }
 
     public function filters(): array
@@ -249,7 +272,7 @@ final class ProductTable extends PowerGridComponent
                 ->class('bg-amber-500 hover:bg-amber-600 text-white p-2 rounded-md flex items-center justify-center')
                 ->dispatch('edit-product', ['product' => $row->id])
                 ->tooltip('Edit Product')
-                ->can(fn () => auth()->user()?->isAdminRni() === true),
+                ->can(fn () => $this->canManageMaterials()),
 
             Button::add('delete')
                 ->slot('<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>')
@@ -262,12 +285,16 @@ final class ProductTable extends PowerGridComponent
                     'description' => "Are you sure you want to delete product '{$row->name}'? This action cannot be undone.",
                 ])
                 ->tooltip('Delete Product')
-                ->can(fn () => auth()->user()?->isAdminRni() === true),
+                ->can(fn () => $this->canManageMaterials()),
         ];
     }
 
     public function header(): array
     {
+        if (!$this->canManageMaterials()) {
+            return [];
+        }
+
         return [
             Button::add('delete-selected')
                 ->slot('Delete Selected')
@@ -332,5 +359,18 @@ final class ProductTable extends PowerGridComponent
         }
 
         $this->dispatch('toast', message: $message, type: $failed > 0 ? 'warning' : 'success');
+    }
+
+    private function canManageMaterials(): bool
+    {
+        return auth()->user()?->hasPermission('materials', 'delete') ?? false;
+    }
+
+    private function canViewSensitiveValues(): bool
+    {
+        $user = auth()->user();
+
+        return ($user?->canViewInventoryValue() ?? false)
+            || ($user?->canAccessFinance() ?? false);
     }
 }

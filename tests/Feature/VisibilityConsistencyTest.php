@@ -17,6 +17,7 @@ use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\Sale;
+use App\Models\SaleItem;
 use App\Models\SaleItemBatch;
 use App\Models\Setting;
 use App\Models\User;
@@ -447,6 +448,256 @@ class VisibilityConsistencyTest extends TestCase
         $this->assertStringContainsString('SKU-EXPORT-001,-', $purchaseCsv);
         $this->assertStringContainsString('"Material / Product Name",SKU,"Item Code IERP"', $movementCsv);
         $this->assertStringContainsString('SKU-EXPORT-001,-', $movementCsv);
+    }
+
+    public function test_formulator_views_do_not_expose_inventory_value_or_cost_columns(): void
+    {
+        $formulator = User::factory()->create([
+            'role' => UserRole::FORMULATOR,
+        ]);
+        $product = Product::factory()->create([
+            'sku' => 'RM-HIDE-001',
+            'item_code_ierp' => 'IERP-HIDE-001',
+            'quantity' => 5,
+            'purchase_price' => 7000,
+            'selling_price' => 9500,
+        ]);
+
+        $batch = Batch::create([
+            'product_id' => $product->id,
+            'batch_number' => 'HIDE-BATCH-001',
+            'expiry_date' => now()->addDays(30)->toDateString(),
+            'received_at' => now()->subDay(),
+            'storage_location' => 'RM-H1',
+            'unit_cost' => 7000,
+            'selling_price' => 9500,
+            'quantity' => 5,
+            'available_quantity' => 5,
+            'source' => 'purchase',
+        ]);
+
+        $usage = Sale::create([
+            'invoice_number' => 'MUS.HIDE.0001',
+            'transaction_type' => SaleTransactionType::MATERIAL_USAGE,
+            'created_by' => $formulator->id,
+            'issued_by' => $formulator->id,
+            'sale_date' => now(),
+            'usage_date' => now(),
+            'status' => SaleStatus::COMPLETED,
+            'subtotal' => 7000,
+            'global_discount' => 0,
+            'total_discount' => 0,
+            'total' => 7000,
+            'cash_received' => 0,
+            'change' => 0,
+            'payment_method' => PaymentMethod::TRANSFER,
+            'purpose' => 'Hidden value check',
+        ]);
+
+        $usageItem = SaleItem::create([
+            'sale_id' => $usage->id,
+            'product_id' => $product->id,
+            'quantity' => 1,
+            'cost_price' => 7000,
+            'total_cost' => 7000,
+            'unit_price' => 7000,
+            'discount' => 0,
+            'final_price' => 7000,
+            'subtotal' => 7000,
+        ]);
+
+        SaleItemBatch::create([
+            'sale_item_id' => $usageItem->id,
+            'batch_id' => $batch->id,
+            'quantity' => 1,
+            'unit_cost' => 7000,
+        ]);
+
+        $this->actingAs($formulator);
+
+        Livewire::test(ProductTable::class)
+            ->assertDontSee('Buying Price')
+            ->assertDontSee('Selling Price')
+            ->assertDontSee('Margin');
+
+        Livewire::test(InventoryReportTable::class)
+            ->assertDontSeeHtml('data-column="value"');
+
+        $this->get(route('material-usages.show', $usage))
+            ->assertOk()
+            ->assertSee('Restricted');
+    }
+
+    public function test_product_lookup_masks_cost_for_non_inventory_roles_but_keeps_allowed_usage_search(): void
+    {
+        $formulator = User::factory()->create([
+            'role' => UserRole::FORMULATOR,
+        ]);
+        $rmDesk = User::factory()->create([
+            'role' => UserRole::RM_DESK,
+        ]);
+        $admin = User::factory()->create();
+        $product = Product::factory()->create([
+            'name' => 'Masked Cost RM',
+            'quantity' => 10,
+            'purchase_price' => 8800,
+            'selling_price' => 12000,
+            'is_active' => true,
+        ]);
+
+        $formulatorResponse = $this->actingAs($formulator)
+            ->postJson(route('ajax.products.search'), ['q' => 'Masked Cost']);
+
+        $formulatorResponse->assertOk()
+            ->assertJsonPath('0.id', $product->id)
+            ->assertJsonPath('0.price', null);
+
+        $rmDeskResponse = $this->actingAs($rmDesk)
+            ->postJson(route('ajax.products.search'), ['q' => 'Masked Cost']);
+
+        $rmDeskResponse->assertOk()
+            ->assertJsonPath('0.id', $product->id)
+            ->assertJsonPath('0.price', null);
+
+        $adminResponse = $this->actingAs($admin)
+            ->postJson(route('ajax.products.search'), ['q' => 'Masked Cost']);
+
+        $adminResponse->assertOk()
+            ->assertJsonPath('0.price', 8800);
+    }
+
+    public function test_usage_history_search_filter_and_sort_render_without_relation_query_errors(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create([
+            'sku' => 'USAGE-SAFE-001',
+            'item_code_ierp' => 'IERP-USAGE-SAFE-001',
+            'quantity' => 10,
+        ]);
+
+        $batchOne = Batch::create([
+            'product_id' => $product->id,
+            'batch_number' => 'USAFE-001',
+            'expiry_date' => now()->addDays(20)->toDateString(),
+            'received_at' => now()->subDays(2),
+            'storage_location' => 'RM-U1',
+            'unit_cost' => 5000,
+            'selling_price' => 8000,
+            'quantity' => 5,
+            'available_quantity' => 5,
+            'source' => 'purchase',
+        ]);
+
+        $batchTwo = Batch::create([
+            'product_id' => $product->id,
+            'batch_number' => 'USAFE-002',
+            'expiry_date' => now()->addDays(25)->toDateString(),
+            'received_at' => now()->subDay(),
+            'storage_location' => 'RM-U2',
+            'unit_cost' => 5000,
+            'selling_price' => 8000,
+            'quantity' => 5,
+            'available_quantity' => 5,
+            'source' => 'purchase',
+        ]);
+
+        $usageOne = Sale::create([
+            'invoice_number' => 'MUS.SAFE.0001',
+            'transaction_type' => SaleTransactionType::MATERIAL_USAGE,
+            'created_by' => $user->id,
+            'issued_by' => $user->id,
+            'sale_date' => now()->subDay(),
+            'usage_date' => now()->subDay(),
+            'status' => SaleStatus::COMPLETED,
+            'subtotal' => 5000,
+            'global_discount' => 0,
+            'total_discount' => 0,
+            'total' => 5000,
+            'cash_received' => 0,
+            'change' => 0,
+            'payment_method' => PaymentMethod::TRANSFER,
+            'purpose' => 'Blend Alpha',
+        ]);
+
+        $usageItemOne = SaleItem::create([
+            'sale_id' => $usageOne->id,
+            'product_id' => $product->id,
+            'quantity' => 1,
+            'cost_price' => 5000,
+            'total_cost' => 5000,
+            'unit_price' => 5000,
+            'discount' => 0,
+            'final_price' => 5000,
+            'subtotal' => 5000,
+        ]);
+
+        SaleItemBatch::create([
+            'sale_item_id' => $usageItemOne->id,
+            'batch_id' => $batchOne->id,
+            'quantity' => 1,
+            'unit_cost' => 5000,
+        ]);
+
+        $usageTwo = Sale::create([
+            'invoice_number' => 'MUS.SAFE.0002',
+            'transaction_type' => SaleTransactionType::MATERIAL_USAGE,
+            'created_by' => $user->id,
+            'issued_by' => $user->id,
+            'sale_date' => now(),
+            'usage_date' => now(),
+            'status' => SaleStatus::COMPLETED,
+            'subtotal' => 10000,
+            'global_discount' => 0,
+            'total_discount' => 0,
+            'total' => 10000,
+            'cash_received' => 0,
+            'change' => 0,
+            'payment_method' => PaymentMethod::TRANSFER,
+            'purpose' => 'Blend Beta',
+        ]);
+
+        $usageItemTwo = SaleItem::create([
+            'sale_id' => $usageTwo->id,
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'cost_price' => 5000,
+            'total_cost' => 10000,
+            'unit_price' => 5000,
+            'discount' => 0,
+            'final_price' => 5000,
+            'subtotal' => 10000,
+        ]);
+
+        SaleItemBatch::create([
+            'sale_item_id' => $usageItemTwo->id,
+            'batch_id' => $batchTwo->id,
+            'quantity' => 2,
+            'unit_cost' => 5000,
+        ]);
+
+        $this->actingAs($user);
+
+        Livewire::test(UsageHistoryTable::class)
+            ->set('search', 'Blend Alpha')
+            ->assertSee('Blend Alpha')
+            ->assertDontSee('Blend Beta')
+            ->set('search', '')
+            ->set('sortField', 'usage_number')
+            ->set('sortDirection', 'asc')
+            ->assertSeeInOrder(['MUS.SAFE.0001', 'MUS.SAFE.0002'])
+            ->set('filters', [
+                'date' => [
+                    'sales' => [
+                        'usage_date' => [
+                            'start' => now()->startOfDay()->toDateTimeString(),
+                            'end' => now()->endOfDay()->toDateTimeString(),
+                            'formatted' => now()->format('d/m/Y') . ' - ' . now()->format('d/m/Y'),
+                        ],
+                    ],
+                ],
+            ])
+            ->assertSee('Blend Beta')
+            ->assertDontSee('Blend Alpha');
     }
 
     private function downloadedFileContent(TestResponse $response): string

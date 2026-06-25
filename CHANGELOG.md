@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.4.5-rni-access-control-and-uat-defect-stabilization
+
+- added the missing `sessions` infrastructure migration so the default database-backed `cache`, `session`, and `queue` drivers all work after `php artisan migrate:fresh --seed`
+- documented that environments using `CACHE_STORE=database`, `SESSION_DRIVER=database`, and `QUEUE_CONNECTION=database` must run migrations before cache clear / optimization commands
+- added `RM Desk` and a reusable role-module-action permission foundation backed by seeded defaults and an editable role permission matrix
+- moved navigation, route guards, controller checks, and shared AJAX lookups to permission-based access instead of hardcoded role-only branching
+- set default access so `admin_rni` keeps full control, `formulator` becomes read-only/export-only for RNI monitoring, and `rm_desk` can create usage plus cancel or restore only their own usage records
+- locked finance and inventory value visibility behind permissions across menus, dashboard hydration, product and batch tables, inventory reports, usage detail pages, and shared API payloads
+- stopped material usage from trusting browser-supplied unit cost, now snapshots cost server-side from batch allocation while keeping usage creation flow unchanged
+- rebuilt usage history search, sort, and date filtering with explicit joins and safe aliases to remove relation-query server errors
+- hardened auto-generated usage numbering with retry handling for unique collisions while preserving the existing number format
+- clarified duplicate batch rejection guidance so `Batch No.` remains unique and repeated supplier/manufacturer numbers must use an internal suffix or reference
+- expanded regression coverage for role access, RM Desk ownership rules, sensitive visibility, usage number collision retries, usage history filtering, and duplicate batch guidance
+
 ## v0.4.4-item-code-semantics-and-compact-navigation
 
 - corrected `Item Code IERP` semantics so it now shows only the stored legacy IERP code or `-`, never a fallback from `SKU`

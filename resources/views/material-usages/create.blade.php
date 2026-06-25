@@ -341,7 +341,6 @@
                             sku: product.sku,
                             item_code_ierp: product.item_code_ierp || '-',
                             unit: product.unit?.symbol || product.unit?.name || '-',
-                            price: parseInt(product.price || 0),
                             max_stock: parseInt(product.quantity || 0),
                             quantity: 1,
                             discount: 0,
@@ -460,7 +459,7 @@
                                 const payload = {
                                     product_id: item.id,
                                     quantity: item.quantity,
-                                    unit_price: item.price,
+                                    unit_price: 0,
                                     discount: 0
                                 };
 

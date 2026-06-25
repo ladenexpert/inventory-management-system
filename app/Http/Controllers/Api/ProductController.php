@@ -10,6 +10,17 @@ class ProductController extends Controller
 {
     public function search(Request $request)
     {
+        $user = $request->user();
+
+        abort_unless($user?->hasAnyPermission([
+            ['materials', 'view'],
+            ['material_usage', 'create'],
+            ['legacy_sales', 'create'],
+            ['legacy_purchase', 'create'],
+            ['material_receipt', 'create'],
+            ['reports', 'view'],
+        ]), 403);
+
         $query = $request->input('q') ?? $request->input('search');
         $scope = (string) ($request->input('scope') ?? 'sale');
 
@@ -37,15 +48,17 @@ class ProductController extends Controller
             $productQuery->where('quantity', '>', 0);
         }
 
+        $canViewCost = $user?->canViewInventoryValue() || $user?->canAccessFinance();
+
         $products = $productQuery
             ->get()
-            ->map(function ($product) {
+            ->map(function ($product) use ($canViewCost) {
                 return [
                     'value' => $product->id,
                     'id' => $product->id,
                     'text' => $product->name,
                     'name' => $product->name,
-                    'price' => $product->purchase_price,
+                    'price' => $canViewCost ? $product->purchase_price : null,
                     'selling_price' => $product->selling_price,
                     'sku' => $product->sku,
                     'item_code_ierp' => $product->item_code_ierp,

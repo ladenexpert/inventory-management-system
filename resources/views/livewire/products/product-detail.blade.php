@@ -1,6 +1,9 @@
 <x-modal name="product-detail-modal" focusable>
     @if($product)
         @php
+            $user = auth()->user();
+            $canViewSensitiveValues = ($user?->canViewInventoryValue() ?? false) || ($user?->canAccessFinance() ?? false);
+            $canEditProduct = $user?->hasPermission('materials', 'update') ?? false;
             $activeBatches = $product->batches->where('available_quantity', '>', 0);
             $inventoryCostValue = (int) $activeBatches->sum(fn($batch) => (int) $batch->available_quantity * (int) $batch->unit_cost);
             $inventorySellingValue = (int) $activeBatches->sum(fn($batch) => (int) $batch->available_quantity * (int) ($batch->selling_price ?? $product->selling_price));
@@ -55,15 +58,17 @@
                         <p class="text-sm text-foreground font-medium">{{ $product->supplier?->name ?? '-' }}</p>
                     </div>
 
-                    <div class="space-y-1">
-                        <label class="text-sm font-medium leading-none text-muted-foreground">{{ __('Selling Price') }}</label>
-                        <p class="text-sm text-foreground font-medium">@money($product->selling_price)</p>
-                    </div>
+                    @if($canViewSensitiveValues)
+                        <div class="space-y-1">
+                            <label class="text-sm font-medium leading-none text-muted-foreground">{{ __('Selling Price') }}</label>
+                            <p class="text-sm text-foreground font-medium">@money($product->selling_price)</p>
+                        </div>
 
-                    <div class="space-y-1">
-                        <label class="text-sm font-medium leading-none text-muted-foreground">{{ __('Purchase Price') }}</label>
-                        <p class="text-sm text-foreground font-medium">@money($product->purchase_price)</p>
-                    </div>
+                        <div class="space-y-1">
+                            <label class="text-sm font-medium leading-none text-muted-foreground">{{ __('Purchase Price') }}</label>
+                            <p class="text-sm text-foreground font-medium">@money($product->purchase_price)</p>
+                        </div>
+                    @endif
 
                     <div class="space-y-1">
                         <label class="text-sm font-medium leading-none text-muted-foreground">{{ __('Stock') }}</label>
@@ -77,15 +82,17 @@
                         <p class="text-sm text-foreground font-medium">{{ $product->min_stock }}</p>
                     </div>
 
-                    <div class="space-y-1">
-                        <label class="text-sm font-medium leading-none text-muted-foreground">{{ __('Inventory Cost Value') }}</label>
-                        <p class="text-sm text-foreground font-medium">@money($inventoryCostValue)</p>
-                    </div>
+                    @if($canViewSensitiveValues)
+                        <div class="space-y-1">
+                            <label class="text-sm font-medium leading-none text-muted-foreground">{{ __('Inventory Cost Value') }}</label>
+                            <p class="text-sm text-foreground font-medium">@money($inventoryCostValue)</p>
+                        </div>
 
-                    <div class="space-y-1">
-                        <label class="text-sm font-medium leading-none text-muted-foreground">{{ __('Inventory Selling Value') }}</label>
-                        <p class="text-sm text-foreground font-medium">@money($inventorySellingValue)</p>
-                    </div>
+                        <div class="space-y-1">
+                            <label class="text-sm font-medium leading-none text-muted-foreground">{{ __('Inventory Selling Value') }}</label>
+                            <p class="text-sm text-foreground font-medium">@money($inventorySellingValue)</p>
+                        </div>
+                    @endif
                 </div>
 
                 <div class="space-y-1">
@@ -116,7 +123,9 @@
                                     <th class="px-3 py-2 text-left font-medium">Expiry</th>
                                     <th class="px-3 py-2 text-left font-medium">Storage</th>
                                     <th class="px-3 py-2 text-right font-medium">Available</th>
-                                    <th class="px-3 py-2 text-right font-medium">Cost</th>
+                                    @if($canViewSensitiveValues)
+                                        <th class="px-3 py-2 text-right font-medium">Cost</th>
+                                    @endif
                                     <th class="px-3 py-2 text-left font-medium">Source</th>
                                 </tr>
                             </thead>
@@ -127,12 +136,14 @@
                                         <td class="px-3 py-2 text-gray-600">{{ $batch->expiry_date?->format('d M Y') ?? '-' }}</td>
                                         <td class="px-3 py-2 text-gray-600">{{ $batch->storage_location ?? '-' }}</td>
                                         <td class="px-3 py-2 text-right text-gray-700">{{ $batch->available_quantity }}</td>
-                                        <td class="px-3 py-2 text-right text-gray-700">@money($batch->unit_cost)</td>
+                                        @if($canViewSensitiveValues)
+                                            <td class="px-3 py-2 text-right text-gray-700">@money($batch->unit_cost)</td>
+                                        @endif
                                         <td class="px-3 py-2 text-gray-500">{{ str($batch->source)->headline() }}</td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="6" class="px-3 py-4 text-center text-sm text-gray-500">No active batch available.</td>
+                                        <td colspan="{{ $canViewSensitiveValues ? 6 : 5 }}" class="px-3 py-4 text-center text-sm text-gray-500">No active batch available.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -159,10 +170,12 @@
                 <x-secondary-button type="button" x-on:click="$dispatch('close-modal', { name: 'product-detail-modal' })">
                     {{ __('Close') }}
                 </x-secondary-button>
-                <x-primary-button type="button" x-on:click="$dispatch('close-modal', { name: 'product-detail-modal' }); $dispatch('edit-product', { product: {{ $product->id }} })">
-                    <x-heroicon-o-pencil-square class="w-4 h-4 mr-2" />
-                    {{ __('Edit Product') }}
-                </x-primary-button>
+                @if($canEditProduct)
+                    <x-primary-button type="button" x-on:click="$dispatch('close-modal', { name: 'product-detail-modal' }); $dispatch('edit-product', { product: {{ $product->id }} })">
+                        <x-heroicon-o-pencil-square class="w-4 h-4 mr-2" />
+                        {{ __('Edit Product') }}
+                    </x-primary-button>
+                @endif
             </div>
         </div>
     @else

@@ -11,6 +11,16 @@ class UserController extends Controller
 {
     public function search(Request $request)
     {
+        abort_unless($request->user()?->hasAnyPermission([
+            ['user_access', 'view'],
+            ['material_usage', 'create'],
+            ['reports', 'view'],
+            ['legacy_sales', 'view'],
+            ['legacy_purchase', 'view'],
+            ['material_receipt', 'create'],
+            ['material_receipt', 'update'],
+        ]), 403);
+
         $query = $request->input('q') ?? $request->input('search');
         $cacheKey = 'users_search_' . md5((string) $query);
 
@@ -27,7 +37,6 @@ class UserController extends Controller
                         'value' => $user->id,
                         'text' => $user->name,
                         'name' => $user->name,
-                        'email' => $user->email,
                     ];
                 });
         });

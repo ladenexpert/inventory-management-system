@@ -13,6 +13,7 @@ use App\Http\Requests\StorePurchaseRequest;
 use App\Http\Requests\UpdatePurchaseRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\Response;
 
 class PurchaseController extends Controller
 {
@@ -25,11 +26,15 @@ class PurchaseController extends Controller
 
     public function index()
     {
+        abort_unless(auth()->user()?->hasPermission('legacy_purchase', 'view'), Response::HTTP_FORBIDDEN);
+
         return view('purchases.index');
     }
 
     public function create()
     {
+        abort_unless(auth()->user()?->hasPermission('legacy_purchase', 'create'), Response::HTTP_FORBIDDEN);
+
         return view('purchases.create', [
             'purchase' => new Purchase(),
             'statuses' => PurchaseStatus::cases(),
@@ -38,6 +43,11 @@ class PurchaseController extends Controller
 
     public function store(StorePurchaseRequest $request)
     {
+        $this->authorizePurchaseContextAction(
+            $request->input('context') === 'material_receipt' ? 'material_receipt' : 'legacy_purchase',
+            'create',
+        );
+
         try {
             $proofPath = null;
             if ($request->hasFile('proof_image')) {
@@ -70,6 +80,7 @@ class PurchaseController extends Controller
     public function show(Purchase $purchase)
     {
         abort_if($purchase->isMaterialReceipt(), 404);
+        $this->authorizePurchaseContextAction('legacy_purchase', 'view');
         $purchase->load(['supplier', 'creator', 'items.product.unit', 'items.storageLocation', 'items.batch.storageLocationRecord']);
         return view('purchases.show', compact('purchase'));
     }
@@ -77,6 +88,7 @@ class PurchaseController extends Controller
     public function edit(Purchase $purchase)
     {
         abort_if($purchase->isMaterialReceipt(), 404);
+        $this->authorizePurchaseContextAction('legacy_purchase', 'update');
         // // Authorization: Only creator or admin can edit
         // if ($purchase->created_by !== Auth::id()) {
         //     abort(403, 'You can only edit your own purchases.');
@@ -97,6 +109,11 @@ class PurchaseController extends Controller
 
     public function update(UpdatePurchaseRequest $request, Purchase $purchase)
     {
+        $this->authorizePurchaseContextAction(
+            $purchase->isMaterialReceipt() ? 'material_receipt' : 'legacy_purchase',
+            'update',
+        );
+
         // // Authorization: Only creator can update
         // if ($purchase->created_by !== Auth::id()) {
         //     abort(403, 'You can only update your own purchases.');
@@ -133,6 +150,11 @@ class PurchaseController extends Controller
 
     public function destroy(Purchase $purchase)
     {
+        $this->authorizePurchaseContextAction(
+            $purchase->isMaterialReceipt() ? 'material_receipt' : 'legacy_purchase',
+            'delete',
+        );
+
         // // Authorization: Only creator can delete
         // if ($purchase->created_by !== Auth::id()) {
         //     abort(403, 'You can only delete your own purchases.');
@@ -152,6 +174,11 @@ class PurchaseController extends Controller
 
     public function markOrdered(Purchase $purchase)
     {
+        $this->authorizePurchaseContextAction(
+            $purchase->isMaterialReceipt() ? 'material_receipt' : 'legacy_purchase',
+            'confirm',
+        );
+
         try {
             $this->service->markAsOrdered($purchase);
             $purchase->refresh();
@@ -168,6 +195,11 @@ class PurchaseController extends Controller
 
     public function markReceived(Request $request, Purchase $purchase)
     {
+        $this->authorizePurchaseContextAction(
+            $purchase->isMaterialReceipt() ? 'material_receipt' : 'legacy_purchase',
+            'confirm',
+        );
+
         $rules = [];
 
         if (!$purchase->isMaterialReceipt() && empty($purchase->invoice_number)) {
@@ -220,6 +252,7 @@ class PurchaseController extends Controller
     public function print(Purchase $purchase)
     {
         abort_if($purchase->isMaterialReceipt(), 404);
+        $this->authorizePurchaseContextAction('legacy_purchase', 'view');
 
         $purchase->load(['supplier', 'creator', 'items.product.unit', 'items.storageLocation', 'items.batch.storageLocationRecord']);
 
@@ -230,6 +263,11 @@ class PurchaseController extends Controller
 
     public function cancel(Purchase $purchase)
     {
+        $this->authorizePurchaseContextAction(
+            $purchase->isMaterialReceipt() ? 'material_receipt' : 'legacy_purchase',
+            'cancel',
+        );
+
         // // Authorization: Only creator can cancel
         // if ($purchase->created_by !== Auth::id()) {
         //     abort(403, 'You can only cancel your own purchases.');
@@ -251,6 +289,8 @@ class PurchaseController extends Controller
 
     public function markPaid(Purchase $purchase)
     {
+        abort_unless(auth()->user()?->hasPermission('finance', 'confirm'), Response::HTTP_FORBIDDEN);
+
         try {
             $this->service->markAsPaid($purchase);
             $purchase->refresh();
@@ -265,6 +305,11 @@ class PurchaseController extends Controller
 
     public function restoreToDraft(Purchase $purchase)
     {
+        $this->authorizePurchaseContextAction(
+            $purchase->isMaterialReceipt() ? 'material_receipt' : 'legacy_purchase',
+            'restore',
+        );
+
         // // Authorization: Only creator can restore
         // if ($purchase->created_by !== Auth::id()) {
         //     abort(403, 'You can only restore your own purchases.');
@@ -292,5 +337,14 @@ class PurchaseController extends Controller
     private function redirectToPurchaseIndex(Purchase $purchase): RedirectResponse
     {
         return redirect()->route($purchase->isMaterialReceipt() ? 'material-receipts.index' : 'purchases.index');
+    }
+
+    private function authorizePurchaseContextAction(string $context, string $action): void
+    {
+        abort_unless(
+            auth()->user()?->hasPermission($context, $action),
+            Response::HTTP_FORBIDDEN,
+            'You are not authorized to access this feature.',
+        );
     }
 }

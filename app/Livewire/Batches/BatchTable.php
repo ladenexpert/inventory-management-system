@@ -54,8 +54,7 @@ final class BatchTable extends PowerGridComponent
     {
         $policy = app(BatchPolicyService::class);
         $nearExpiryDays = $policy->nearExpiryThresholdDays();
-
-        return PowerGrid::fields()
+        $fields = PowerGrid::fields()
             ->add('id')
             ->add('batch_number')
             ->add('product_name', fn (Batch $model) => $model->product?->name ?? '-')
@@ -67,9 +66,6 @@ final class BatchTable extends PowerGridComponent
             ->add('storage_location', fn (Batch $model) => $model->resolved_storage_location)
             ->add('available_quantity')
             ->add('quantity')
-            ->add('unit_cost_formatted', fn (Batch $model) => format_money($model->unit_cost))
-            ->add('inventory_value_formatted', fn (Batch $model) => format_money($policy->inventoryValue($model)))
-            ->add('selling_price_formatted', fn (Batch $model) => format_money((float) ($model->selling_price ?? 0)))
             ->add('source_label', fn (Batch $model) => str($model->source)->headline())
             ->add('expiry_date_formatted', fn (Batch $model) => $model->expiry_date?->format('d/m/Y') ?? 'No expiry')
             ->add('expiry_date_sort', fn (Batch $model) => $model->expiry_date?->format('Y-m-d') ?? '9999-12-31')
@@ -102,11 +98,20 @@ final class BatchTable extends PowerGridComponent
             ->add('lifecycle_status_value', fn (Batch $model) => $policy->getStatus($model)->value)
             ->add('near_expiry_label', fn () => "Near Expiry ({$nearExpiryDays} days)")
             ->add('is_zero_cost', fn (Batch $model) => (int) $model->unit_cost === 0 ? 'Yes' : 'No');
+
+        if ($this->canViewSensitiveValues()) {
+            $fields
+                ->add('unit_cost_formatted', fn (Batch $model) => format_money($model->unit_cost))
+                ->add('inventory_value_formatted', fn (Batch $model) => format_money($policy->inventoryValue($model)))
+                ->add('selling_price_formatted', fn (Batch $model) => format_money((float) ($model->selling_price ?? 0)));
+        }
+
+        return $fields;
     }
 
     public function columns(): array
     {
-        return [
+        $columns = [
             Column::make('Batch No', 'batch_number')
                 ->sortable()
                 ->searchable(),
@@ -152,22 +157,6 @@ final class BatchTable extends PowerGridComponent
                 ->sortable()
                 ->bodyAttribute('text-center'),
 
-            Column::make('Cost', 'unit_cost_formatted', 'unit_cost')
-                ->sortable()
-                ->bodyAttribute('text-right'),
-
-            Column::make('Inventory Value', 'inventory_value_formatted')
-                ->sortable(false)
-                ->bodyAttribute('text-right'),
-
-            Column::make('Zero Cost', 'is_zero_cost', 'unit_cost')
-                ->sortable(false)
-                ->bodyAttribute('text-center'),
-
-            Column::make('Sell Price', 'selling_price_formatted', 'selling_price')
-                ->sortable()
-                ->bodyAttribute('text-right'),
-
             Column::make('Source', 'source_label', 'source')
                 ->sortable(),
 
@@ -177,6 +166,28 @@ final class BatchTable extends PowerGridComponent
 
             Column::action('Action'),
         ];
+
+        if ($this->canViewSensitiveValues()) {
+            array_splice($columns, 12, 0, [
+                Column::make('Cost', 'unit_cost_formatted', 'unit_cost')
+                    ->sortable()
+                    ->bodyAttribute('text-right'),
+
+                Column::make('Inventory Value', 'inventory_value_formatted')
+                    ->sortable(false)
+                    ->bodyAttribute('text-right'),
+
+                Column::make('Zero Cost', 'is_zero_cost', 'unit_cost')
+                    ->sortable(false)
+                    ->bodyAttribute('text-center'),
+
+                Column::make('Sell Price', 'selling_price_formatted', 'selling_price')
+                    ->sortable()
+                    ->bodyAttribute('text-right'),
+            ]);
+        }
+
+        return $columns;
     }
 
     public function relationSearch(): array
@@ -270,5 +281,13 @@ final class BatchTable extends PowerGridComponent
         }
 
         return $actions;
+    }
+
+    private function canViewSensitiveValues(): bool
+    {
+        $user = auth()->user();
+
+        return ($user?->canViewInventoryValue() ?? false)
+            || ($user?->canAccessFinance() ?? false);
     }
 }

@@ -33,24 +33,17 @@ class UserForm extends Component
         ];
     }
 
-    #[On('open-modal')]
-    public function handleOpenModal($name): void
-    {
-        if ($name === 'user-form-modal' && !$this->isEditing) {
-            $this->create(); // Ensure we reset if opening for create
-        }
-    }
-
+    #[On('create-user')]
     public function create(): void
     {
-        $this->reset(['user', 'isEditing', 'name', 'username', 'email', 'password', 'password_confirmation']);
-        $this->role = UserRole::FORMULATOR->value;
+        $this->resetForm();
         $this->dispatch('open-modal', name: 'user-form-modal');
     }
 
     #[On('edit-user')]
     public function edit(User $user): void
     {
+        $this->resetValidation();
         $this->user = $user;
         $this->isEditing = true;
 
@@ -100,5 +93,12 @@ class UserForm extends Component
     public function render()
     {
         return view('livewire.users.user-form');
+    }
+
+    protected function resetForm(): void
+    {
+        $this->resetValidation();
+        $this->reset(['user', 'isEditing', 'name', 'username', 'email', 'password', 'password_confirmation']);
+        $this->role = UserRole::FORMULATOR->value;
     }
 }

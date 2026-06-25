@@ -11,6 +11,12 @@ class CategoryController extends Controller
 {
     public function search(Request $request)
     {
+        abort_unless($request->user()?->hasAnyPermission([
+            ['master_data', 'view'],
+            ['materials', 'create'],
+            ['materials', 'update'],
+        ]), 403);
+
         $query = $request->input('q');
 
         $categories = Cache::rememberForever('categories_list_all', function () {

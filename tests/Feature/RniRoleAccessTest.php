@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\PaymentMethod;
 use App\Enums\SaleStatus;
 use App\Enums\SaleTransactionType;
 use App\Models\Batch;
@@ -28,12 +29,13 @@ class RniRoleAccessTest extends TestCase
         $this->actingAs($user)->get(route('products.index'))->assertOk();
         $this->actingAs($user)->get(route('reports.inventory'))->assertOk();
 
+        $this->actingAs($user)->get(route('material-usages.create'))->assertForbidden();
         $this->actingAs($user)->get(route('users.index'))->assertForbidden();
         $this->actingAs($user)->get(route('material-receipts.index'))->assertForbidden();
         $this->actingAs($user)->get(route('finance.transactions.index'))->assertForbidden();
     }
 
-    public function test_formulator_usage_history_shows_only_their_own_usage(): void
+    public function test_formulator_usage_history_supports_monitoring_all_usage_records_as_read_only(): void
     {
         $formulator = User::factory()->create([
             'role' => UserRole::FORMULATOR,
@@ -132,6 +134,119 @@ class RniRoleAccessTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('MUS.TEST.0001');
-        $response->assertDontSee('MUS.TEST.0002');
+        $response->assertSee('MUS.TEST.0002');
+        $response->assertDontSee('Create Usage');
+    }
+
+    public function test_rm_desk_can_cancel_only_their_own_material_usage(): void
+    {
+        $rmDesk = User::factory()->create([
+            'role' => UserRole::RM_DESK,
+        ]);
+        $otherRmDesk = User::factory()->create([
+            'role' => UserRole::RM_DESK,
+        ]);
+
+        $ownUsage = Sale::create([
+            'invoice_number' => 'MUS.RMD.0001',
+            'transaction_type' => SaleTransactionType::MATERIAL_USAGE,
+            'created_by' => $rmDesk->id,
+            'issued_by' => $rmDesk->id,
+            'sale_date' => now(),
+            'usage_date' => now(),
+            'status' => SaleStatus::COMPLETED,
+            'subtotal' => 0,
+            'global_discount' => 0,
+            'total_discount' => 0,
+            'total' => 0,
+            'cash_received' => 0,
+            'change' => 0,
+            'payment_method' => PaymentMethod::TRANSFER,
+            'purpose' => 'Own usage',
+        ]);
+
+        $otherUsage = Sale::create([
+            'invoice_number' => 'MUS.RMD.0002',
+            'transaction_type' => SaleTransactionType::MATERIAL_USAGE,
+            'created_by' => $otherRmDesk->id,
+            'issued_by' => $otherRmDesk->id,
+            'sale_date' => now(),
+            'usage_date' => now(),
+            'status' => SaleStatus::COMPLETED,
+            'subtotal' => 0,
+            'global_discount' => 0,
+            'total_discount' => 0,
+            'total' => 0,
+            'cash_received' => 0,
+            'change' => 0,
+            'payment_method' => PaymentMethod::TRANSFER,
+            'purpose' => 'Other usage',
+        ]);
+
+        $this->actingAs($rmDesk)
+            ->delete(route('material-usages.destroy', $ownUsage))
+            ->assertRedirect(route('material-usages.index'));
+
+        $this->assertSame(SaleStatus::CANCELLED, $ownUsage->fresh()->status);
+
+        $this->actingAs($rmDesk)
+            ->delete(route('material-usages.destroy', $otherUsage))
+            ->assertForbidden();
+    }
+
+    public function test_rm_desk_can_restore_only_their_own_material_usage(): void
+    {
+        $rmDesk = User::factory()->create([
+            'role' => UserRole::RM_DESK,
+        ]);
+        $otherRmDesk = User::factory()->create([
+            'role' => UserRole::RM_DESK,
+        ]);
+
+        $ownUsage = Sale::create([
+            'invoice_number' => 'MUS.RMD.0003',
+            'transaction_type' => SaleTransactionType::MATERIAL_USAGE,
+            'created_by' => $rmDesk->id,
+            'issued_by' => $rmDesk->id,
+            'sale_date' => now(),
+            'usage_date' => now(),
+            'status' => SaleStatus::CANCELLED,
+            'subtotal' => 0,
+            'global_discount' => 0,
+            'total_discount' => 0,
+            'total' => 0,
+            'cash_received' => 0,
+            'change' => 0,
+            'payment_method' => PaymentMethod::TRANSFER,
+            'purpose' => 'Own cancelled usage',
+        ]);
+
+        $otherUsage = Sale::create([
+            'invoice_number' => 'MUS.RMD.0004',
+            'transaction_type' => SaleTransactionType::MATERIAL_USAGE,
+            'created_by' => $otherRmDesk->id,
+            'issued_by' => $otherRmDesk->id,
+            'sale_date' => now(),
+            'usage_date' => now(),
+            'status' => SaleStatus::CANCELLED,
+            'subtotal' => 0,
+            'global_discount' => 0,
+            'total_discount' => 0,
+            'total' => 0,
+            'cash_received' => 0,
+            'change' => 0,
+            'payment_method' => PaymentMethod::TRANSFER,
+            'purpose' => 'Other cancelled usage',
+        ]);
+
+        $this->actingAs($rmDesk)
+            ->patch(route('material-usages.restore', $ownUsage))
+            ->assertRedirect(route('material-usages.show', $ownUsage));
+
+        $this->assertSame(SaleStatus::PENDING, $ownUsage->fresh()->status);
+
+        $this->actingAs($rmDesk)
+            ->patch(route('material-usages.restore', $otherUsage))
+            ->assertForbidden();
     }
 }

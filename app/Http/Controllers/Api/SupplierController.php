@@ -11,6 +11,14 @@ class SupplierController extends Controller
 {
     public function search(Request $request)
     {
+        abort_unless($request->user()?->hasAnyPermission([
+            ['master_data', 'view'],
+            ['legacy_purchase', 'create'],
+            ['legacy_purchase', 'update'],
+            ['material_receipt', 'create'],
+            ['material_receipt', 'update'],
+        ]), 403);
+
         $query = $request->input('q');
         $cacheKey = 'suppliers_search_' . md5($query);
 

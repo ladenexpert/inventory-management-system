@@ -15,6 +15,13 @@
     $receiveModalOpen = $errors->has('invoice_number') || $errors->has('proof_image');
     $backRoute = $indexRoute ?? 'purchases.index';
     $editRouteName = $editRoute ?? 'purchases.edit';
+    $permissionModule = $isMaterialReceipt ? 'material_receipt' : 'legacy_purchase';
+    $canUpdatePurchase = auth()->user()?->hasPermission($permissionModule, 'update') ?? false;
+    $canDeletePurchase = auth()->user()?->hasPermission($permissionModule, 'delete') ?? false;
+    $canConfirmPurchase = auth()->user()?->hasPermission($permissionModule, 'confirm') ?? false;
+    $canCancelPurchase = auth()->user()?->hasPermission($permissionModule, 'cancel') ?? false;
+    $canRestorePurchase = auth()->user()?->hasPermission($permissionModule, 'restore') ?? false;
+    $canMarkPurchasePaid = ! $isMaterialReceipt && (auth()->user()?->hasPermission('finance', 'confirm') ?? false);
 @endphp
 
 <x-app-layout :title="$pageTitle">
@@ -34,7 +41,7 @@
                     </x-secondary-button>
                 @endif
 
-                @if(in_array($purchase->status, [\App\Enums\PurchaseStatus::DRAFT, \App\Enums\PurchaseStatus::ORDERED], true))
+                @if($canUpdatePurchase && in_array($purchase->status, [\App\Enums\PurchaseStatus::DRAFT, \App\Enums\PurchaseStatus::ORDERED], true))
                     <x-secondary-button href="{{ route($editRouteName, $purchase) }}">
                         {{ __('Edit') }}
                     </x-secondary-button>
@@ -203,151 +210,159 @@
                 class="flex flex-col sm:flex-row justify-end gap-4"
             >
                 @if($purchase->status === \App\Enums\PurchaseStatus::DRAFT)
-                    <x-danger-button
-                        type="button"
-                        @click="confirmAction('{{ route('purchases.destroy', $purchase) }}', 'DELETE', '{{ $isMaterialReceipt ? 'Delete Draft Receipt' : 'Delete Draft Purchase' }}', '{{ $isMaterialReceipt ? 'Are you sure you want to delete this draft material receipt?' : 'Are you sure you want to delete this draft legacy purchase?' }}', '{{ $isMaterialReceipt ? 'Delete Draft Receipt' : 'Delete Draft Purchase' }}', '!bg-red-600 hover:!bg-red-700 focus:!ring-red-500')"
-                    >
-                        {{ $isMaterialReceipt ? __('Delete Draft Receipt') : __('Delete Draft Purchase') }}
-                    </x-danger-button>
+                    @if($canDeletePurchase)
+                        <x-danger-button
+                            type="button"
+                            @click="confirmAction('{{ route('purchases.destroy', $purchase) }}', 'DELETE', '{{ $isMaterialReceipt ? 'Delete Draft Receipt' : 'Delete Draft Purchase' }}', '{{ $isMaterialReceipt ? 'Are you sure you want to delete this draft material receipt?' : 'Are you sure you want to delete this draft legacy purchase?' }}', '{{ $isMaterialReceipt ? 'Delete Draft Receipt' : 'Delete Draft Purchase' }}', '!bg-red-600 hover:!bg-red-700 focus:!ring-red-500')"
+                        >
+                            {{ $isMaterialReceipt ? __('Delete Draft Receipt') : __('Delete Draft Purchase') }}
+                        </x-danger-button>
+                    @endif
 
-                    <x-primary-button
-                        type="button"
-                        class="!bg-sky-600 hover:!bg-sky-700 focus:!ring-sky-500"
-                        @click="confirmAction('{{ route('purchases.mark-ordered', $purchase) }}', 'PATCH', '{{ $isMaterialReceipt ? 'Mark Receipt as Planned' : 'Mark Purchase as Ordered' }}', '{{ $isMaterialReceipt ? 'Are you sure you want to mark this material receipt as planned? Stock will move only after confirmation.' : 'Are you sure you want to mark this legacy purchase as ordered? Stock will move only after receipt.' }}', '{{ $isMaterialReceipt ? 'Mark as Planned' : 'Mark as Ordered' }}', '!bg-sky-600 hover:!bg-sky-700 focus:!ring-sky-500')"
-                    >
-                        {{ $isMaterialReceipt ? __('Mark as Planned') : __('Mark as Ordered') }}
-                    </x-primary-button>
-                @elseif($purchase->status === \App\Enums\PurchaseStatus::ORDERED)
-                    <x-secondary-button
-                        type="button"
-                        class="text-red-600 hover:bg-red-50 border-red-200"
-                        @click="confirmAction('{{ route('purchases.cancel', $purchase) }}', 'PATCH', '{{ $isMaterialReceipt ? 'Cancel Material Receipt' : 'Cancel Purchase Order' }}', '{{ $isMaterialReceipt ? 'Are you sure you want to cancel this material receipt draft?' : 'Are you sure you want to cancel this legacy purchase order?' }}', '{{ $isMaterialReceipt ? 'Cancel Receipt' : 'Cancel Order' }}', '!bg-red-600 hover:!bg-red-700 focus:!ring-red-500')"
-                    >
-                        {{ $isMaterialReceipt ? __('Cancel Receipt') : __('Cancel Order') }}
-                    </x-secondary-button>
-
-                    <div x-data="{ open: @js($receiveModalOpen) }">
+                    @if($canConfirmPurchase)
                         <x-primary-button
                             type="button"
-                            @click="open = true"
-                            class="!bg-green-600 hover:!bg-green-700 focus:!ring-green-500"
+                            class="!bg-sky-600 hover:!bg-sky-700 focus:!ring-sky-500"
+                            @click="confirmAction('{{ route('purchases.mark-ordered', $purchase) }}', 'PATCH', '{{ $isMaterialReceipt ? 'Mark Receipt as Planned' : 'Mark Purchase as Ordered' }}', '{{ $isMaterialReceipt ? 'Are you sure you want to mark this material receipt as planned? Stock will move only after confirmation.' : 'Are you sure you want to mark this legacy purchase as ordered? Stock will move only after receipt.' }}', '{{ $isMaterialReceipt ? 'Mark as Planned' : 'Mark as Ordered' }}', '!bg-sky-600 hover:!bg-sky-700 focus:!ring-sky-500')"
                         >
-                            <x-heroicon-o-check-circle class="w-5 h-5 mr-1" />
-                            {{ $isMaterialReceipt ? __('Confirm Material Receipt') : __('Receive Items') }}
+                            {{ $isMaterialReceipt ? __('Mark as Planned') : __('Mark as Ordered') }}
                         </x-primary-button>
-
-                        <div
-                            x-show="open"
-                            style="display: none;"
-                            x-transition.opacity
-                            class="fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-75 flex items-center justify-center p-4"
+                    @endif
+                @elseif($purchase->status === \App\Enums\PurchaseStatus::ORDERED)
+                    @if($canCancelPurchase)
+                        <x-secondary-button
+                            type="button"
+                            class="text-red-600 hover:bg-red-50 border-red-200"
+                            @click="confirmAction('{{ route('purchases.cancel', $purchase) }}', 'PATCH', '{{ $isMaterialReceipt ? 'Cancel Material Receipt' : 'Cancel Purchase Order' }}', '{{ $isMaterialReceipt ? 'Are you sure you want to cancel this material receipt draft?' : 'Are you sure you want to cancel this legacy purchase order?' }}', '{{ $isMaterialReceipt ? 'Cancel Receipt' : 'Cancel Order' }}', '!bg-red-600 hover:!bg-red-700 focus:!ring-red-500')"
                         >
-                            <div
-                                @click.outside="open = false"
-                                x-transition.scale
-                                class="relative bg-white rounded-lg max-w-md w-full p-6 shadow-xl"
+                            {{ $isMaterialReceipt ? __('Cancel Receipt') : __('Cancel Order') }}
+                        </x-secondary-button>
+                    @endif
+
+                    @if($canConfirmPurchase)
+                        <div x-data="{ open: @js($receiveModalOpen) }">
+                            <x-primary-button
+                                type="button"
+                                @click="open = true"
+                                class="!bg-green-600 hover:!bg-green-700 focus:!ring-green-500"
                             >
-                                <h3 class="text-lg font-medium text-gray-900 mb-4">
-                                    {{ $isMaterialReceipt ? 'Confirm Material Receipt #' : 'Receive Purchase #' }}{{ $purchase->invoice_number ?? $purchase->id }}
-                                </h3>
+                                <x-heroicon-o-check-circle class="w-5 h-5 mr-1" />
+                                {{ $isMaterialReceipt ? __('Confirm Material Receipt') : __('Receive Items') }}
+                            </x-primary-button>
 
-                                <form
-                                    action="{{ route('purchases.mark-received', $purchase) }}"
-                                    method="POST"
-                                    enctype="multipart/form-data"
-                                    x-data="{ submitting: false }"
-                                    @submit="submitting = true"
+                            <div
+                                x-show="open"
+                                style="display: none;"
+                                x-transition.opacity
+                                class="fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-75 flex items-center justify-center p-4"
+                            >
+                                <div
+                                    @click.outside="open = false"
+                                    x-transition.scale
+                                    class="relative bg-white rounded-lg max-w-md w-full p-6 shadow-xl"
                                 >
-                                    @csrf
-                                    @method('PATCH')
+                                    <h3 class="text-lg font-medium text-gray-900 mb-4">
+                                        {{ $isMaterialReceipt ? 'Confirm Material Receipt #' : 'Receive Purchase #' }}{{ $purchase->invoice_number ?? $purchase->id }}
+                                    </h3>
 
-                                    <div class="space-y-4">
-                                        @if($purchase->invoice_number)
-                                            <div class="bg-gray-50 p-3 rounded-md border border-gray-200">
-                                                <span class="block text-xs font-medium text-gray-500 uppercase">{{ $invoiceLabel }}</span>
-                                                <span class="text-sm font-semibold text-gray-900">{{ $purchase->invoice_number }}</span>
-                                            </div>
-                                        @else
-                                            <div class="space-y-2">
-                                                <x-input-label
-                                                    for="invoice_number"
-                                                    :value="$isMaterialReceipt ? __('Final Receipt Reference (Optional)') : __('Final Invoice Number')"
-                                                    :required="! $isMaterialReceipt"
-                                                />
-                                                <x-text-input
-                                                    id="invoice_number"
-                                                    name="invoice_number"
-                                                    :value="old('invoice_number')"
-                                                    placeholder="INV..."
-                                                />
-                                                <x-input-error :messages="$errors->get('invoice_number')" class="mt-2" />
-                                            </div>
-                                        @endif
+                                    <form
+                                        action="{{ route('purchases.mark-received', $purchase) }}"
+                                        method="POST"
+                                        enctype="multipart/form-data"
+                                        x-data="{ submitting: false }"
+                                        @submit="submitting = true"
+                                    >
+                                        @csrf
+                                        @method('PATCH')
 
-                                        @if($purchase->proof_image)
-                                            <div class="bg-gray-50 p-3 rounded-md border border-gray-200">
-                                                <span class="block text-xs font-medium text-gray-500 uppercase mb-1">{{ $proofFieldLabel }}</span>
-                                                <a href="{{ Storage::url($purchase->proof_image) }}" target="_blank" class="text-indigo-600 hover:underline text-sm flex items-center gap-1">
-                                                    <x-heroicon-o-paper-clip class="w-4 h-4" />
-                                                    {{ $proofLabel }}
-                                                </a>
-                                            </div>
-                                        @else
-                                            <div class="space-y-2">
-                                                <x-input-label
-                                                    for="proof_image"
-                                                    :value="$isMaterialReceipt ? __('Upload Receipt Evidence (Optional)') : __('Upload Proof of Receipt')"
-                                                    :required="! $isMaterialReceipt"
-                                                />
-                                                <input
-                                                    id="proof_image"
-                                                    type="file"
-                                                    name="proof_image"
-                                                    accept=".pdf,image/jpeg,image/png"
-                                                    class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
-                                                />
-                                                <p class="text-xs text-gray-500">
-                                                    {{ $isMaterialReceipt ? 'Optional for RNI receipts. PDF/JPG/PNG max 2MB.' : 'PDF, JPG, or PNG max 2MB.' }}
-                                                </p>
-                                                <x-input-error :messages="$errors->get('proof_image')" class="mt-2" />
-                                            </div>
-                                        @endif
-                                    </div>
+                                        <div class="space-y-4">
+                                            @if($purchase->invoice_number)
+                                                <div class="bg-gray-50 p-3 rounded-md border border-gray-200">
+                                                    <span class="block text-xs font-medium text-gray-500 uppercase">{{ $invoiceLabel }}</span>
+                                                    <span class="text-sm font-semibold text-gray-900">{{ $purchase->invoice_number }}</span>
+                                                </div>
+                                            @else
+                                                <div class="space-y-2">
+                                                    <x-input-label
+                                                        for="invoice_number"
+                                                        :value="$isMaterialReceipt ? __('Final Receipt Reference (Optional)') : __('Final Invoice Number')"
+                                                        :required="! $isMaterialReceipt"
+                                                    />
+                                                    <x-text-input
+                                                        id="invoice_number"
+                                                        name="invoice_number"
+                                                        :value="old('invoice_number')"
+                                                        placeholder="INV..."
+                                                    />
+                                                    <x-input-error :messages="$errors->get('invoice_number')" class="mt-2" />
+                                                </div>
+                                            @endif
 
-                                    <div class="mt-6 flex justify-end gap-3">
-                                        <x-secondary-button
-                                            type="button"
-                                            @click="open = false"
-                                            x-bind:disabled="submitting"
-                                        >
-                                            {{ __('Cancel') }}
-                                        </x-secondary-button>
+                                            @if($purchase->proof_image)
+                                                <div class="bg-gray-50 p-3 rounded-md border border-gray-200">
+                                                    <span class="block text-xs font-medium text-gray-500 uppercase mb-1">{{ $proofFieldLabel }}</span>
+                                                    <a href="{{ Storage::url($purchase->proof_image) }}" target="_blank" class="text-indigo-600 hover:underline text-sm flex items-center gap-1">
+                                                        <x-heroicon-o-paper-clip class="w-4 h-4" />
+                                                        {{ $proofLabel }}
+                                                    </a>
+                                                </div>
+                                            @else
+                                                <div class="space-y-2">
+                                                    <x-input-label
+                                                        for="proof_image"
+                                                        :value="$isMaterialReceipt ? __('Upload Receipt Evidence (Optional)') : __('Upload Proof of Receipt')"
+                                                        :required="! $isMaterialReceipt"
+                                                    />
+                                                    <input
+                                                        id="proof_image"
+                                                        type="file"
+                                                        name="proof_image"
+                                                        accept=".pdf,image/jpeg,image/png"
+                                                        class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                                                    />
+                                                    <p class="text-xs text-gray-500">
+                                                        {{ $isMaterialReceipt ? 'Optional for RNI receipts. PDF/JPG/PNG max 2MB.' : 'PDF, JPG, or PNG max 2MB.' }}
+                                                    </p>
+                                                    <x-input-error :messages="$errors->get('proof_image')" class="mt-2" />
+                                                </div>
+                                            @endif
+                                        </div>
 
-                                        <x-primary-button
-                                            type="submit"
-                                            class="!bg-green-600 hover:!bg-green-700 focus:!ring-green-500"
-                                            x-bind:class="submitting ? 'opacity-75 cursor-not-allowed' : ''"
-                                            x-bind:disabled="submitting"
-                                        >
-                                            <svg
-                                                x-show="submitting"
-                                                class="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                fill="none"
-                                                viewBox="0 0 24 24"
+                                        <div class="mt-6 flex justify-end gap-3">
+                                            <x-secondary-button
+                                                type="button"
+                                                @click="open = false"
+                                                x-bind:disabled="submitting"
                                             >
-                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                            </svg>
-                                            {{ $isMaterialReceipt ? __('Confirm Material Receipt') : __('Confirm Receipt') }}
-                                        </x-primary-button>
-                                    </div>
-                                </form>
+                                                {{ __('Cancel') }}
+                                            </x-secondary-button>
+
+                                            <x-primary-button
+                                                type="submit"
+                                                class="!bg-green-600 hover:!bg-green-700 focus:!ring-green-500"
+                                                x-bind:class="submitting ? 'opacity-75 cursor-not-allowed' : ''"
+                                                x-bind:disabled="submitting"
+                                            >
+                                                <svg
+                                                    x-show="submitting"
+                                                    class="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    fill="none"
+                                                    viewBox="0 0 24 24"
+                                                >
+                                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                                {{ $isMaterialReceipt ? __('Confirm Material Receipt') : __('Confirm Receipt') }}
+                                            </x-primary-button>
+                                        </div>
+                                    </form>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    @endif
                 @elseif($purchase->status === \App\Enums\PurchaseStatus::RECEIVED)
-                    @if(! $isMaterialReceipt)
+                    @if($canMarkPurchasePaid)
                         <x-primary-button
                             type="button"
                             class="!bg-emerald-600 hover:!bg-emerald-700 focus:!ring-emerald-500"
@@ -358,12 +373,14 @@
                         </x-primary-button>
                     @endif
                 @elseif($purchase->status === \App\Enums\PurchaseStatus::CANCELLED)
-                    <x-secondary-button
-                        type="button"
-                        @click="confirmAction('{{ route('purchases.restore-draft', $purchase) }}', 'PATCH', '{{ $isMaterialReceipt ? 'Restore Material Receipt Draft' : 'Restore Legacy Purchase Draft' }}', '{{ $isMaterialReceipt ? 'Restore this material receipt to draft so it can be edited again?' : 'Restore this legacy purchase to draft so it can be edited again?' }}', '{{ $isMaterialReceipt ? 'Restore Receipt Draft' : 'Restore Purchase Draft' }}', '!bg-gray-800 hover:!bg-gray-700 text-white')"
-                    >
-                        {{ $isMaterialReceipt ? __('Restore Receipt Draft') : __('Restore Purchase Draft') }}
-                    </x-secondary-button>
+                    @if($canRestorePurchase)
+                        <x-secondary-button
+                            type="button"
+                            @click="confirmAction('{{ route('purchases.restore-draft', $purchase) }}', 'PATCH', '{{ $isMaterialReceipt ? 'Restore Material Receipt Draft' : 'Restore Legacy Purchase Draft' }}', '{{ $isMaterialReceipt ? 'Restore this material receipt to draft so it can be edited again?' : 'Restore this legacy purchase to draft so it can be edited again?' }}', '{{ $isMaterialReceipt ? 'Restore Receipt Draft' : 'Restore Purchase Draft' }}', '!bg-gray-800 hover:!bg-gray-700 text-white')"
+                        >
+                            {{ $isMaterialReceipt ? __('Restore Receipt Draft') : __('Restore Purchase Draft') }}
+                        </x-secondary-button>
+                    @endif
                 @endif
 
                 <x-modal name="confirmation-modal">

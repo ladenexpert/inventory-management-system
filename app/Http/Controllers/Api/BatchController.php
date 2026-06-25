@@ -20,6 +20,11 @@ class BatchController extends Controller
      */
     public function getBatches(Request $request)
     {
+        abort_unless($request->user()?->hasAnyPermission([
+            ['material_usage', 'create'],
+            ['legacy_sales', 'create'],
+        ]), 403);
+
         $validator = Validator::make($request->all(), [
             'product_id' => 'required|integer|exists:products,id',
         ]);
@@ -57,8 +62,8 @@ class BatchController extends Controller
                     'status_label' => $status->label(),
                     'can_be_consumed' => $this->batchPolicyService->canBeConsumed($batch),
                     'can_be_sold' => $this->batchPolicyService->canBeSold($batch),
-                    'unit_cost' => $batch->unit_cost,
-                    'inventory_value' => $this->batchPolicyService->inventoryValue($batch),
+                    'unit_cost' => $request->user()?->canViewInventoryValue() ? $batch->unit_cost : null,
+                    'inventory_value' => $request->user()?->canViewInventoryValue() ? $this->batchPolicyService->inventoryValue($batch) : null,
                 ];
             });
 

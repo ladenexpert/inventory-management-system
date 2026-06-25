@@ -46,8 +46,7 @@ final class InventoryReportTable extends PowerGridComponent
     public function fields(): PowerGridFields
     {
         $policy = app(BatchPolicyService::class);
-
-        return PowerGrid::fields()
+        $fields = PowerGrid::fields()
             ->add('id')
             ->add('product_name', fn (Batch $model) => $model->product?->name ?? '-')
             ->add('sku', fn (Batch $model) => $model->product?->sku_display ?? '-')
@@ -59,13 +58,18 @@ final class InventoryReportTable extends PowerGridComponent
             ->add('storage_location', fn (Batch $model) => $model->resolved_storage_location)
             ->add('quantity', fn (Batch $model) => (int) $model->available_quantity)
             ->add('expiry', fn (Batch $model) => $model->expiry_date?->format('d/m/Y') ?? 'No expiry')
-            ->add('value', fn (Batch $model) => format_money($policy->inventoryValue($model)))
             ->add('status', fn (Batch $model) => $policy->getStatus($model)->label());
+
+        if ($this->canViewSensitiveValues()) {
+            $fields->add('value', fn (Batch $model) => format_money($policy->inventoryValue($model)));
+        }
+
+        return $fields;
     }
 
     public function columns(): array
     {
-        return [
+        $columns = [
             Column::make('SKU', 'sku')->searchable()->sortable(),
             Column::make('Item Code IERP', 'item_code_ierp')->searchable()->sortable(),
             Column::make('Material / Product Name', 'product_name')->searchable()->sortable(),
@@ -76,9 +80,16 @@ final class InventoryReportTable extends PowerGridComponent
             Column::make('Storage Location', 'storage_location')->searchable()->sortable(),
             Column::make('Qty', 'quantity', 'available_quantity')->sortable()->bodyAttribute('text-center'),
             Column::make('Expiry', 'expiry', 'expiry_date')->sortable(),
-            Column::make('Value', 'value')->bodyAttribute('text-right'),
             Column::make('Status', 'status')->sortable(),
         ];
+
+        if ($this->canViewSensitiveValues()) {
+            array_splice($columns, 10, 0, [
+                Column::make('Value', 'value')->bodyAttribute('text-right'),
+            ]);
+        }
+
+        return $columns;
     }
 
     public function filters(): array
@@ -99,5 +110,13 @@ final class InventoryReportTable extends PowerGridComponent
         return [
             'product' => ['name', 'sku', 'item_code_ierp', 'physical_form'],
         ];
+    }
+
+    private function canViewSensitiveValues(): bool
+    {
+        $user = auth()->user();
+
+        return ($user?->canViewInventoryValue() ?? false)
+            || ($user?->canAccessFinance() ?? false);
     }
 }

@@ -5,13 +5,13 @@
     $sections = [];
 
     $dashboardItems = [];
-    if ($modules['rni'] || $modules['reports']) {
+    if ($user->hasPermission('dashboard', 'view') && ($modules['rni'] || $modules['reports'])) {
         $dashboardItems[] = [
             'label' => 'RNI Operations',
             'href' => route('dashboard', ['view' => 'rni-operations']),
             'active' => request()->routeIs('dashboard') && request('view', 'rni-operations') !== 'business-insights',
         ];
-        if ($user->canAccessAdministration()) {
+        if ($user->canViewInventoryValue() || $user->canAccessFinance()) {
             $dashboardItems[] = [
                 'label' => 'Business Insights',
                 'href' => route('dashboard', ['view' => 'business-insights']),
@@ -25,20 +25,20 @@
     }
 
     $masterDataItems = [];
-    if ($modules['materials']) {
+    if ($modules['materials'] && $user->hasPermission('materials', 'view')) {
         $masterDataItems[] = ['label' => 'Materials', 'href' => route('products.index'), 'active' => request()->routeIs('products.*')];
-        if ($user->isAdminRni()) {
+        if ($user->hasPermission('master_data', 'view')) {
             $masterDataItems[] = ['label' => 'Categories', 'href' => route('categories.index'), 'active' => request()->routeIs('categories.*')];
             $masterDataItems[] = ['label' => 'Units', 'href' => route('units.index'), 'active' => request()->routeIs('units.*')];
         }
     }
-    if ($user->isAdminRni() && $modules['purchases']) {
+    if ($user->hasPermission('master_data', 'view') && $modules['purchases']) {
         $masterDataItems[] = ['label' => 'Suppliers', 'href' => route('suppliers.index'), 'active' => request()->routeIs('suppliers.*')];
     }
-    if ($user->isAdminRni() && $modules['sales']) {
+    if ($user->hasPermission('master_data', 'view') && $modules['sales']) {
         $masterDataItems[] = ['label' => 'Customers', 'href' => route('customers.index'), 'active' => request()->routeIs('customers.*')];
     }
-    if ($user->isAdminRni() && $modules['materials']) {
+    if ($user->hasPermission('master_data', 'view') && $modules['materials']) {
         $masterDataItems[] = ['label' => 'Storage Locations', 'href' => route('storage-locations.index'), 'active' => request()->routeIs('storage-locations.*')];
     }
     if ($masterDataItems !== []) {
@@ -46,21 +46,21 @@
     }
 
     $operationsItems = [];
-    if ($user->isAdminRni() && $modules['rni']) {
+    if ($user->hasPermission('material_receipt', 'view') && $modules['rni']) {
         $operationsItems[] = ['label' => 'Material Receipt', 'href' => route('material-receipts.index'), 'active' => request()->routeIs('material-receipts.*')];
     }
-    if ($user->isAdminRni() && $modules['purchases']) {
+    if ($user->hasPermission('legacy_purchase', 'view') && $modules['purchases']) {
         $operationsItems[] = ['label' => 'Legacy Purchases', 'href' => route('purchases.index'), 'active' => request()->routeIs('purchases.*')];
     }
-    if ($modules['rni']) {
+    if ($modules['rni'] && $user->hasPermission('material_usage', 'view')) {
         $operationsItems[] = ['label' => 'Material Usage', 'href' => route('material-usages.index'), 'active' => request()->routeIs('material-usages.*')];
     }
-    if ($user->isAdminRni() && $modules['sales']) {
+    if ($user->hasPermission('legacy_sales', 'view') && $modules['sales']) {
         $operationsItems[] = ['label' => 'Legacy Sales', 'href' => route('sales.index'), 'active' => request()->routeIs('sales.*')];
     }
-    if ($modules['reports']) {
+    if ($modules['reports'] && $user->hasPermission('reports', 'view')) {
         $operationsItems[] = ['label' => 'Current Inventory', 'href' => route('reports.inventory'), 'active' => request()->routeIs('reports.inventory')];
-        if ($modules['materials']) {
+        if ($modules['materials'] && $user->hasPermission('batches', 'view')) {
             $operationsItems[] = ['label' => 'Batch Monitoring', 'href' => route('batches.index'), 'active' => request()->routeIs('batches.*')];
         }
         $operationsItems[] = ['label' => 'Inventory Movement History', 'href' => route('reports.inventory-movement-history'), 'active' => request()->routeIs('reports.inventory-movement-history*')];
@@ -76,12 +76,14 @@
     }
 
     $reportItems = [];
-    if ($modules['reports']) {
+    if ($modules['reports'] && $user->hasPermission('reports', 'view')) {
         $reportItems[] = ['label' => 'Inventory Report', 'href' => route('reports.inventory'), 'active' => request()->routeIs('reports.inventory')];
         $reportItems[] = ['label' => 'Expiry Report', 'href' => route('reports.expiry'), 'active' => request()->routeIs('reports.expiry')];
         $reportItems[] = ['label' => 'Usage Analysis', 'href' => route('reports.usage-history'), 'active' => request()->routeIs('reports.usage-history')];
-        if ($user->canAccessAdministration()) {
+        if ($user->hasPermission('legacy_purchase', 'view')) {
             $reportItems[] = ['label' => 'Purchase Analysis', 'href' => route('reports.purchase-analysis'), 'active' => request()->routeIs('reports.purchase-analysis')];
+        }
+        if ($user->hasPermission('legacy_sales', 'view')) {
             $reportItems[] = ['label' => 'Sales Analysis', 'href' => route('reports.sales-analysis'), 'active' => request()->routeIs('reports.sales-analysis')];
         }
     }
@@ -93,11 +95,11 @@
     }
 
     $administrationItems = [];
-    if ($user->canAccessAdministration() && $modules['users']) {
+    if ($user->hasPermission('user_access', 'view') && $modules['users']) {
         $administrationItems[] = ['label' => 'Users', 'href' => route('users.index'), 'active' => request()->routeIs('users.*')];
         $administrationItems[] = ['label' => 'Roles', 'href' => route('roles.index'), 'active' => request()->routeIs('roles.*')];
     }
-    if ($user->canAccessAdministration()) {
+    if ($user->hasPermission('settings', 'view')) {
         $administrationItems[] = ['label' => 'Module Settings', 'href' => route('settings.index'), 'active' => request()->routeIs('settings.*')];
     }
     if ($administrationItems !== []) {

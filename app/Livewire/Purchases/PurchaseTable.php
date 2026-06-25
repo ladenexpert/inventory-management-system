@@ -34,17 +34,21 @@ final class PurchaseTable extends PowerGridComponent
     {
         $this->showCheckBox();
 
-        return [
-            PowerGrid::exportable('purchase_export_' . now()->format('Y_m_d'))
-                ->type(Exportable::TYPE_XLS, Exportable::TYPE_CSV),
+        $setUp = [];
 
-            PowerGrid::header()
-                ->showSearchInput(),
+        if ($this->userCan('export')) {
+            $setUp[] = PowerGrid::exportable('purchase_export_' . now()->format('Y_m_d'))
+                ->type(Exportable::TYPE_XLS, Exportable::TYPE_CSV);
+        }
 
-            PowerGrid::footer()
-                ->showPerPage()
-                ->showRecordCount(),
-        ];
+        $setUp[] = PowerGrid::header()
+            ->showSearchInput();
+
+        $setUp[] = PowerGrid::footer()
+            ->showPerPage()
+            ->showRecordCount();
+
+        return $setUp;
     }
 
     public function datasource(): Builder
@@ -229,14 +233,16 @@ final class PurchaseTable extends PowerGridComponent
             ->slot('<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>')
             ->class('bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-md flex items-center justify-center')
             ->route($viewRoute, ['purchase' => $row->id])
-            ->tooltip('View ' . ucfirst($entityLabel));
+            ->tooltip('View ' . ucfirst($entityLabel))
+            ->can(fn () => $this->userCan('view'));
 
         if (in_array($row->status, [PurchaseStatus::DRAFT, PurchaseStatus::ORDERED], true)) {
             $actions[] = Button::add('edit')
                 ->slot('<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>')
                 ->class('bg-amber-500 hover:bg-amber-600 text-white p-2 rounded-md flex items-center justify-center')
                 ->route($editRoute, ['purchase' => $row->id])
-                ->tooltip('Edit ' . ucfirst($entityLabel));
+                ->tooltip('Edit ' . ucfirst($entityLabel))
+                ->can(fn () => $this->userCan('update'));
         }
 
         if (in_array($row->status, [PurchaseStatus::DRAFT, PurchaseStatus::CANCELLED], true)) {
@@ -252,7 +258,8 @@ final class PurchaseTable extends PowerGridComponent
                     'title' => 'Delete ' . ucfirst($entityLabel) . '?',
                     'description' => "Are you sure you want to delete {$entityLabel} '{$reference}'? This action cannot be undone.",
                 ])
-                ->tooltip('Delete ' . ucfirst($entityLabel));
+                ->tooltip('Delete ' . ucfirst($entityLabel))
+                ->can(fn () => $this->userCan('delete'));
         }
 
         return $actions;
@@ -264,6 +271,12 @@ final class PurchaseTable extends PowerGridComponent
         $purchase = Purchase::find($rowId);
 
         if ($purchase) {
+            abort_unless(
+                auth()->user()?->hasPermission($purchase->isMaterialReceipt() ? 'material_receipt' : 'legacy_purchase', 'delete'),
+                403,
+                'You are not authorized to delete this record.',
+            );
+
             try {
                 $purchaseService->deletePurchase($purchase);
                 $this->dispatch('toast', message: 'Purchase deleted successfully.', type: 'success');
@@ -273,5 +286,15 @@ final class PurchaseTable extends PowerGridComponent
                 $this->dispatch('toast', message: 'An unexpected error occurred during deletion.', type: 'error');
             }
         }
+    }
+
+    private function userCan(string $action): bool
+    {
+        return auth()->user()?->hasPermission($this->permissionModule(), $action) ?? false;
+    }
+
+    private function permissionModule(): string
+    {
+        return request()->routeIs('material-receipts.*') ? 'material_receipt' : 'legacy_purchase';
     }
 }

@@ -10,9 +10,11 @@
             <button wire:click="setView('rni-operations')" class="inline-flex items-center rounded-md px-4 py-2 text-sm font-medium {{ $view === 'rni-operations' ? 'bg-primary text-white' : 'border border-input bg-background hover:bg-accent hover:text-accent-foreground' }}">
                 RNI Operations
             </button>
-            <button wire:click="setView('business-insights')" class="inline-flex items-center rounded-md px-4 py-2 text-sm font-medium {{ $view === 'business-insights' ? 'bg-primary text-white' : 'border border-input bg-background hover:bg-accent hover:text-accent-foreground' }}">
-                Business Insights
-            </button>
+            @if($canViewBusinessInsights)
+                <button wire:click="setView('business-insights')" class="inline-flex items-center rounded-md px-4 py-2 text-sm font-medium {{ $view === 'business-insights' ? 'bg-primary text-white' : 'border border-input bg-background hover:bg-accent hover:text-accent-foreground' }}">
+                    Business Insights
+                </button>
+            @endif
             <button wire:click="loadStats" class="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground">
                 <x-heroicon-o-arrow-path wire:loading.class="animate-spin" class="mr-2 h-4 w-4" />
                 Refresh
@@ -61,7 +63,9 @@
                                 <th class="px-4 py-3 text-left">Receipt</th>
                                 <th class="px-4 py-3 text-left">Supplier</th>
                                 <th class="px-4 py-3 text-right">Lines</th>
-                                <th class="px-4 py-3 text-right">Total</th>
+                                @if($canViewFinance || $canViewInventoryValue)
+                                    <th class="px-4 py-3 text-right">Total</th>
+                                @endif
                             </tr>
                         </thead>
                         <tbody>
@@ -73,10 +77,12 @@
                                     </td>
                                     <td class="px-4 py-3">{{ $receipt['supplier_name'] }}</td>
                                     <td class="px-4 py-3 text-right">{{ $receipt['line_count'] }}</td>
-                                    <td class="px-4 py-3 text-right">{{ format_money($receipt['total']) }}</td>
+                                    @if($canViewFinance || $canViewInventoryValue)
+                                        <td class="px-4 py-3 text-right">{{ format_money($receipt['total'] ?? 0) }}</td>
+                                    @endif
                                 </tr>
                             @empty
-                                <tr><td colspan="4" class="px-4 py-6 text-center text-muted-foreground">No recent receipts.</td></tr>
+                                <tr><td colspan="{{ ($canViewFinance || $canViewInventoryValue) ? 4 : 3 }}" class="px-4 py-6 text-center text-muted-foreground">No recent receipts.</td></tr>
                             @endforelse
                         </tbody>
                     </table>

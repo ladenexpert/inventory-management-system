@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\UserRole;
+use App\Services\RolePermissionService;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -71,12 +72,15 @@ class User extends Authenticatable
 
     public function canAccessFinance(): bool
     {
-        return $this->isAdminRni();
+        return $this->hasPermission('finance', 'view');
     }
 
     public function canAccessAdministration(): bool
     {
-        return $this->isAdminRni();
+        return $this->hasAnyPermission([
+            ['user_access', 'view'],
+            ['settings', 'view'],
+        ]);
     }
 
     public function isFormulator(): bool
@@ -84,8 +88,28 @@ class User extends Authenticatable
         return $this->role === UserRole::FORMULATOR;
     }
 
+    public function isRmDesk(): bool
+    {
+        return $this->role === UserRole::RM_DESK;
+    }
+
     public function hasAnyRole(array $roles): bool
     {
         return in_array($this->role?->value, $roles, true);
+    }
+
+    public function hasPermission(string $module, string $action = 'view'): bool
+    {
+        return app(RolePermissionService::class)->allows($this, $module, $action);
+    }
+
+    public function hasAnyPermission(array $checks): bool
+    {
+        return app(RolePermissionService::class)->allowsAny($this, $checks);
+    }
+
+    public function canViewInventoryValue(): bool
+    {
+        return $this->hasPermission('inventory_value', 'view');
     }
 }

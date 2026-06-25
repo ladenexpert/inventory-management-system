@@ -285,7 +285,7 @@ class PurchaseService
             if ($itemData->batch_number) {
                 $existingBatch = \App\Models\Batch::where('batch_number', $itemData->batch_number)->first();
                 if ($existingBatch) {
-                    throw new Exception("Batch number '{$itemData->batch_number}' has already been used.");
+                    throw new Exception($this->duplicateBatchNumberMessage($itemData->batch_number));
                 }
             }
 
@@ -311,5 +311,10 @@ class PurchaseService
         }
 
         $purchase->update(['total' => $total]);
+    }
+
+    private function duplicateBatchNumberMessage(string $batchNumber): string
+    {
+        return "Batch No. '{$batchNumber}' is already registered in RMP. Batch No. must stay unique for internal stock traceability. If the supplier/manufacturer batch number repeats on a different receipt, add an internal suffix or reference such as '{$batchNumber}-2', '{$batchNumber}-DN001', or '{$batchNumber}-20260625'.";
     }
 }

@@ -19,34 +19,55 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/', function () {
         return redirect()->route('dashboard');
     });
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard', [DashboardController::class, 'index'])
+        ->middleware('permission:dashboard,view')
+        ->name('dashboard');
     Route::view('profile', 'profile.index')->name('profile.index');
 
     // =========================================================================
     // Master Data
     // =========================================================================
     Route::prefix('master')->group(function () {
-        Route::middleware('role:admin_rni')->group(function () {
-            Route::view('customers', 'customers.index')->middleware('module:sales')->name('customers.index');
-            Route::view('suppliers', 'suppliers.index')->middleware('module:purchases')->name('suppliers.index');
-            Route::view('categories', 'categories.index')->middleware('module:materials')->name('categories.index');
-            Route::view('units', 'units.index')->middleware('module:materials')->name('units.index');
-            Route::get('imports/{resource}', [MasterDataImportController::class, 'show'])->name('master-imports.show');
-            Route::post('imports/{resource}', [MasterDataImportController::class, 'store'])->name('master-imports.store');
-            Route::get('imports/{resource}/template', [MasterDataImportController::class, 'downloadTemplate'])->name('master-imports.template');
-            Route::get('products/import-opening-stock', [ProductOpeningStockImportController::class, 'index'])->middleware('module:materials')->name('products.import-opening-stock');
-            Route::post('products/import-opening-stock', [ProductOpeningStockImportController::class, 'store'])->middleware('module:materials')->name('products.import-opening-stock.store');
-            Route::get('products/import-opening-stock/template', [ProductOpeningStockImportController::class, 'downloadTemplate'])->middleware('module:materials')->name('products.import-opening-stock.template');
-        });
+        Route::view('customers', 'customers.index')
+            ->middleware(['module:sales', 'permission:master_data,view'])
+            ->name('customers.index');
+        Route::view('suppliers', 'suppliers.index')
+            ->middleware(['module:purchases', 'permission:master_data,view'])
+            ->name('suppliers.index');
+        Route::view('categories', 'categories.index')
+            ->middleware(['module:materials', 'permission:master_data,view'])
+            ->name('categories.index');
+        Route::view('units', 'units.index')
+            ->middleware(['module:materials', 'permission:master_data,view'])
+            ->name('units.index');
+        Route::get('imports/{resource}', [MasterDataImportController::class, 'show'])
+            ->middleware('permission:master_data,import')
+            ->name('master-imports.show');
+        Route::post('imports/{resource}', [MasterDataImportController::class, 'store'])
+            ->middleware('permission:master_data,import')
+            ->name('master-imports.store');
+        Route::get('imports/{resource}/template', [MasterDataImportController::class, 'downloadTemplate'])
+            ->middleware('permission:master_data,import')
+            ->name('master-imports.template');
+        Route::get('products/import-opening-stock', [ProductOpeningStockImportController::class, 'index'])
+            ->middleware(['module:materials', 'permission:opening_stock,import'])
+            ->name('products.import-opening-stock');
+        Route::post('products/import-opening-stock', [ProductOpeningStockImportController::class, 'store'])
+            ->middleware(['module:materials', 'permission:opening_stock,import'])
+            ->name('products.import-opening-stock.store');
+        Route::get('products/import-opening-stock/template', [ProductOpeningStockImportController::class, 'downloadTemplate'])
+            ->middleware(['module:materials', 'permission:opening_stock,import'])
+            ->name('products.import-opening-stock.template');
 
-        Route::middleware(['role:admin_rni,formulator', 'module:materials'])->group(function () {
-            Route::view('products', 'products.index')->name('products.index');
-            Route::view('batches', 'batches.index')->name('batches.index');
-        });
-
-        Route::middleware(['role:admin_rni', 'module:materials'])->group(function () {
-            Route::view('storage-locations', 'storage-locations.index')->name('storage-locations.index');
-        });
+        Route::view('products', 'products.index')
+            ->middleware(['module:materials', 'permission:materials,view'])
+            ->name('products.index');
+        Route::view('batches', 'batches.index')
+            ->middleware(['module:materials', 'permission:batches,view'])
+            ->name('batches.index');
+        Route::view('storage-locations', 'storage-locations.index')
+            ->middleware(['module:materials', 'permission:master_data,view'])
+            ->name('storage-locations.index');
     });
 
     // =========================================================================
@@ -54,85 +75,149 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // =========================================================================
 
     // Purchases
-    Route::middleware('role:admin_rni')->group(function () {
-        Route::get('purchases', [PurchaseController::class, 'index'])->middleware('module:purchases')->name('purchases.index');
-        Route::get('purchases/create', [PurchaseController::class, 'create'])->middleware('module:purchases')->name('purchases.create');
-        Route::post('purchases', [PurchaseController::class, 'store'])->name('purchases.store');
-        Route::get('purchases/{purchase}', [PurchaseController::class, 'show'])->middleware('module:purchases')->name('purchases.show');
-        Route::get('purchases/{purchase}/print', [PurchaseController::class, 'print'])->middleware('module:purchases')->name('purchases.print');
-        Route::get('purchases/{purchase}/edit', [PurchaseController::class, 'edit'])->middleware('module:purchases')->name('purchases.edit');
-        Route::match(['put', 'patch'], 'purchases/{purchase}', [PurchaseController::class, 'update'])->name('purchases.update');
-        Route::delete('purchases/{purchase}', [PurchaseController::class, 'destroy'])->name('purchases.destroy');
+    Route::get('purchases', [PurchaseController::class, 'index'])
+        ->middleware(['module:purchases', 'permission:legacy_purchase,view'])
+        ->name('purchases.index');
+    Route::get('purchases/create', [PurchaseController::class, 'create'])
+        ->middleware(['module:purchases', 'permission:legacy_purchase,create'])
+        ->name('purchases.create');
+    Route::post('purchases', [PurchaseController::class, 'store'])
+        ->middleware('permission:legacy_purchase,create')
+        ->name('purchases.store');
+    Route::get('purchases/{purchase}', [PurchaseController::class, 'show'])
+        ->middleware(['module:purchases', 'permission:legacy_purchase,view'])
+        ->name('purchases.show');
+    Route::get('purchases/{purchase}/print', [PurchaseController::class, 'print'])
+        ->middleware(['module:purchases', 'permission:legacy_purchase,view'])
+        ->name('purchases.print');
+    Route::get('purchases/{purchase}/edit', [PurchaseController::class, 'edit'])
+        ->middleware(['module:purchases', 'permission:legacy_purchase,update'])
+        ->name('purchases.edit');
+    Route::match(['put', 'patch'], 'purchases/{purchase}', [PurchaseController::class, 'update'])
+        ->middleware('permission:legacy_purchase,update')
+        ->name('purchases.update');
+    Route::delete('purchases/{purchase}', [PurchaseController::class, 'destroy'])
+        ->middleware('permission:legacy_purchase,delete')
+        ->name('purchases.destroy');
 
-        Route::prefix('purchases/{purchase}')->name('purchases.')->controller(PurchaseController::class)->group(function () {
-            Route::patch('ordered', 'markOrdered')->name('mark-ordered');
-            Route::patch('received', 'markReceived')->name('mark-received');
-            Route::patch('paid', 'markPaid')->name('mark-paid');
-            Route::patch('cancel', 'cancel')->name('cancel');
-            Route::patch('restore-draft', 'restoreToDraft')->name('restore-draft');
-        });
+    Route::prefix('purchases/{purchase}')->name('purchases.')->controller(PurchaseController::class)->group(function () {
+        Route::patch('ordered', 'markOrdered')->middleware('permission:legacy_purchase,confirm')->name('mark-ordered');
+        Route::patch('received', 'markReceived')->middleware('permission:legacy_purchase,confirm')->name('mark-received');
+        Route::patch('paid', 'markPaid')->middleware('permission:finance,confirm')->name('mark-paid');
+        Route::patch('cancel', 'cancel')->middleware('permission:legacy_purchase,cancel')->name('cancel');
+        Route::patch('restore-draft', 'restoreToDraft')->middleware('permission:legacy_purchase,restore')->name('restore-draft');
     });
 
-    Route::middleware(['role:admin_rni', 'module:rni'])->group(function () {
-        Route::get('material-receipts', [MaterialReceiptController::class, 'index'])->name('material-receipts.index');
-        Route::get('material-receipts/create', [MaterialReceiptController::class, 'create'])->name('material-receipts.create');
-        Route::get('material-receipts/{purchase}', [MaterialReceiptController::class, 'show'])->name('material-receipts.show');
-        Route::get('material-receipts/{purchase}/edit', [MaterialReceiptController::class, 'edit'])->name('material-receipts.edit');
-    });
+    Route::get('material-receipts', [MaterialReceiptController::class, 'index'])
+        ->middleware(['module:rni', 'permission:material_receipt,view'])
+        ->name('material-receipts.index');
+    Route::get('material-receipts/create', [MaterialReceiptController::class, 'create'])
+        ->middleware(['module:rni', 'permission:material_receipt,create'])
+        ->name('material-receipts.create');
+    Route::get('material-receipts/{purchase}', [MaterialReceiptController::class, 'show'])
+        ->middleware(['module:rni', 'permission:material_receipt,view'])
+        ->name('material-receipts.show');
+    Route::get('material-receipts/{purchase}/edit', [MaterialReceiptController::class, 'edit'])
+        ->middleware(['module:rni', 'permission:material_receipt,update'])
+        ->name('material-receipts.edit');
 
     // Sales
-    Route::middleware(['role:admin_rni', 'module:sales'])->group(function () {
-        Route::resource('sales', SalesController::class)->except(['edit', 'update']);
+    Route::middleware(['module:sales'])->group(function () {
+        Route::get('sales', [SalesController::class, 'index'])
+            ->middleware('permission:legacy_sales,view')
+            ->name('sales.index');
+        Route::get('sales/create', [SalesController::class, 'create'])
+            ->middleware('permission:legacy_sales,create')
+            ->name('sales.create');
+        Route::post('sales', [SalesController::class, 'store'])
+            ->middleware('permission:legacy_sales,create')
+            ->name('sales.store');
+        Route::get('sales/{sale}', [SalesController::class, 'show'])
+            ->middleware('permission:legacy_sales,view')
+            ->name('sales.show');
+        Route::delete('sales/{sale}', [SalesController::class, 'destroy'])
+            ->middleware('permission:legacy_sales,cancel')
+            ->name('sales.destroy');
         Route::prefix('sales/{sale}')->name('sales.')->controller(SalesController::class)->group(function () {
-            Route::get('print', 'print')->name('print');
-            Route::patch('complete', 'complete')->name('complete');
-            Route::patch('restore', 'restore')->name('restore');
+            Route::get('print', 'print')->middleware('permission:legacy_sales,view')->name('print');
+            Route::patch('complete', 'complete')->middleware('permission:legacy_sales,confirm')->name('complete');
+            Route::patch('restore', 'restore')->middleware('permission:legacy_sales,restore')->name('restore');
         });
     });
 
-    Route::middleware(['role:admin_rni,formulator', 'module:rni'])->group(function () {
-        Route::resource('material-usages', MaterialUsageController::class)
-            ->parameters(['material-usages' => 'sale'])
-            ->except(['edit', 'update']);
-        Route::prefix('material-usages/{sale}')->name('material-usages.')->controller(MaterialUsageController::class)->group(function () {
-            Route::get('print', 'print')->name('print');
-            Route::patch('complete', 'complete')->name('complete');
-            Route::patch('restore', 'restore')->name('restore');
-        });
+    Route::middleware(['module:rni'])->group(function () {
+        Route::get('material-usages', [MaterialUsageController::class, 'index'])
+            ->middleware('permission:material_usage,view')
+            ->name('material-usages.index');
+        Route::get('material-usages/create', [MaterialUsageController::class, 'create'])
+            ->middleware('permission:material_usage,create')
+            ->name('material-usages.create');
+        Route::post('material-usages', [MaterialUsageController::class, 'store'])
+            ->middleware('permission:material_usage,create')
+            ->name('material-usages.store');
+        Route::get('material-usages/{sale}', [MaterialUsageController::class, 'show'])
+            ->middleware('permission:material_usage,view')
+            ->name('material-usages.show');
+        Route::delete('material-usages/{sale}', [MaterialUsageController::class, 'destroy'])
+            ->middleware('permission:material_usage,cancel')
+            ->name('material-usages.destroy');
+        Route::get('material-usages/{sale}/print', [MaterialUsageController::class, 'print'])
+            ->middleware('permission:material_usage,view')
+            ->name('material-usages.print');
+        Route::patch('material-usages/{sale}/complete', [MaterialUsageController::class, 'complete'])
+            ->middleware('permission:material_usage,confirm')
+            ->name('material-usages.complete');
+        Route::patch('material-usages/{sale}/restore', [MaterialUsageController::class, 'restore'])
+            ->middleware('permission:material_usage,restore')
+            ->name('material-usages.restore');
     });
 
     // =========================================================================
     // Finance
     // =========================================================================
-    Route::middleware(['role:admin_rni', 'module:finance'])->prefix('finance')->name('finance.')->group(function () {
+    Route::middleware(['module:finance', 'permission:finance,view'])->prefix('finance')->name('finance.')->group(function () {
         Route::view('categories', 'finance-categories.index')->name('categories.index');
         Route::view('transactions', 'finance-transactions.index')->name('transactions.index');
         Route::get('transactions/print/{printId}', [FinanceReportController::class, 'print'])->name('transactions.print');
     });
 
-    Route::middleware(['role:admin_rni,formulator', 'module:reports'])->prefix('reports')->name('reports.')->group(function () {
+    Route::middleware(['module:reports', 'permission:reports,view'])->prefix('reports')->name('reports.')->group(function () {
         Route::view('current-inventory', 'reports.inventory')->name('inventory');
         Route::get('inventory-movement-history', [InventoryMovementHistoryController::class, 'index'])->name('inventory-movement-history');
-        Route::get('inventory-movement-history/export/{format}', [InventoryMovementHistoryController::class, 'export'])->name('inventory-movement-history.export');
+        Route::get('inventory-movement-history/export/{format}', [InventoryMovementHistoryController::class, 'export'])
+            ->middleware('permission:reports,export')
+            ->name('inventory-movement-history.export');
         Route::view('usage-history', 'reports.usage-history')->name('usage-history');
         Route::view('expiry', 'reports.expiry')->name('expiry');
     });
 
-    Route::middleware(['role:admin_rni', 'module:reports'])->prefix('reports')->name('reports.')->group(function () {
-        Route::get('purchase-analysis', [ReportAnalyticsController::class, 'purchaseAnalysis'])->name('purchase-analysis');
-        Route::get('purchase-analysis/export/{format}', [ReportAnalyticsController::class, 'exportPurchaseAnalysis'])->name('purchase-analysis.export');
-        Route::get('sales-analysis', [ReportAnalyticsController::class, 'salesAnalysis'])->name('sales-analysis');
-        Route::get('sales-analysis/export/{format}', [ReportAnalyticsController::class, 'exportSalesAnalysis'])->name('sales-analysis.export');
+    Route::middleware(['module:reports'])->prefix('reports')->name('reports.')->group(function () {
+        Route::get('purchase-analysis', [ReportAnalyticsController::class, 'purchaseAnalysis'])
+            ->middleware('permission:legacy_purchase,view')
+            ->name('purchase-analysis');
+        Route::get('purchase-analysis/export/{format}', [ReportAnalyticsController::class, 'exportPurchaseAnalysis'])
+            ->middleware('permission:legacy_purchase,export')
+            ->name('purchase-analysis.export');
+        Route::get('sales-analysis', [ReportAnalyticsController::class, 'salesAnalysis'])
+            ->middleware('permission:legacy_sales,view')
+            ->name('sales-analysis');
+        Route::get('sales-analysis/export/{format}', [ReportAnalyticsController::class, 'exportSalesAnalysis'])
+            ->middleware('permission:legacy_sales,export')
+            ->name('sales-analysis.export');
     });
 
     // =========================================================================
     // Settings & Users
     // =========================================================================
-    Route::middleware('role:admin_rni')->group(function () {
-        Route::view('users', 'users.index')->middleware('module:users')->name('users.index');
-        Route::view('roles', 'roles.index')->middleware('module:users')->name('roles.index');
-        Route::view('settings', 'settings.index')->name('settings.index');
-    });
+    Route::view('users', 'users.index')
+        ->middleware(['module:users', 'permission:user_access,view'])
+        ->name('users.index');
+    Route::view('roles', 'roles.index')
+        ->middleware(['module:users', 'permission:user_access,view'])
+        ->name('roles.index');
+    Route::view('settings', 'settings.index')
+        ->middleware('permission:settings,view')
+        ->name('settings.index');
 
     // =========================================================================
     // Internal APIs (AJAX)

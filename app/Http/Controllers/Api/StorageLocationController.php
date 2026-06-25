@@ -10,6 +10,13 @@ class StorageLocationController extends Controller
 {
     public function search(Request $request)
     {
+        abort_unless($request->user()?->hasAnyPermission([
+            ['materials', 'view'],
+            ['material_receipt', 'create'],
+            ['material_receipt', 'update'],
+            ['opening_stock', 'import'],
+        ]), 403);
+
         $query = $request->input('q') ?? $request->input('search');
 
         $locations = StorageLocation::query()

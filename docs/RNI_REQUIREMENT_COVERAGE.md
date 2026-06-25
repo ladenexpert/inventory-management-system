@@ -23,8 +23,10 @@ Status legend:
 | Admin stock adjustment | implemented | Product quantity edits flow through `BatchService::adjustProductQuantity()`. | None for pilot. |
 | Admin generate/export stock report | implemented | Current inventory, expiry, batch, and usage history tables support export. | Keep export smoke tests in regression pack. |
 | Formulator view stock availability | implemented | Formulators can access materials, batches, reports, and dashboard views. | None for pilot. |
-| Formulator stock out | implemented | Formulators can create `Material Usage` with FEFO or manual batch allocation. | None for pilot. |
-| Formulator view own usage history | implemented | Usage history table now restricts formulators to records created/issued by themselves. | None for pilot. |
+| Formulator stock out | implemented | Formulators can monitor `Material Usage`, but stock-out creation is now reserved for `Admin RNI` and `RM Desk` by default. | Revisit only if RNI later wants Formulator transaction rights. |
+| Formulator view usage history | implemented | Usage history remains visible for monitoring, but mutation actions are blocked. | None for pilot. |
+| RM Desk stock out | implemented | `RM Desk` can create `Material Usage` with FEFO or manual batch allocation. | None for pilot. |
+| RM Desk own usage reversal | implemented | `RM Desk` can cancel or restore usage only when `sales.created_by` matches the signed-in user. | None for pilot. |
 
 ## Master Data Coverage
 
@@ -70,5 +72,7 @@ Status legend:
 ## Summary
 
 - Pilot-critical RNI flows now cover material receipt, material usage, FEFO/manual lot allocation, opening stock import, batch monitoring, dashboard insights, and consolidated inventory reporting.
+- v0.4.5 adds a reusable role-permission foundation with seeded defaults for `Admin RNI`, `Formulator`, and `RM Desk`.
+- Finance and inventory value visibility are now permission-controlled across navigation, reports, detail pages, dashboard surfaces, and shared lookup payloads.
 - The former pilot blockers around `storage_location`, `physical_form`, optional supplier handling, and unified inventory movement history are now implemented.
 - Remaining pilot caveat: near-expiry policy still uses a single operational threshold for dashboard and monitoring instead of separate windows from the PDF.

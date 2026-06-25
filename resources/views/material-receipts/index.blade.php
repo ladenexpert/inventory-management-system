@@ -1,4 +1,7 @@
 <x-app-layout title="Material Receipt">
+    @php
+        $canCreateReceipt = auth()->user()?->hasPermission('material_receipt', 'create') ?? false;
+    @endphp
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <div>
@@ -7,10 +10,12 @@
                 </h2>
                 <p class="text-sm text-muted-foreground mt-1">Receive raw materials into batch stock without changing the underlying receipt rules.</p>
             </div>
-            <x-primary-button x-data x-on:click="window.location.href = '{{ route('material-receipts.create') }}'">
-                <x-heroicon-o-plus class="w-4 h-4 mr-2" />
-                {{ __('Create Receipt') }}
-            </x-primary-button>
+            @if($canCreateReceipt)
+                <x-primary-button x-data x-on:click="window.location.href = '{{ route('material-receipts.create') }}'">
+                    <x-heroicon-o-plus class="w-4 h-4 mr-2" />
+                    {{ __('Create Receipt') }}
+                </x-primary-button>
+            @endif
         </div>
     </x-slot>
 

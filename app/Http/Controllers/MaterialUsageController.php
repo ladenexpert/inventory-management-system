@@ -12,22 +12,29 @@ use App\Services\SaleService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
 class MaterialUsageController extends Controller
 {
     public function index()
     {
+        abort_unless(Auth::user()?->hasPermission('material_usage', 'view'), Response::HTTP_FORBIDDEN);
+
         return view('material-usages.index');
     }
 
     public function create()
     {
+        abort_unless(Auth::user()?->hasPermission('material_usage', 'create'), Response::HTTP_FORBIDDEN);
+
         return view('material-usages.create');
     }
 
     public function store(Request $request, SaleService $saleService)
     {
+        abort_unless(Auth::user()?->hasPermission('material_usage', 'create'), Response::HTTP_FORBIDDEN);
+
         $validated = $request->validate([
             'usage_date' => ['required', 'date'],
             'purpose' => ['required', 'string', 'max:255'],
@@ -40,7 +47,7 @@ class MaterialUsageController extends Controller
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
-            'items.*.unit_price' => ['required', 'numeric', 'min:0'],
+            'items.*.unit_price' => ['nullable', 'numeric', 'min:0'],
             'items.*.discount' => ['nullable', 'numeric', 'min:0'],
             'items.*.batch_allocations' => ['nullable', 'array'],
             'items.*.batch_allocations.*.batch_id' => ['required_with:items.*.batch_allocations', 'exists:batches,id'],
@@ -57,6 +64,12 @@ class MaterialUsageController extends Controller
             $validated['customer_id'] = null;
             $validated['transaction_type'] = SaleTransactionType::MATERIAL_USAGE->value;
             $validated['status'] = $validated['status'] ?? SaleStatus::COMPLETED->value;
+            $validated['items'] = array_map(function (array $item) {
+                $item['unit_price'] = (int) ($item['unit_price'] ?? 0);
+                $item['discount'] = (int) ($item['discount'] ?? 0);
+
+                return $item;
+            }, $validated['items']);
 
             $usage = $saleService->createSale(SaleData::fromArray($validated));
 
@@ -99,6 +112,7 @@ class MaterialUsageController extends Controller
     public function show(Sale $sale)
     {
         abort_unless($sale->transaction_type === SaleTransactionType::MATERIAL_USAGE, 404);
+        abort_unless(Auth::user()?->hasPermission('material_usage', 'view'), Response::HTTP_FORBIDDEN);
 
         $sale->load(['items.product.unit', 'items.saleItemBatches.batch', 'creator', 'issuer']);
 
@@ -116,6 +130,7 @@ class MaterialUsageController extends Controller
     public function print(Sale $sale)
     {
         abort_unless($sale->transaction_type === SaleTransactionType::MATERIAL_USAGE, 404);
+        abort_unless(Auth::user()?->hasPermission('material_usage', 'view'), Response::HTTP_FORBIDDEN);
 
         $sale->load(['items.product.unit', 'items.saleItemBatches.batch', 'creator', 'issuer']);
 
@@ -128,6 +143,7 @@ class MaterialUsageController extends Controller
     public function destroy(Request $request, Sale $sale, SaleService $saleService)
     {
         abort_unless($sale->transaction_type === SaleTransactionType::MATERIAL_USAGE, 404);
+        $this->authorizeUsageMutation($sale, 'cancel');
 
         try {
             $saleService->cancelSale($sale, $request->input('reason'));
@@ -143,6 +159,7 @@ class MaterialUsageController extends Controller
     public function restore(Sale $sale, SaleService $saleService)
     {
         abort_unless($sale->transaction_type === SaleTransactionType::MATERIAL_USAGE, 404);
+        $this->authorizeUsageMutation($sale, 'restore');
 
         try {
             $sale = $saleService->restoreSale($sale);
@@ -156,6 +173,7 @@ class MaterialUsageController extends Controller
     public function complete(Request $request, Sale $sale, SaleService $saleService)
     {
         abort_unless($sale->transaction_type === SaleTransactionType::MATERIAL_USAGE, 404);
+        $this->authorizeUsageMutation($sale, 'confirm');
 
         try {
             $sale = $saleService->completeSale($sale, []);
@@ -163,6 +181,17 @@ class MaterialUsageController extends Controller
             return redirect()->route('material-usages.show', $sale)->with('success', 'Material usage marked as completed.');
         } catch (\Throwable $e) {
             return back()->with('error', $e->getMessage());
+        }
+    }
+
+    protected function authorizeUsageMutation(Sale $sale, string $action): void
+    {
+        $user = Auth::user();
+
+        abort_unless($user?->hasPermission('material_usage', $action), Response::HTTP_FORBIDDEN);
+
+        if ($user?->isRmDesk() && $sale->created_by !== $user->id) {
+            abort(Response::HTTP_FORBIDDEN, 'You are only allowed to manage your own material usage records.');
         }
     }
 }
