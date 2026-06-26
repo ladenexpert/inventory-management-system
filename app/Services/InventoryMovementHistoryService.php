@@ -19,6 +19,8 @@ class InventoryMovementHistoryService
                 'purchaseItem',
                 'sale.creator',
                 'sale.issuer',
+                'inventoryAdjustment.adjustmentUser',
+                'inventoryAdjustment.importedByUser',
             ])
             ->when(!empty($filters['from_date']), fn (Builder $query) => $query->whereDate('created_at', '>=', $filters['from_date']))
             ->when(!empty($filters['to_date']), fn (Builder $query) => $query->whereDate('created_at', '<=', $filters['to_date']))
@@ -28,7 +30,8 @@ class InventoryMovementHistoryService
                 $query->where(function (Builder $nested) use ($userId) {
                     $nested
                         ->whereHas('purchase', fn (Builder $purchase) => $purchase->where('created_by', $userId))
-                        ->orWhereHas('sale', fn (Builder $sale) => $sale->where('issued_by', $userId)->orWhere('created_by', $userId));
+                        ->orWhereHas('sale', fn (Builder $sale) => $sale->where('issued_by', $userId)->orWhere('created_by', $userId))
+                        ->orWhereHas('inventoryAdjustment', fn (Builder $adjustment) => $adjustment->where('adjusted_by', $userId)->orWhere('imported_by', $userId));
                 });
             })
             ->when(!empty($filters['transaction_type']), fn (Builder $query) => $query->where('movement_type', $filters['transaction_type']))
@@ -63,6 +66,8 @@ class InventoryMovementHistoryService
         $userName = $log->sale?->issuer?->name
             ?? $log->sale?->creator?->name
             ?? $log->purchase?->creator?->name
+            ?? $log->inventoryAdjustment?->adjustmentUser?->name
+            ?? $log->inventoryAdjustment?->importedByUser?->name
             ?? 'System';
 
         return [
@@ -78,9 +83,14 @@ class InventoryMovementHistoryService
             'quantity' => (int) $log->quantity,
             'unit' => $log->product?->unit?->symbol ?? $log->product?->unit?->name ?? '-',
             'remaining_stock' => (int) $log->quantity_after,
-            'reference' => $log->purchase?->invoice_number
-                ?? $log->sale?->invoice_number
+            'transaction_number' => $log->purchase?->display_transaction_number
+                ?? $log->sale?->display_transaction_number
+                ?? $log->inventoryAdjustment?->transaction_code
                 ?? ($log->batch?->batch_number ? 'Batch ' . $log->batch->batch_number : '-'),
+            'reference' => $log->purchase?->reference_number
+                ?? $log->sale?->reference_number
+                ?? $log->inventoryAdjustment?->reference
+                ?? '-',
             'notes' => $log->notes ?? '-',
         ];
     }

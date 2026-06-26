@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Services\DashboardStatsService;
 use App\Services\ReportChartService;
 use App\Services\StockMovementClassificationService;
+use App\Support\RmpTerminology;
+use App\Support\TransactionContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -48,17 +50,19 @@ class ReportAnalyticsController extends Controller
 
         $headers = [
             'Date',
-            'Invoice Number',
+            RmpTerminology::TRANSACTION_NUMBER,
+            RmpTerminology::REFERENCE_NUMBER,
             'SKU',
-            'Item Code IERP',
-            'Material / Product Name',
-            'Batch / Lot Number',
-            'Expiry Date',
-            'Storage Location',
+            RmpTerminology::ITEM_CODE,
+            RmpTerminology::MATERIAL_NAME,
+            RmpTerminology::BATCH_NO,
+            RmpTerminology::EXPIRY_DATE,
+            RmpTerminology::STORAGE_LOCATION,
             'Quantity',
-            'Unit',
+            RmpTerminology::UNIT,
             'Customer',
-            'Status',
+            RmpTerminology::STATUS,
+            'Context',
         ];
 
         if ($canViewSalesFinancials) {
@@ -76,7 +80,8 @@ class ReportAnalyticsController extends Controller
         foreach ($rows as $row) {
             $values = [
                 $row['date'],
-                $row['invoice_number'],
+                $row['transaction_number'],
+                $row['reference'] ?? '-',
                 $row['sku'],
                 $row['item_code_ierp'],
                 $row['product_name'],
@@ -87,6 +92,7 @@ class ReportAnalyticsController extends Controller
                 $row['unit'],
                 $row['customer'],
                 $row['status'],
+                $row['context_label'] ?? TransactionContext::label(TransactionContext::LEGACY_SALE),
             ];
 
             if ($canViewSalesFinancials) {
@@ -102,7 +108,7 @@ class ReportAnalyticsController extends Controller
         $writer->close();
 
         return response()
-            ->download($filePath, 'sales-analysis.' . $format)
+            ->download($filePath, TransactionContext::exportFilename(TransactionContext::SALES_ANALYSIS, $format))
             ->deleteFileAfterSend(true);
     }
 
@@ -142,17 +148,19 @@ class ReportAnalyticsController extends Controller
 
         $headers = [
             'Date',
-            'Reference',
+            RmpTerminology::TRANSACTION_NUMBER,
+            RmpTerminology::REFERENCE_NUMBER,
             'Supplier',
             'SKU',
-            'Item Code IERP',
-            'Material / Product Name',
-            'Batch / Lot Number',
-            'Expiry Date',
-            'Storage Location',
+            RmpTerminology::ITEM_CODE,
+            RmpTerminology::MATERIAL_NAME,
+            RmpTerminology::BATCH_NO,
+            RmpTerminology::EXPIRY_DATE,
+            RmpTerminology::STORAGE_LOCATION,
             'Quantity',
-            'Unit',
-            'Status',
+            RmpTerminology::UNIT,
+            RmpTerminology::STATUS,
+            'Context',
         ];
 
         if ($canViewPurchaseFinancials) {
@@ -170,6 +178,7 @@ class ReportAnalyticsController extends Controller
         foreach ($rows as $row) {
             $values = [
                 $row['date'],
+                $row['transaction_number'],
                 $row['reference'],
                 $row['supplier'],
                 $row['sku'],
@@ -181,6 +190,7 @@ class ReportAnalyticsController extends Controller
                 $row['quantity'],
                 $row['unit'],
                 $row['status'],
+                $row['context_label'],
             ];
 
             if ($canViewPurchaseFinancials) {
@@ -196,7 +206,7 @@ class ReportAnalyticsController extends Controller
         $writer->close();
 
         return response()
-            ->download($filePath, 'purchase-analysis.' . $format)
+            ->download($filePath, TransactionContext::exportFilename(TransactionContext::INBOUND_PURCHASE_ANALYSIS, $format))
             ->deleteFileAfterSend(true);
     }
 

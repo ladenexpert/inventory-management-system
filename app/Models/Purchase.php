@@ -14,6 +14,7 @@ class Purchase extends Model
 
     protected $fillable = [
         'invoice_number',
+        'transaction_code',
         'supplier_id',
         'purchase_date',
         'due_date',
@@ -57,5 +58,21 @@ class Purchase extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function getTransactionNumberAttribute(): ?string
+    {
+        return $this->transaction_code;
+    }
+
+    public function getDisplayTransactionNumberAttribute(): string
+    {
+        return $this->transaction_number
+            ?: ($this->isMaterialReceipt() ? 'MR-' . $this->id : 'PUR-' . $this->id);
+    }
+
+    public function getReferenceNumberAttribute(): ?string
+    {
+        return $this->invoice_number;
     }
 }

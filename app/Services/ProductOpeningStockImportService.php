@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\Supplier;
 use App\Models\StorageLocation;
 use App\Models\Unit;
+use App\Support\RmpTerminology;
 use DateTimeInterface;
 use RuntimeException;
 use Illuminate\Support\Carbon;
@@ -17,6 +18,26 @@ use OpenSpout\Reader\Common\Creator\ReaderFactory;
 
 class ProductOpeningStockImportService
 {
+    private const TEMPLATE_HEADERS = [
+        'sku' => 'SKU',
+        'item_code_ierp' => RmpTerminology::ITEM_CODE,
+        'name' => RmpTerminology::MATERIAL_NAME,
+        'category' => 'Category',
+        'unit' => RmpTerminology::UNIT,
+        'supplier_id' => 'Supplier',
+        'purchase_price' => 'Purchase Price',
+        'selling_price' => 'Selling Price',
+        'opening_quantity' => 'Opening Qty',
+        'opening_batch_number' => 'Opening Batch No',
+        'opening_expiry_date' => 'Opening Expiry Date',
+        'opening_storage_location' => RmpTerminology::STORAGE_LOCATION,
+        'physical_form' => RmpTerminology::PHYSICAL_FORM,
+        'min_stock' => 'Min Stock',
+        'is_active' => RmpTerminology::STATUS,
+        'description' => 'Description',
+        'notes' => RmpTerminology::NOTES,
+    ];
+
     private const REQUIRED_HEADERS = [
         'name',
         'category',
@@ -28,22 +49,22 @@ class ProductOpeningStockImportService
 
     private const HEADER_ALIASES = [
         'sku' => ['sku', 'product_sku'],
-        'item_code_ierp' => ['item_code_ierp', 'ierp_item_code', 'ierp_code', 'item_code'],
-        'name' => ['name', 'product_name'],
+        'item_code_ierp' => ['item_code_ierp', 'ierp_item_code', 'ierp_code', 'item_code', RmpTerminology::ITEM_CODE, 'Item Code IERP'],
+        'name' => ['name', 'product_name', 'material_name', RmpTerminology::MATERIAL_NAME],
         'category' => ['category', 'category_name', 'category_slug', 'category_id'],
-        'unit' => ['unit', 'unit_name', 'unit_symbol', 'unit_id'],
+        'unit' => ['unit', 'unit_name', 'unit_symbol', 'unit_id', RmpTerminology::UNIT],
         'supplier_id' => ['supplier', 'supplier_name', 'supplier_id', 'vendor'],
         'purchase_price' => ['purchase_price', 'buy_price', 'cost_price', 'harga_beli'],
         'selling_price' => ['selling_price', 'sale_price', 'harga_jual'],
-        'opening_quantity' => ['opening_quantity', 'quantity', 'qty', 'stock_awal'],
-        'opening_batch_number' => ['opening_batch_number', 'batch_number', 'opening_batch', 'batch'],
-        'opening_expiry_date' => ['opening_expiry_date', 'expiry_date', 'exp_date'],
-        'opening_storage_location' => ['storage_location', 'opening_storage_location', 'location', 'storage'],
-        'physical_form' => ['physical_form', 'form_fisik', 'material_form', 'form'],
+        'opening_quantity' => ['opening_quantity', 'quantity', 'qty', 'stock_awal', 'opening_qty'],
+        'opening_batch_number' => ['opening_batch_number', 'batch_number', 'opening_batch', 'batch', 'opening_batch_no', RmpTerminology::BATCH_NO],
+        'opening_expiry_date' => ['opening_expiry_date', 'expiry_date', 'exp_date', 'opening_expiry'],
+        'opening_storage_location' => ['storage_location', 'opening_storage_location', 'location', 'storage', RmpTerminology::STORAGE_LOCATION],
+        'physical_form' => ['physical_form', 'form_fisik', 'material_form', 'form', RmpTerminology::PHYSICAL_FORM],
         'min_stock' => ['min_stock', 'minimum_stock', 'min_qty'],
-        'is_active' => ['is_active', 'active'],
+        'is_active' => ['is_active', 'active', RmpTerminology::STATUS],
         'description' => ['description'],
-        'notes' => ['notes', 'internal_notes'],
+        'notes' => ['notes', 'internal_notes', RmpTerminology::NOTES],
     ];
 
     public function __construct(
@@ -145,7 +166,10 @@ class ProductOpeningStockImportService
             }
         }
 
-        $missingRequired = array_values(array_filter(self::REQUIRED_HEADERS, fn($field) => !array_key_exists($field, $headerMap)));
+        $missingRequired = array_values(array_map(
+            fn (string $field) => self::TEMPLATE_HEADERS[$field] ?? $field,
+            array_filter(self::REQUIRED_HEADERS, fn ($field) => !array_key_exists($field, $headerMap))
+        ));
 
         if (!empty($missingRequired)) {
             throw new RuntimeException('Template tidak valid. Kolom wajib tidak ditemukan: ' . implode(', ', $missingRequired));
@@ -170,7 +194,7 @@ class ProductOpeningStockImportService
     {
         $sku = $this->cleanString($row['sku'] ?? null);
         $itemCodeIerp = $this->cleanString($row['item_code_ierp'] ?? null);
-        $name = $this->requireString($row['name'] ?? null, 'Product name wajib diisi.');
+        $name = $this->requireString($row['name'] ?? null, RmpTerminology::MATERIAL_NAME . ' wajib diisi.');
 
         $categoryId = $this->resolveCategoryId($row['category'] ?? null);
         $unitId = $this->resolveUnitId($row['unit'] ?? null);
@@ -214,10 +238,10 @@ class ProductOpeningStockImportService
         if ($itemCodeIerp !== null) {
             $itemCodeKey = Str::upper($itemCodeIerp);
             if (isset($seen['item_code_ierp'][$itemCodeKey])) {
-                throw new RuntimeException("Item Code IERP '{$itemCodeIerp}' duplikat di file import.");
+                throw new RuntimeException(RmpTerminology::ITEM_CODE . " '{$itemCodeIerp}' duplikat di file import.");
             }
             if (Product::where('item_code_ierp', $itemCodeIerp)->exists()) {
-                throw new RuntimeException("Item Code IERP '{$itemCodeIerp}' sudah terdaftar.");
+                throw new RuntimeException(RmpTerminology::ITEM_CODE . " '{$itemCodeIerp}' sudah terdaftar.");
             }
             $seen['item_code_ierp'][$itemCodeKey] = true;
         }
@@ -355,11 +379,19 @@ class ProductOpeningStockImportService
             ->replace([' ', '-'], '_')
             ->toString();
 
-        if (!array_key_exists($normalized, Product::physicalFormOptions())) {
+        $options = collect(Product::physicalFormOptions());
+
+        if ($options->has($normalized)) {
+            return $normalized;
+        }
+
+        $matchedCode = $options->search(fn (string $label) => Str::lower($label) === Str::lower($raw));
+
+        if ($matchedCode === false) {
             throw new RuntimeException("Physical form '{$raw}' tidak valid.");
         }
 
-        return $normalized;
+        return (string) $matchedCode;
     }
 
     private function parseInteger(mixed $value, string $errorMessage, bool $required): ?int
@@ -496,13 +528,6 @@ class ProductOpeningStockImportService
 
     private function normalizeHeader(string $header): string
     {
-        $header = Str::of($header)
-            ->lower()
-            ->replace([' ', '-'], '_')
-            ->replaceMatches('/[^a-z0-9_]/', '')
-            ->trim('_')
-            ->toString();
-
-        return $header;
+        return RmpTerminology::normalizeHeader($header);
     }
 }

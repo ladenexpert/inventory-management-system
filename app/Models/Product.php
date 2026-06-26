@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Facades\Schema;
 
 class Product extends Model
 {
@@ -31,6 +32,7 @@ class Product extends Model
         'item_code_ierp',
         'name',
         'physical_form',
+        'physical_form_id',
         'purchase_price',
         'selling_price',
         'quantity',
@@ -42,6 +44,7 @@ class Product extends Model
 
     protected $casts = [
         'supplier_id' => 'integer',
+        'physical_form_id' => 'integer',
         'purchase_price' => 'integer',
         'selling_price' => 'integer',
         'quantity' => 'integer',
@@ -62,6 +65,11 @@ class Product extends Model
     public function supplier(): BelongsTo
     {
         return $this->belongsTo(Supplier::class)->withTrashed();
+    }
+
+    public function physicalForm(): BelongsTo
+    {
+        return $this->belongsTo(PhysicalForm::class)->withTrashed();
     }
 
     public function purchaseItems()
@@ -86,12 +94,31 @@ class Product extends Model
 
     public static function physicalFormOptions(): array
     {
+        if (Schema::hasTable('physical_forms')) {
+            $databaseOptions = PhysicalForm::query()
+                ->orderBy('name')
+                ->pluck('name', 'code')
+                ->all();
+
+            if ($databaseOptions !== []) {
+                return $databaseOptions + self::PHYSICAL_FORM_OPTIONS;
+            }
+        }
+
         return self::PHYSICAL_FORM_OPTIONS;
     }
 
     public function getPhysicalFormLabelAttribute(): string
     {
-        return self::PHYSICAL_FORM_OPTIONS[$this->physical_form] ?? '-';
+        $physicalForm = $this->relationLoaded('physicalForm')
+            ? $this->physicalForm
+            : $this->physicalForm()->withTrashed()->first();
+
+        if ($physicalForm) {
+            return $physicalForm->name;
+        }
+
+        return self::physicalFormOptions()[$this->physical_form] ?? '-';
     }
 
     public function getSkuDisplayAttribute(): string

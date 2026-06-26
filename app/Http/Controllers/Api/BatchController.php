@@ -38,15 +38,17 @@ class BatchController extends Controller
         }
 
         $productId = $request->input('product_id');
+        $canViewInventoryValue = $request->user()?->canViewInventoryValue() ?? false;
 
         $batches = Batch::query()
+            ->with('storageLocationRecord')
             ->where('product_id', $productId)
             ->where('available_quantity', '>', 0)
             ->orderByRaw('CASE WHEN expiry_date IS NULL THEN 1 ELSE 0 END')
             ->orderBy('expiry_date')
             ->orderBy('received_at')
             ->get()
-            ->map(function ($batch) {
+            ->map(function ($batch) use ($canViewInventoryValue) {
                 $status = $this->batchPolicyService->getStatus($batch);
 
                 return [
@@ -60,10 +62,11 @@ class BatchController extends Controller
                     'is_near_expiry' => $this->batchPolicyService->isNearExpiry($batch),
                     'status' => $status->value,
                     'status_label' => $status->label(),
+                    'storage_location_label' => $batch->resolved_storage_location,
                     'can_be_consumed' => $this->batchPolicyService->canBeConsumed($batch),
                     'can_be_sold' => $this->batchPolicyService->canBeSold($batch),
-                    'unit_cost' => $request->user()?->canViewInventoryValue() ? $batch->unit_cost : null,
-                    'inventory_value' => $request->user()?->canViewInventoryValue() ? $this->batchPolicyService->inventoryValue($batch) : null,
+                    'unit_cost' => $canViewInventoryValue ? $batch->unit_cost : null,
+                    'inventory_value' => $canViewInventoryValue ? $this->batchPolicyService->inventoryValue($batch) : null,
                 ];
             });
 

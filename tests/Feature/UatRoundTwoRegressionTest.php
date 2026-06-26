@@ -13,17 +13,20 @@ use App\Models\Sale;
 use App\Models\Supplier;
 use App\Models\Unit;
 use App\Models\User;
+use App\Support\RmpTerminology;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
 use Livewire\Livewire;
 use OpenSpout\Common\Entity\Row;
 use OpenSpout\Writer\XLSX\Writer;
+use Tests\Concerns\ReadsDownloadedSpreadsheet;
 use Tests\TestCase;
 
 class UatRoundTwoRegressionTest extends TestCase
 {
     use RefreshDatabase;
+    use ReadsDownloadedSpreadsheet;
 
     public function test_procurement_material_search_includes_active_zero_stock_materials(): void
     {
@@ -178,8 +181,26 @@ class UatRoundTwoRegressionTest extends TestCase
         $templateResponse->assertOk();
         $templateResponse->assertDownload('template-materials.xlsx');
 
+        $rows = $this->downloadedSpreadsheetRows($templateResponse);
+
+        $this->assertSame([
+            'SKU',
+            RmpTerminology::ITEM_CODE,
+            RmpTerminology::MATERIAL_NAME,
+            'Category',
+            RmpTerminology::UNIT,
+            RmpTerminology::PHYSICAL_FORM,
+            'Supplier',
+            'Purchase Price',
+            'Selling Price',
+            'Min Stock',
+            RmpTerminology::STATUS,
+            'Description',
+            RmpTerminology::NOTES,
+        ], $rows[0]);
+
         $file = $this->makeXlsxFile([
-            ['sku', 'item_code_ierp', 'name', 'category', 'unit', 'physical_form', 'supplier', 'purchase_price', 'selling_price', 'min_stock', 'is_active', 'description', 'notes'],
+            ['SKU', RmpTerminology::ITEM_CODE, RmpTerminology::MATERIAL_NAME, 'Category', RmpTerminology::UNIT, RmpTerminology::PHYSICAL_FORM, 'Supplier', 'Purchase Price', 'Selling Price', 'Min Stock', RmpTerminology::STATUS, 'Description', RmpTerminology::NOTES],
             ['MAT-0001', 'IERP-MAT-0001', 'Imported MCC', 'Excipients', 'KG', 'powder', $supplier->name, '20000', '28000', '4', '1', 'Material import', 'Round 2'],
         ]);
 

@@ -39,7 +39,7 @@ Status legend:
 | Stock | implemented | Stored per batch and synchronized back to `products.quantity`. | None for pilot. |
 | Supplier optional | implemented | `products.supplier_id` is nullable for default supplier reference, and material receipt validation now allows blank supplier only in RNI receipt context while legacy purchase flow stays strict. | Keep nullable supplier limited to RNI receipt routes unless the shared purchase policy changes. |
 | Storage Location | implemented | `purchase_items.storage_location` captures receipt-stage location and `batches.storage_location` persists active lot location for monitoring/reporting. | Revisit only when a warehouse/bin hierarchy is needed. |
-| Physical Form | implemented | `products.physical_form` is stored on material master and shown in forms, detail, dashboard, and reports. | None for pilot. |
+| Physical Form | implemented | Physical Form now has additive `physical_forms` master data with backward-compatible `products.physical_form` retention plus optional `products.physical_form_id` linkage for future ERP use. | Browser-UAT the new master-data page plus create/edit/import flows. |
 
 ## Workflow and Input Coverage
 
@@ -71,8 +71,9 @@ Status legend:
 
 ## Summary
 
-- Pilot-critical RNI flows now cover material receipt, material usage, FEFO/manual lot allocation, opening stock import, batch monitoring, dashboard insights, and consolidated inventory reporting.
-- v0.4.5 adds a reusable role-permission foundation with seeded defaults for `Admin RNI`, `Formulator`, and `RM Desk`.
-- Finance and inventory value visibility are now permission-controlled across navigation, reports, detail pages, dashboard surfaces, and shared lookup payloads.
-- The former pilot blockers around `storage_location`, `physical_form`, optional supplier handling, and unified inventory movement history are now implemented.
+- Pilot-critical RNI flows now cover material receipt, material usage, FEFO/manual lot allocation, opening stock import, batch monitoring, dashboard insights, consolidated inventory reporting, and admin-only stock-take variance import.
+- The access foundation remains a reusable role-module-action permission model with seeded defaults for `Admin RNI`, `Formulator`, and `RM Desk`.
+- Finance and inventory value visibility remain permission-controlled across navigation, reports, detail pages, dashboard surfaces, and shared lookup payloads.
+- `Physical Form` is now master data and `Team` is now master data, while historical product and usage records remain backward-compatible through additive schema changes.
+- New RNI transactions now have stronger traceability through generated material-receipt codes, required material-usage team/requester metadata, and inventory-adjustment transaction codes.
 - Remaining pilot caveat: near-expiry policy still uses a single operational threshold for dashboard and monitoring instead of separate windows from the PDF.

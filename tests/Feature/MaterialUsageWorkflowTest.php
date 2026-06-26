@@ -12,6 +12,8 @@ use App\Models\FinanceTransaction;
 use App\Models\InventoryLog;
 use App\Models\Product;
 use App\Models\SaleItemBatch;
+use App\Models\StorageLocation;
+use App\Models\Team;
 use App\Models\User;
 use App\Services\BatchService;
 use App\Services\FinanceTransactionService;
@@ -27,6 +29,7 @@ class MaterialUsageWorkflowTest extends TestCase
     public function test_material_usage_creation_stores_metadata_and_deducts_stock(): void
     {
         $user = User::factory()->create();
+        $team = Team::factory()->create(['name' => 'RNI Pilot']);
         $product = Product::factory()->create([
             'name' => 'Citric Acid',
             'quantity' => 10,
@@ -49,7 +52,7 @@ class MaterialUsageWorkflowTest extends TestCase
             'usage_date' => now()->toDateString(),
             'purpose' => 'Pilot capsule run',
             'formula' => 'CAP-001',
-            'project' => 'RNI Pilot',
+            'team_id' => $team->id,
             'requested_by' => 'Dr. Maya',
             'issued_by' => $user->id,
             'notes' => 'First issuance for pilot',
@@ -86,6 +89,7 @@ class MaterialUsageWorkflowTest extends TestCase
     public function test_material_usage_uses_fefo_for_batch_allocation(): void
     {
         $user = User::factory()->create();
+        $team = Team::factory()->create();
         $product = Product::factory()->create([
             'name' => 'Magnesium Stearate',
             'quantity' => 9,
@@ -119,6 +123,8 @@ class MaterialUsageWorkflowTest extends TestCase
         $response = $this->actingAs($user)->postJson(route('material-usages.store'), [
             'usage_date' => now()->toDateString(),
             'purpose' => 'Granulation trial',
+            'team_id' => $team->id,
+            'requested_by' => 'Lab Team',
             'issued_by' => $user->id,
             'items' => [
                 [
@@ -142,9 +148,45 @@ class MaterialUsageWorkflowTest extends TestCase
         $this->assertSame(4, (int) Batch::where('batch_number', 'MS-LATE')->value('available_quantity'));
     }
 
+    public function test_material_usage_batch_lookup_returns_storage_location_for_manual_pick(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create([
+            'quantity' => 5,
+            'purchase_price' => 9000,
+        ]);
+        $location = StorageLocation::factory()->create([
+            'code' => 'RM-A1',
+            'name' => 'Raw Material Rack A1',
+        ]);
+
+        Batch::create([
+            'product_id' => $product->id,
+            'batch_number' => 'MU-LOOKUP-001',
+            'expiry_date' => now()->addDays(20)->toDateString(),
+            'received_at' => now()->subDay(),
+            'storage_location' => $location->display_label,
+            'storage_location_id' => $location->id,
+            'unit_cost' => 9000,
+            'selling_price' => 12000,
+            'quantity' => 5,
+            'available_quantity' => 5,
+            'source' => 'purchase',
+        ]);
+
+        $this->actingAs($user)
+            ->postJson(route('ajax.batches.get'), ['product_id' => $product->id])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.0.batch_number', 'MU-LOOKUP-001')
+            ->assertJsonPath('data.0.storage_location_label', $location->display_label)
+            ->assertJsonPath('data.0.can_be_consumed', true);
+    }
+
     public function test_material_usage_validation_failure_returns_json_errors_without_creating_records(): void
     {
         $user = User::factory()->create();
+        $team = Team::factory()->create();
         $product = Product::factory()->create([
             'quantity' => 10,
             'purchase_price' => 5000,
@@ -167,6 +209,8 @@ class MaterialUsageWorkflowTest extends TestCase
             ->postJson(route('material-usages.store'), [
                 'usage_date' => now()->toDateString(),
                 'purpose' => '',
+                'team_id' => $team->id,
+                'requested_by' => 'QA',
                 'issued_by' => $user->id,
                 'items' => [
                     [
@@ -190,6 +234,7 @@ class MaterialUsageWorkflowTest extends TestCase
     public function test_material_usage_standard_form_submission_redirects_to_detail_page(): void
     {
         $user = User::factory()->create();
+        $team = Team::factory()->create();
         $product = Product::factory()->create([
             'quantity' => 6,
             'purchase_price' => 8000,
@@ -210,6 +255,8 @@ class MaterialUsageWorkflowTest extends TestCase
         $response = $this->actingAs($user)->post(route('material-usages.store'), [
             'usage_date' => now()->toDateString(),
             'purpose' => 'Redirect check',
+            'team_id' => $team->id,
+            'requested_by' => 'Warehouse',
             'issued_by' => $user->id,
             'items' => [
                 [
@@ -231,6 +278,7 @@ class MaterialUsageWorkflowTest extends TestCase
     public function test_material_usage_uses_server_side_cost_snapshot_when_client_unit_price_is_missing(): void
     {
         $user = User::factory()->create();
+        $team = Team::factory()->create();
         $product = Product::factory()->create([
             'quantity' => 5,
             'purchase_price' => 9100,
@@ -251,6 +299,8 @@ class MaterialUsageWorkflowTest extends TestCase
         $response = $this->actingAs($user)->postJson(route('material-usages.store'), [
             'usage_date' => now()->toDateString(),
             'purpose' => 'Server cost snapshot',
+            'team_id' => $team->id,
+            'requested_by' => 'Ops',
             'issued_by' => $user->id,
             'items' => [
                 [
@@ -291,7 +341,7 @@ class MaterialUsageWorkflowTest extends TestCase
         ]);
 
         \App\Models\Sale::create([
-            'invoice_number' => 'MUS.COLLIDE.0001',
+            'transaction_code' => 'MU.COLLIDE.0001',
             'transaction_type' => SaleTransactionType::MATERIAL_USAGE,
             'created_by' => $user->id,
             'issued_by' => $user->id,
@@ -313,9 +363,9 @@ class MaterialUsageWorkflowTest extends TestCase
             app(BatchService::class),
         ])->makePartial()->shouldAllowMockingProtectedMethods();
 
-        $service->shouldReceive('generateReferenceNumber')
+        $service->shouldReceive('generateTransactionCode')
             ->times(3)
-            ->andReturn('MUS.COLLIDE.0001', 'MUS.COLLIDE.0001', 'MUS.COLLIDE.0002');
+            ->andReturn('MU.COLLIDE.0001', 'MU.COLLIDE.0001', 'MU.COLLIDE.0002');
 
         $usage = $service->createSale(new SaleData(
             sale_date: now(),
@@ -336,7 +386,7 @@ class MaterialUsageWorkflowTest extends TestCase
             issued_by: $user->id,
         ));
 
-        $this->assertSame('MUS.COLLIDE.0002', $usage->invoice_number);
+        $this->assertSame('MU.COLLIDE.0002', $usage->transaction_code);
         $this->assertSame(6, $product->fresh()->quantity);
     }
 }

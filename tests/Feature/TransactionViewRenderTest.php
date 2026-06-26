@@ -85,7 +85,11 @@ class TransactionViewRenderTest extends TestCase
         $this->actingAs($user)
             ->get(route('material-usages.create'))
             ->assertOk()
-            ->assertSee('Create Material Usage');
+            ->assertSee('Create Material Usage')
+            ->assertSee('Reference')
+            ->assertSee('Team')
+            ->assertSee('Manual Pick')
+            ->assertSee('FEFO Lines');
 
         $this->actingAs($user)
             ->get(route('material-usages.show', $usage))

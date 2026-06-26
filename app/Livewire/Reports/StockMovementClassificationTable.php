@@ -2,8 +2,10 @@
 
 namespace App\Livewire\Reports;
 
+use App\Livewire\Concerns\HandlesPowerGridExportSorting;
 use App\Models\Product;
 use App\Services\StockMovementClassificationService;
+use App\Support\RmpTerminology;
 use Illuminate\Database\Eloquent\Builder;
 use PowerComponents\LivewirePowerGrid\Column;
 use PowerComponents\LivewirePowerGrid\Facades\Filter;
@@ -15,7 +17,11 @@ use PowerComponents\LivewirePowerGrid\Components\SetUp\Exportable;
 
 final class StockMovementClassificationTable extends PowerGridComponent
 {
-    use WithExport;
+    use HandlesPowerGridExportSorting;
+    use WithExport {
+        HandlesPowerGridExportSorting::prepareToExport insteadof WithExport;
+        WithExport::prepareToExport as protected powerGridPrepareToExport;
+    }
 
     public string $tableName = 'stock-movement-classification-table';
     public string $sortField = 'classification_rank';
@@ -52,6 +58,8 @@ final class StockMovementClassificationTable extends PowerGridComponent
 
     public function datasource(): Builder
     {
+        $this->normalizePowerGridSortingState();
+
         return app(StockMovementClassificationService::class)->query();
     }
 
@@ -94,26 +102,56 @@ final class StockMovementClassificationTable extends PowerGridComponent
     public function columns(): array
     {
         $columns = [
-            Column::make('Classification', 'classification_label', 'classification_rank')->sortable(),
-            Column::make('Item Code IERP', 'item_code', 'item_code_ierp')->searchable()->sortable(),
-            Column::make('SKU', 'sku')->searchable()->sortable(),
+            Column::make('Classification', 'classification_label', 'classification_rank')
+                ->sortable()
+                ->sortUsing(fn (Builder $query, string $direction) => $query->orderBy('classification_rank', $direction)),
+            Column::make(RmpTerminology::ITEM_CODE, 'item_code', 'products.item_code_ierp')->searchable()->sortable(),
+            Column::make('SKU', 'sku', 'products.sku')->searchable()->sortable(),
             Column::make('RM Name', 'product_name', 'products.name')->searchable()->sortable(),
-            Column::make('Physical Form', 'physical_form_label', 'physical_form')->sortable(),
-            Column::make('Stock Available', 'stock_available')->sortable()->bodyAttribute('text-center'),
-            Column::make('Unit', 'unit'),
-            Column::make('Last Usage Date', 'last_usage_date_formatted', 'last_usage_date')->sortable(),
-            Column::make('Days Since Last Usage', 'days_since_last_usage_label', 'days_since_last_usage')->sortable(),
-            Column::make('Usage Qty 90 Days', 'usage_qty_90_days')->sortable()->bodyAttribute('text-center'),
-            Column::make('Usage Qty 180 Days', 'usage_qty_180_days')->sortable()->bodyAttribute('text-center'),
-            Column::make('Usage Qty 365 Days', 'usage_qty_365_days')->sortable()->bodyAttribute('text-center'),
-            Column::make('Batch Count', 'batch_count')->sortable()->bodyAttribute('text-center'),
-            Column::make('Earliest Expiry', 'earliest_expiry_date_formatted', 'earliest_expiry_date')->sortable(),
+            Column::make('Physical Form', 'physical_form_label', 'products.physical_form')->sortable(),
+            Column::make(RmpTerminology::STOCK_AVAILABLE, 'stock_available', 'products.quantity')->sortable()->bodyAttribute('text-center'),
+            Column::make(RmpTerminology::UNIT, 'unit'),
+            Column::make('Last Usage Date', 'last_usage_date_formatted', 'usage_metrics.last_usage_date')->sortable(),
+            Column::make('Days Since Last Usage', 'days_since_last_usage_label', 'days_since_last_usage')
+                ->sortable()
+                ->sortUsing(function (Builder $query, string $direction) {
+                    $movementBasisDate = 'COALESCE(usage_metrics.last_usage_date, batch_metrics.first_stock_date)';
+
+                    return $query
+                        ->orderByRaw("CASE WHEN {$movementBasisDate} IS NULL THEN 1 ELSE 0 END ASC")
+                        ->orderByRaw($movementBasisDate . ($direction === 'asc' ? ' DESC' : ' ASC'));
+                }),
+            Column::make('Usage Qty 90 Days', 'usage_qty_90_days')
+                ->sortable()
+                ->sortUsing(fn (Builder $query, string $direction) => $query->orderBy('usage_qty_90_days', $direction))
+                ->bodyAttribute('text-center'),
+            Column::make('Usage Qty 180 Days', 'usage_qty_180_days')
+                ->sortable()
+                ->sortUsing(fn (Builder $query, string $direction) => $query->orderBy('usage_qty_180_days', $direction))
+                ->bodyAttribute('text-center'),
+            Column::make('Usage Qty 365 Days', 'usage_qty_365_days')
+                ->sortable()
+                ->sortUsing(fn (Builder $query, string $direction) => $query->orderBy('usage_qty_365_days', $direction))
+                ->bodyAttribute('text-center'),
+            Column::make('Batch Count', 'batch_count')
+                ->sortable()
+                ->sortUsing(fn (Builder $query, string $direction) => $query->orderBy('batch_count', $direction))
+                ->bodyAttribute('text-center'),
+            Column::make('Earliest Expiry', 'earliest_expiry_date_formatted', 'batch_metrics.earliest_expiry_date')->sortable(),
             Column::make('Storage Locations', 'storage_location_summary'),
-            Column::make('Status', 'status_label')->sortable(),
+            Column::make(RmpTerminology::STATUS, 'status_label')
+                ->sortable()
+                ->sortUsing(function (Builder $query, string $direction) {
+                    $expiryColumn = 'batch_metrics.earliest_expiry_date';
+
+                    return $query
+                        ->orderByRaw("CASE WHEN {$expiryColumn} IS NULL THEN 1 ELSE 0 END ASC")
+                        ->orderBy($expiryColumn, $direction);
+                }),
         ];
 
         if ($this->canViewSensitiveValues()) {
-            $columns[] = Column::make('Inventory Value', 'inventory_value_formatted')
+            $columns[] = Column::make(RmpTerminology::INVENTORY_VALUE, 'inventory_value_formatted')
                 ->bodyAttribute('text-right');
         }
 
@@ -161,5 +199,20 @@ final class StockMovementClassificationTable extends PowerGridComponent
     private function canExportReport(): bool
     {
         return auth()->user()?->hasPermission('reports', 'export') ?? false;
+    }
+
+    protected function legacyPowerGridSortFieldMap(): array
+    {
+        return [
+            'classification_label' => 'classification_rank',
+            'earliest_expiry_date' => 'batch_metrics.earliest_expiry_date',
+            'item_code' => 'products.item_code_ierp',
+            'last_usage_date' => 'usage_metrics.last_usage_date',
+            'product_name' => 'products.name',
+            'stock_available' => 'products.quantity',
+            'usage_qty_90_days' => 'usage_qty_90_days',
+            'usage_qty_180_days' => 'usage_qty_180_days',
+            'usage_qty_365_days' => 'usage_qty_365_days',
+        ];
     }
 }

@@ -41,18 +41,18 @@
                     </div>
 
                     <div class="space-y-2">
-                        <x-input-label for="rm_code" :value="__('Item Code IERP / SKU')" />
-                        <x-text-input id="rm_code" name="rm_code" type="text" :value="$filters['rm_code'] ?? ''" class="block w-full" placeholder="Search IERP code or SKU" />
+                        <x-input-label for="rm_code" :value="__('Item Code / SKU')" />
+                        <x-text-input id="rm_code" name="rm_code" type="text" :value="$filters['rm_code'] ?? ''" class="block w-full" placeholder="Search item code or SKU" />
                     </div>
 
                     <div class="space-y-2">
-                        <x-input-label for="rm_name" :value="__('Material / Product Name')" />
-                        <x-text-input id="rm_name" name="rm_name" type="text" :value="$filters['rm_name'] ?? ''" class="block w-full" placeholder="Material or product name" />
+                        <x-input-label for="rm_name" :value="__('Material Name')" />
+                        <x-text-input id="rm_name" name="rm_name" type="text" :value="$filters['rm_name'] ?? ''" class="block w-full" placeholder="Material name" />
                     </div>
 
                     <div class="space-y-2">
-                        <x-input-label for="lot_number" :value="__('Lot Number')" />
-                        <x-text-input id="lot_number" name="lot_number" type="text" :value="$filters['lot_number'] ?? ''" class="block w-full" placeholder="Batch / lot number" />
+                        <x-input-label for="lot_number" :value="__('Batch No')" />
+                        <x-text-input id="lot_number" name="lot_number" type="text" :value="$filters['lot_number'] ?? ''" class="block w-full" placeholder="Batch number" />
                     </div>
                 </div>
 
@@ -81,16 +81,17 @@
                                 <th class="px-4 py-3 text-left font-medium text-gray-500">Date & Time</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500">User</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500">Transaction Type</th>
-                                <th class="px-4 py-3 text-left font-medium text-gray-500">Material / Product Name</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500">Material Name</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500">SKU</th>
-                                <th class="px-4 py-3 text-left font-medium text-gray-500">Item Code IERP</th>
-                                <th class="px-4 py-3 text-left font-medium text-gray-500">Lot Number</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500">Item Code</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500">Batch No</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500">Expiry Date</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500">Storage Location</th>
                                 <th class="px-4 py-3 text-right font-medium text-gray-500">Quantity</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500">Unit</th>
                                 <th class="px-4 py-3 text-right font-medium text-gray-500">Remaining Stock</th>
-                                <th class="px-4 py-3 text-left font-medium text-gray-500">Reference</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500">Transaction Number</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500">Reference Number</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500">Notes</th>
                             </tr>
                         </thead>
@@ -109,12 +110,13 @@
                                     <td class="px-4 py-3 text-right font-medium {{ $row['quantity'] < 0 ? 'text-red-600' : 'text-emerald-600' }}">{{ number_format($row['quantity']) }}</td>
                                     <td class="px-4 py-3 text-gray-700">{{ $row['unit'] }}</td>
                                     <td class="px-4 py-3 text-right text-gray-700">{{ number_format($row['remaining_stock']) }}</td>
+                                    <td class="px-4 py-3 text-gray-700">{{ $row['transaction_number'] }}</td>
                                     <td class="px-4 py-3 text-gray-700">{{ $row['reference'] }}</td>
                                     <td class="px-4 py-3 text-gray-600">{{ $row['notes'] }}</td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="14" class="px-4 py-10 text-center text-gray-500">No inventory movement history found for the selected filters.</td>
+                                    <td colspan="15" class="px-4 py-10 text-center text-gray-500">No inventory movement history found for the selected filters.</td>
                                 </tr>
                             @endforelse
                         </tbody>

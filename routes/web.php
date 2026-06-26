@@ -11,6 +11,7 @@ use App\Http\Controllers\MaterialUsageController;
 use App\Http\Controllers\MaterialReceiptController;
 use App\Http\Controllers\ProductOpeningStockImportController;
 use App\Http\Controllers\ReportAnalyticsController;
+use App\Http\Controllers\StockTakeImportController;
 
 Route::middleware(['auth', 'verified'])->group(function () {
     // =========================================================================
@@ -40,6 +41,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::view('units', 'units.index')
             ->middleware(['module:materials', 'permission:master_data,view'])
             ->name('units.index');
+        Route::view('physical-forms', 'physical-forms.index')
+            ->middleware(['module:materials', 'permission:master_data,view'])
+            ->name('physical-forms.index');
+        Route::view('teams', 'teams.index')
+            ->middleware(['module:rni', 'permission:master_data,view'])
+            ->name('teams.index');
         Route::get('imports/{resource}', [MasterDataImportController::class, 'show'])
             ->middleware('permission:master_data,import')
             ->name('master-imports.show');
@@ -170,6 +177,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('material-usages/{sale}/restore', [MaterialUsageController::class, 'restore'])
             ->middleware('permission:material_usage,restore')
             ->name('material-usages.restore');
+
+        Route::get('stock-take/import', [StockTakeImportController::class, 'index'])
+            ->middleware('permission:stock_take,import')
+            ->name('stock-take.index');
+        Route::post('stock-take/import/preview', [StockTakeImportController::class, 'preview'])
+            ->middleware('permission:stock_take,import')
+            ->name('stock-take.preview');
+        Route::post('stock-take/import/apply', [StockTakeImportController::class, 'apply'])
+            ->middleware('permission:stock_take,import')
+            ->name('stock-take.apply');
+        Route::get('stock-take/import/template', [StockTakeImportController::class, 'downloadTemplate'])
+            ->middleware('permission:stock_take,import')
+            ->name('stock-take.template');
     });
 
     // =========================================================================

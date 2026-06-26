@@ -6,6 +6,7 @@ use App\Enums\BatchAllocationPolicy;
 use App\Exceptions\PurchaseException;
 use App\Exceptions\SaleException;
 use App\Models\Batch;
+use App\Models\InventoryAdjustment;
 use App\Models\InventoryLog;
 use App\Models\Product;
 use App\Models\Purchase;
@@ -169,6 +170,7 @@ class BatchService
         ?string $expiryDate = null,
         ?string $storageLocation = null,
         ?int $storageLocationId = null,
+        ?InventoryAdjustment $inventoryAdjustment = null,
     ): ?Batch {
         if ($quantity <= 0) {
             return null;
@@ -209,6 +211,7 @@ class BatchService
             quantityBefore: $productQuantityBefore,
             quantityAfter: $productQuantityAfter,
             notes: trim("Batch {$batch->batch_number} created with availability 0 -> {$quantity}. " . ($notes ?? '')),
+            inventoryAdjustment: $inventoryAdjustment,
         );
 
         return $batch;
@@ -220,6 +223,7 @@ class BatchService
         int $unitCost,
         ?int $sellingPrice,
         ?string $notes = null,
+        ?InventoryAdjustment $inventoryAdjustment = null,
     ): void {
         $this->ensureBatchCoverage($product);
 
@@ -238,6 +242,7 @@ class BatchService
                 sellingPrice: $sellingPrice,
                 source: 'adjustment_in',
                 notes: $notes ?: 'Stock increased from manual product adjustment.',
+                inventoryAdjustment: $inventoryAdjustment,
             );
 
             return;
@@ -257,6 +262,7 @@ class BatchService
                     "Batch {$allocation['batch']->batch_number} availability: {$allocation['batch_quantity_before']} -> {$allocation['batch_quantity_after']}. "
                     . ($notes ?: 'Stock reduced from manual product adjustment.'),
                 ),
+                inventoryAdjustment: $inventoryAdjustment,
             );
         }
 
@@ -369,9 +375,62 @@ class BatchService
                 quantityAfter: $allocation['product_quantity_after'],
                 sale: $sale,
                 saleItem: $saleItem,
-                notes: "Batch {$allocation['batch']->batch_number} consumed by sale #{$sale->invoice_number}. Batch availability: {$allocation['batch_quantity_before']} -> {$allocation['batch_quantity_after']}.",
+                notes: "Batch {$allocation['batch']->batch_number} consumed by sale #{$sale->display_transaction_number}. Batch availability: {$allocation['batch_quantity_before']} -> {$allocation['batch_quantity_after']}.",
             );
         }
+    }
+
+    public function applyStockTakeCount(
+        Batch $batch,
+        int $countedQuantity,
+        InventoryAdjustment $inventoryAdjustment,
+        ?string $notes = null,
+    ): void {
+        $lockedBatch = Batch::query()
+            ->with('product')
+            ->lockForUpdate()
+            ->findOrFail($batch->id);
+
+        $product = $lockedBatch->product()->lockForUpdate()->firstOrFail();
+        $this->ensureBatchCoverage($product);
+
+        $currentAvailable = (int) $lockedBatch->available_quantity;
+
+        if ($countedQuantity === $currentAvailable) {
+            $this->queueProductSync($product);
+
+            return;
+        }
+
+        $productQuantityBefore = $this->sumAvailableQuantity($product);
+        $delta = $countedQuantity - $currentAvailable;
+        $productQuantityAfter = $productQuantityBefore + $delta;
+        $movementType = $delta > 0 ? 'stock_take_adjustment_in' : 'stock_take_adjustment_out';
+        $this->assertNonNegativeQuantity($productQuantityAfter, 'product quantity', [
+            'product_id' => $product->id,
+            'movement_type' => $movementType,
+        ]);
+
+        $lockedBatch->update([
+            'quantity' => max(0, (int) $lockedBatch->quantity + $delta),
+            'available_quantity' => $countedQuantity,
+            'notes' => $notes
+                ? trim(($lockedBatch->notes ? $lockedBatch->notes . "\n" : '') . $notes)
+                : $lockedBatch->notes,
+        ]);
+
+        $this->queueProductSync($product, $productQuantityAfter);
+
+        $this->logInventoryMovement(
+            product: $product,
+            batch: $lockedBatch->fresh(),
+            movementType: $movementType,
+            quantity: $delta,
+            quantityBefore: $productQuantityBefore,
+            quantityAfter: $productQuantityAfter,
+            notes: $notes ?: "Stock take count applied to batch {$lockedBatch->batch_number}: {$currentAvailable} -> {$countedQuantity}.",
+            inventoryAdjustment: $inventoryAdjustment,
+        );
     }
 
     public function restoreSaleItemBatches(Sale $sale, SaleItem $saleItem): bool
@@ -411,7 +470,7 @@ class BatchService
                 quantityAfter: $productQuantityAfter,
                 sale: $sale,
                 saleItem: $saleItem,
-                notes: "Stock restored after cancelling sale #{$sale->invoice_number}. Batch {$batch->batch_number} availability: {$before} -> {$after}.",
+                notes: "Stock restored after cancelling sale #{$sale->display_transaction_number}. Batch {$batch->batch_number} availability: {$before} -> {$after}.",
             );
 
             $productQuantityRunning = $productQuantityAfter;
@@ -480,7 +539,7 @@ class BatchService
                 quantityAfter: $productQuantityAfter,
                 sale: $sale,
                 saleItem: $saleItem,
-                notes: "Stock re-reserved while restoring sale #{$sale->invoice_number}. Batch {$batch->batch_number} availability: {$before} -> {$after}.",
+                notes: "Stock re-reserved while restoring sale #{$sale->display_transaction_number}. Batch {$batch->batch_number} availability: {$before} -> {$after}.",
             );
 
             $productQuantityRunning = $productQuantityAfter;
@@ -501,7 +560,7 @@ class BatchService
             unitCost: (int) ($saleItem->cost_price ?: $product->purchase_price),
             sellingPrice: (int) ($saleItem->unit_price ?: $product->selling_price),
             source: 'sale_cancel_restore',
-            notes: "Restored stock for sale #{$sale->invoice_number} without original batch allocation history.",
+            notes: "Restored stock for sale #{$sale->display_transaction_number} without original batch allocation history.",
         );
     }
 
@@ -573,6 +632,7 @@ class BatchService
         ?Sale $sale = null,
         ?SaleItem $saleItem = null,
         ?string $notes = null,
+        ?InventoryAdjustment $inventoryAdjustment = null,
     ): ?InventoryLog {
         if (!$batch && !$purchase && !$sale) {
             throw new \Exception('Inventory log must have at least one reference (batch, purchase, or sale).');
@@ -594,6 +654,7 @@ class BatchService
             'purchase_item_id' => $purchaseItem?->id,
             'sale_id' => $sale?->id,
             'sale_item_id' => $saleItem?->id,
+            'inventory_adjustment_id' => $inventoryAdjustment?->id,
             'movement_type' => $movementType,
             'quantity' => $quantity,
             'quantity_before' => $quantityBefore,

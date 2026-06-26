@@ -21,6 +21,8 @@ class DatabaseSeeder extends Seeder
             SupplierSeeder::class,
             UnitSeeder::class,
             CategorySeeder::class,
+            PhysicalFormSeeder::class,
+            TeamSeeder::class,
             ProductSeeder::class,
             FinanceCategorySeeder::class,
             SettingSeeder::class,

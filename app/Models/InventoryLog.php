@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\TransactionContext;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,9 +13,11 @@ class InventoryLog extends Model
 
     public const MOVEMENT_TYPE_LABELS = [
         'purchase_receive' => 'Purchase / Material Receipt',
-        'opening_balance' => 'Opening Balance',
-        'adjustment_in' => 'Stock Adjustment In',
-        'adjustment_out' => 'Stock Adjustment Out',
+        'opening_balance' => 'Opening Stock',
+        'adjustment_in' => 'Manual Stock Adjustment In',
+        'adjustment_out' => 'Manual Stock Adjustment Out',
+        'stock_take_adjustment_in' => 'Stock Take Adjustment In',
+        'stock_take_adjustment_out' => 'Stock Take Adjustment Out',
         'sale_out' => 'Material Usage',
         'sale_cancel_restore' => 'Cancellation / Restore',
         'sale_restore_out' => 'Restore Reservation',
@@ -29,6 +32,7 @@ class InventoryLog extends Model
         'purchase_item_id',
         'sale_id',
         'sale_item_id',
+        'inventory_adjustment_id',
         'movement_type',
         'quantity',
         'quantity_before',
@@ -43,6 +47,7 @@ class InventoryLog extends Model
         'purchase_item_id' => 'integer',
         'sale_id' => 'integer',
         'sale_item_id' => 'integer',
+        'inventory_adjustment_id' => 'integer',
         'quantity' => 'integer',
         'quantity_before' => 'integer',
         'quantity_after' => 'integer',
@@ -73,6 +78,11 @@ class InventoryLog extends Model
         return $this->belongsTo(Sale::class);
     }
 
+    public function inventoryAdjustment(): BelongsTo
+    {
+        return $this->belongsTo(InventoryAdjustment::class);
+    }
+
     public function saleItem(): BelongsTo
     {
         return $this->belongsTo(SaleItem::class);
@@ -80,11 +90,13 @@ class InventoryLog extends Model
 
     public static function movementTypeOptions(): array
     {
-        return self::MOVEMENT_TYPE_LABELS;
+        return collect(array_keys(self::MOVEMENT_TYPE_LABELS))
+            ->mapWithKeys(fn (string $type) => [$type => TransactionContext::labelForMovementType($type)])
+            ->all();
     }
 
     public function getMovementTypeLabelAttribute(): string
     {
-        return self::MOVEMENT_TYPE_LABELS[$this->movement_type] ?? str($this->movement_type)->headline()->toString();
+        return TransactionContext::labelForMovementType($this->movement_type);
     }
 }

@@ -168,6 +168,16 @@
 
                     <!-- Totals Section -->
                     <div class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Reference</label>
+                            <input
+                                type="text"
+                                x-model="payment.reference"
+                                class="block w-full text-sm border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 placeholder-gray-400 py-2"
+                                placeholder="Optional external reference"
+                            >
+                        </div>
+
                         <div class="flex justify-between items-center text-gray-600 text-sm font-medium">
                             <span>Subtotal</span>
                             <span x-text="formatCurrency(subtotal)"></span>
@@ -318,7 +328,8 @@
                     payment: {
                         method: 'cash',
                         cash_received: 0,
-                        notes: ''
+                        notes: '',
+                        reference: ''
                     },
                     globalDiscount: 0,
                     saleStatus: 'completed',
@@ -767,6 +778,7 @@
 
                             const payload = {
                                 customer_id: this.selectedCustomer?.id,
+                                invoice_number: this.payment.reference,
                                 items: items,
                                 payment_method: this.payment.method,
                                 cash_received: this.payment.cash_received,
@@ -830,7 +842,8 @@
                         this.payment = {
                             method: 'cash',
                             cash_received: 0,
-                            notes: ''
+                            notes: '',
+                            reference: ''
                         };
                         this.globalDiscount = 0;
                         // Reset TomSelects

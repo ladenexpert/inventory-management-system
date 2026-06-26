@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Legacy Purchase Receipt #{{ $purchase->invoice_number ?: $purchase->id }}</title>
+    <title>Legacy Purchase Receipt #{{ $purchase->display_transaction_number }}</title>
     <style>
         @page {
             size: A4;
@@ -115,7 +115,8 @@
             </div>
             <div>
                 <p><strong>Document</strong>: Legacy Purchase Receipt</p>
-                <p><strong>Number</strong>: {{ $purchase->invoice_number ?: 'PUR-' . $purchase->id }}</p>
+                <p><strong>Transaction Number</strong>: {{ $purchase->display_transaction_number }}</p>
+                <p><strong>Reference</strong>: {{ $purchase->reference_number ?? '-' }}</p>
                 <p><strong>Date</strong>: {{ $purchase->purchase_date->format('d M Y') }}</p>
                 <p><strong>Status</strong>: {{ $purchase->status->label() }}</p>
             </div>
@@ -140,7 +141,7 @@
         <table>
             <thead>
                 <tr>
-                    <th style="width: 18%">Purchase Number</th>
+                    <th style="width: 18%">Transaction Number</th>
                     <th style="width: 24%">Item</th>
                     <th style="width: 10%">Qty</th>
                     <th style="width: 14%">Cost</th>
@@ -151,7 +152,7 @@
             <tbody>
                 @foreach($purchase->items as $item)
                     <tr>
-                        <td>{{ $purchase->invoice_number ?: 'PUR-' . $purchase->id }}</td>
+                        <td>{{ $purchase->display_transaction_number }}</td>
                         <td>
                             <strong>{{ $item->product->name }}</strong>
                             <div>SKU: {{ $item->product->sku_display }}</div>

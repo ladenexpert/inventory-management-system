@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\SaleItemBatch;
+use App\Models\Team;
 use App\Enums\UserRole;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -143,6 +144,7 @@ class RniRoleAccessTest extends TestCase
         $rmDesk = User::factory()->create([
             'role' => UserRole::RM_DESK,
         ]);
+        $team = Team::factory()->create();
 
         $product = Product::factory()->create([
             'quantity' => 8,
@@ -165,6 +167,8 @@ class RniRoleAccessTest extends TestCase
             ->postJson(route('material-usages.store'), [
                 'usage_date' => now()->toDateString(),
                 'purpose' => 'RM Desk usage',
+                'team_id' => $team->id,
+                'requested_by' => 'Formulation',
                 'issued_by' => $rmDesk->id,
                 'items' => [
                     [

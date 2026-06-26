@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\InventoryLog;
 use App\Models\User;
 use App\Services\InventoryMovementHistoryService;
+use App\Support\RmpTerminology;
+use App\Support\TransactionContext;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
@@ -55,17 +57,18 @@ class InventoryMovementHistoryController extends Controller
             'Date & Time',
             'User',
             'Transaction Type',
-            'Material / Product Name',
+            RmpTerminology::MATERIAL_NAME,
             'SKU',
-            'Item Code IERP',
-            'Lot Number',
-            'Expiry Date',
-            'Storage Location',
+            RmpTerminology::ITEM_CODE,
+            RmpTerminology::BATCH_NO,
+            RmpTerminology::EXPIRY_DATE,
+            RmpTerminology::STORAGE_LOCATION,
             'Quantity',
-            'Unit',
+            RmpTerminology::UNIT,
             'Remaining Stock',
-            'Reference',
-            'Notes',
+            RmpTerminology::TRANSACTION_NUMBER,
+            RmpTerminology::REFERENCE_NUMBER,
+            RmpTerminology::NOTES,
         ]));
 
         foreach ($this->service->exportRows($this->filters($request)) as $row) {
@@ -82,6 +85,7 @@ class InventoryMovementHistoryController extends Controller
                 $row['quantity'],
                 $row['unit'],
                 $row['remaining_stock'],
+                $row['transaction_number'],
                 $row['reference'],
                 $row['notes'],
             ]));
@@ -90,7 +94,7 @@ class InventoryMovementHistoryController extends Controller
         $writer->close();
 
         return response()
-            ->download($filePath, 'inventory-movement-history.' . $extension)
+            ->download($filePath, TransactionContext::exportFilename(TransactionContext::INVENTORY_MOVEMENT_HISTORY, $extension))
             ->deleteFileAfterSend(true);
     }
 

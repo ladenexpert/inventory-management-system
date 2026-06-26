@@ -19,7 +19,7 @@ class StorePurchaseRequest extends FormRequest
 
         return [
             'supplier_id' => $supplierRule,
-            'invoice_number' => ['nullable', 'string', 'max:255', 'unique:purchases,invoice_number'],
+            'invoice_number' => ['nullable', 'string', 'max:255'],
             'purchase_date' => ['required', 'date'],
             'due_date' => ['nullable', 'date', 'after_or_equal:purchase_date'],
             'notes' => ['nullable', 'string'],

@@ -8,6 +8,7 @@ use App\Enums\SaleStatus;
 use App\Enums\SaleTransactionType;
 use App\Exceptions\SaleException;
 use App\Models\Sale;
+use App\Models\Team;
 use App\Services\SaleService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -28,7 +29,12 @@ class MaterialUsageController extends Controller
     {
         abort_unless(Auth::user()?->hasPermission('material_usage', 'create'), Response::HTTP_FORBIDDEN);
 
-        return view('material-usages.create');
+        return view('material-usages.create', [
+            'teams' => Team::query()
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'name', 'code']),
+        ]);
     }
 
     public function store(Request $request, SaleService $saleService)
@@ -37,10 +43,11 @@ class MaterialUsageController extends Controller
 
         $validated = $request->validate([
             'usage_date' => ['required', 'date'],
+            'invoice_number' => ['nullable', 'string', 'max:255'],
             'purpose' => ['required', 'string', 'max:255'],
             'formula' => ['nullable', 'string', 'max:255'],
-            'project' => ['nullable', 'string', 'max:255'],
-            'requested_by' => ['nullable', 'string', 'max:255'],
+            'team_id' => ['required', 'exists:teams,id'],
+            'requested_by' => ['required', 'string', 'max:255'],
             'issued_by' => ['required', 'exists:users,id'],
             'notes' => ['nullable', 'string'],
             'status' => ['nullable', Rule::enum(SaleStatus::class)],
@@ -114,7 +121,7 @@ class MaterialUsageController extends Controller
         abort_unless($sale->transaction_type === SaleTransactionType::MATERIAL_USAGE, 404);
         abort_unless(Auth::user()?->hasPermission('material_usage', 'view'), Response::HTTP_FORBIDDEN);
 
-        $sale->load(['items.product.unit', 'items.saleItemBatches.batch', 'creator', 'issuer']);
+        $sale->load(['items.product.unit', 'items.saleItemBatches.batch', 'creator', 'issuer', 'team']);
 
         return view('sales.show', [
             'sale' => $sale,
@@ -132,7 +139,7 @@ class MaterialUsageController extends Controller
         abort_unless($sale->transaction_type === SaleTransactionType::MATERIAL_USAGE, 404);
         abort_unless(Auth::user()?->hasPermission('material_usage', 'view'), Response::HTTP_FORBIDDEN);
 
-        $sale->load(['items.product.unit', 'items.saleItemBatches.batch', 'creator', 'issuer']);
+        $sale->load(['items.product.unit', 'items.saleItemBatches.batch', 'creator', 'issuer', 'team']);
 
         return view('sales.print', [
             'sale' => $sale,

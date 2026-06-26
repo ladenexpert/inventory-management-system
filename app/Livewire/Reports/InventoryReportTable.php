@@ -3,9 +3,13 @@
 namespace App\Livewire\Reports;
 
 use App\Enums\BatchStatus;
+use App\Livewire\Concerns\BuildsBatchPowerGridSql;
+use App\Livewire\Concerns\HandlesPowerGridExportSorting;
 use App\Models\Batch;
 use App\Services\BatchPolicyService;
+use App\Support\RmpTerminology;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use PowerComponents\LivewirePowerGrid\Column;
 use PowerComponents\LivewirePowerGrid\Facades\Filter;
 use PowerComponents\LivewirePowerGrid\Facades\PowerGrid;
@@ -16,7 +20,12 @@ use PowerComponents\LivewirePowerGrid\Components\SetUp\Exportable;
 
 final class InventoryReportTable extends PowerGridComponent
 {
-    use WithExport;
+    use BuildsBatchPowerGridSql;
+    use HandlesPowerGridExportSorting;
+    use WithExport {
+        HandlesPowerGridExportSorting::prepareToExport insteadof WithExport;
+        WithExport::prepareToExport as protected powerGridPrepareToExport;
+    }
 
     public string $tableName = 'inventory-expiry-monitoring-table';
     public string $sortField = 'expiry_date';
@@ -64,8 +73,33 @@ final class InventoryReportTable extends PowerGridComponent
 
     public function datasource(): Builder
     {
+        $this->normalizePowerGridSortingState();
+
+        $nearExpiryDays = app(BatchPolicyService::class)->nearExpiryThresholdDays();
+
         return Batch::query()
-            ->with(['product.unit', 'product.supplier', 'purchase.supplier', 'storageLocationRecord'])
+            ->select([
+                'batches.*',
+                'products.name as product_name',
+                'products.sku as sku',
+                'products.item_code_ierp as item_code_ierp',
+                DB::raw($this->unitExpression() . ' as uom'),
+                DB::raw($this->physicalFormExpression() . ' as physical_form'),
+                DB::raw($this->supplierNameExpression() . ' as supplier_name'),
+                DB::raw($this->storageLocationExpression() . ' as storage_location_label'),
+                DB::raw($this->expiryDisplayExpression() . ' as expiry'),
+                DB::raw($this->daysRemainingSortExpression() . ' as days_remaining_sort'),
+                DB::raw($this->daysRemainingLabelExpression() . ' as days_remaining'),
+                DB::raw($this->batchStatusLabelExpression($nearExpiryDays) . ' as status'),
+                DB::raw($this->batchStatusSortExpression($nearExpiryDays) . ' as status_sort'),
+            ])
+            ->leftJoin('products', 'products.id', '=', 'batches.product_id')
+            ->leftJoin('units', 'units.id', '=', 'products.unit_id')
+            ->leftJoin('physical_forms', 'physical_forms.id', '=', 'products.physical_form_id')
+            ->leftJoin('purchases', 'purchases.id', '=', 'batches.purchase_id')
+            ->leftJoin('suppliers as purchase_suppliers', 'purchase_suppliers.id', '=', 'purchases.supplier_id')
+            ->leftJoin('suppliers as product_suppliers', 'product_suppliers.id', '=', 'products.supplier_id')
+            ->leftJoin('storage_locations', 'storage_locations.id', '=', 'batches.storage_location_id')
             ->when($this->preset === 'expiry', fn (Builder $query) => $query->whereNotNull('expiry_date'));
     }
 
@@ -74,35 +108,21 @@ final class InventoryReportTable extends PowerGridComponent
         $policy = app(BatchPolicyService::class);
         $fields = PowerGrid::fields()
             ->add('id')
-            ->add('product_name', fn (Batch $model) => $model->product?->name ?? '-')
-            ->add('sku', fn (Batch $model) => $model->product?->sku_display ?? '-')
-            ->add('item_code_ierp', fn (Batch $model) => $model->product?->item_code_ierp_display ?? '-')
+            ->add('product_name', fn (Batch $model) => $model->product_name ?? $model->product?->name ?? '-')
+            ->add('sku', fn (Batch $model) => $model->sku ?? $model->product?->sku_display ?? '-')
+            ->add('item_code_ierp', fn (Batch $model) => $model->item_code_ierp ?? $model->product?->item_code_ierp_display ?? '-')
             ->add('batch_number')
-            ->add('uom', fn (Batch $model) => $model->product?->unit?->symbol ?? $model->product?->unit?->name ?? '-')
-            ->add('physical_form', fn (Batch $model) => $model->product?->physical_form_label ?? '-')
-            ->add('supplier_name', fn (Batch $model) => $model->purchase?->supplier?->name ?? $model->product?->supplier?->name ?? '-')
-            ->add('storage_location', fn (Batch $model) => $model->resolved_storage_location)
+            ->add('uom', fn (Batch $model) => $model->uom ?? $model->product?->unit?->symbol ?? $model->product?->unit?->name ?? '-')
+            ->add('physical_form', fn (Batch $model) => $model->physical_form ?? $model->product?->physical_form_label ?? '-')
+            ->add('supplier_name', fn (Batch $model) => $model->supplier_name ?? $model->purchase?->supplier?->name ?? $model->product?->supplier?->name ?? '-')
+            ->add('storage_location', fn (Batch $model) => $model->storage_location_label ?? $model->resolved_storage_location)
             ->add('quantity', fn (Batch $model) => (int) $model->available_quantity)
-            ->add('expiry', fn (Batch $model) => $model->expiry_date?->format('d/m/Y') ?? 'No expiry')
+            ->add('expiry', fn (Batch $model) => $model->expiry ?? $model->expiry_date?->format('d/m/Y') ?? 'No expiry')
             ->add('expiry_bucket', fn () => '')
-            ->add('status', fn (Batch $model) => $policy->getStatus($model)->label())
+            ->add('status', fn (Batch $model) => $model->status ?? $policy->getStatus($model)->label())
             ->add('status_value', fn (Batch $model) => $policy->getStatus($model)->value)
-            ->add('days_remaining_sort', function (Batch $model) {
-                if (!$model->expiry_date) {
-                    return 99999;
-                }
-
-                return now()->startOfDay()->diffInDays($model->expiry_date, false);
-            })
-            ->add('days_remaining', function (Batch $model) {
-                if (!$model->expiry_date) {
-                    return 'No expiry';
-                }
-
-                $days = now()->startOfDay()->diffInDays($model->expiry_date, false);
-
-                return $days >= 0 ? $days . ' days' : abs($days) . ' days overdue';
-            });
+            ->add('days_remaining_sort', fn (Batch $model) => (int) ($model->days_remaining_sort ?? ($model->expiry_date ? now()->startOfDay()->diffInDays($model->expiry_date, false) : 99999)))
+            ->add('days_remaining', fn (Batch $model) => $model->days_remaining ?? ($model->expiry_date ? (now()->startOfDay()->diffInDays($model->expiry_date, false) >= 0 ? now()->startOfDay()->diffInDays($model->expiry_date, false) . ' days' : abs(now()->startOfDay()->diffInDays($model->expiry_date, false)) . ' days overdue') : 'No expiry'));
 
         if ($this->canViewSensitiveValues()) {
             $fields->add('value', fn (Batch $model) => format_money($policy->inventoryValue($model)));
@@ -113,24 +133,38 @@ final class InventoryReportTable extends PowerGridComponent
 
     public function columns(): array
     {
+        $nearExpiryDays = app(BatchPolicyService::class)->nearExpiryThresholdDays();
+
         $columns = [
-            Column::make('SKU', 'sku')->searchable()->sortable(),
-            Column::make('Item Code IERP', 'item_code_ierp')->searchable()->sortable(),
-            Column::make('Material / Product Name', 'product_name')->searchable()->sortable(),
-            Column::make('Batch', 'batch_number')->searchable()->sortable(),
+            Column::make('SKU', 'sku', 'products.sku')->searchable()->sortable(),
+            Column::make(RmpTerminology::ITEM_CODE, 'item_code_ierp', 'products.item_code_ierp')->searchable()->sortable(),
+            Column::make(RmpTerminology::MATERIAL_NAME, 'product_name', 'products.name')->searchable()->sortable(),
+            Column::make('Batch No', 'batch_number', 'batches.batch_number')->searchable()->sortable(),
             Column::make('Unit', 'uom'),
-            Column::make('Physical Form', 'physical_form')->searchable()->sortable(),
-            Column::make('Supplier', 'supplier_name')->searchable(),
-            Column::make('Storage Location', 'storage_location')->searchable()->sortable(),
-            Column::make('Qty', 'quantity', 'available_quantity')->sortable()->bodyAttribute('text-center'),
-            Column::make('Expiry', 'expiry', 'expiry_date')->sortable(),
-            Column::make('Days Remaining', 'days_remaining', 'days_remaining_sort')->sortable(),
-            Column::make('Status', 'status')->sortable(),
+            Column::make('Physical Form', 'physical_form')
+                ->searchableRaw('LOWER(' . $this->physicalFormExpression() . ') like ?')
+                ->sortUsing(fn (Builder $query, string $direction) => $query->orderByRaw($this->physicalFormExpression() . " {$direction}")),
+            Column::make('Supplier', 'supplier_name')
+                ->searchableRaw('LOWER(' . $this->supplierNameExpression() . ') like ?'),
+            Column::make(RmpTerminology::STORAGE_LOCATION, 'storage_location')
+                ->searchableRaw('LOWER(' . $this->storageLocationExpression() . ') like ?')
+                ->sortUsing(fn (Builder $query, string $direction) => $query->orderByRaw($this->storageLocationExpression() . " {$direction}")),
+            Column::make(RmpTerminology::STOCK_AVAILABLE, 'quantity', 'batches.available_quantity')
+                ->sortable()
+                ->sortUsing(fn (Builder $query, string $direction) => $query->orderBy('batches.available_quantity', $direction))
+                ->bodyAttribute('text-center'),
+            Column::make(RmpTerminology::EXPIRY_DATE, 'expiry', 'batches.expiry_date')->sortable(),
+            Column::make(RmpTerminology::DAYS_REMAINING, 'days_remaining', 'days_remaining_sort')
+                ->sortable()
+                ->sortUsing(fn (Builder $query, string $direction) => $query->orderByRaw($this->daysRemainingSortExpression() . " {$direction}")),
+            Column::make(RmpTerminology::STATUS, 'status', 'status_sort')
+                ->sortable()
+                ->sortUsing(fn (Builder $query, string $direction) => $query->orderByRaw($this->batchStatusSortExpression($nearExpiryDays) . " {$direction}")),
         ];
 
         if ($this->canViewSensitiveValues()) {
             array_splice($columns, 10, 0, [
-                Column::make('Value', 'value')->bodyAttribute('text-right'),
+                Column::make(RmpTerminology::INVENTORY_VALUE, 'value')->bodyAttribute('text-right'),
             ]);
         }
 
@@ -202,7 +236,7 @@ final class InventoryReportTable extends PowerGridComponent
     public function relationSearch(): array
     {
         return [
-            'product' => ['name', 'sku', 'item_code_ierp', 'physical_form'],
+            'product' => ['name', 'sku', 'item_code_ierp'],
         ];
     }
 
@@ -217,5 +251,22 @@ final class InventoryReportTable extends PowerGridComponent
     private function canExportReport(): bool
     {
         return auth()->user()?->hasPermission('reports', 'export') ?? false;
+    }
+
+    protected function legacyPowerGridSortFieldMap(): array
+    {
+        return [
+            'batch_number' => 'batches.batch_number',
+            'days_remaining' => 'days_remaining_sort',
+            'expiry' => 'batches.expiry_date',
+            'item_code_ierp' => 'products.item_code_ierp',
+            'material_name' => 'products.name',
+            'physical_form_label' => 'physical_form',
+            'product_name' => 'products.name',
+            'quantity' => 'batches.available_quantity',
+            'sku' => 'products.sku',
+            'status' => 'status_sort',
+            'storage_location_label' => 'storage_location',
+        ];
     }
 }

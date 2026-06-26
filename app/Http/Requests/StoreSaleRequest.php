@@ -30,6 +30,7 @@ class StoreSaleRequest extends FormRequest
             'customer_id' => ['nullable', 'exists:customers,id'],
             'sale_date' => ['required', 'date'],
             'usage_date' => ['nullable', 'date'],
+            'invoice_number' => ['nullable', 'string', 'max:255'],
             'payment_method' => ['required', Rule::enum(PaymentMethod::class)],
             'status' => ['nullable', Rule::enum(SaleStatus::class)],
             'purpose' => ['nullable', 'string', 'max:255'],

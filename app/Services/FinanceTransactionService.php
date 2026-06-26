@@ -25,6 +25,10 @@ class FinanceTransactionService
      */
     public function recordIncomeFromSale(Sale $sale): void
     {
+        if (!$sale->transaction_type?->createsFinanceIncome()) {
+            return;
+        }
+
         $category = $this->getOrCreateCategory('Product Sales', FinanceCategoryType::Income);
 
         FinanceTransaction::updateOrCreate(
@@ -37,7 +41,7 @@ class FinanceTransactionService
                 'transaction_date' => $sale->sale_date,
                 'finance_category_id' => $category->id,
                 'amount' => $sale->total,
-                'description' => 'Sale Inv: ' . $sale->invoice_number . ' - ' . ($sale->customer->name ?? 'Guest'),
+                'description' => 'Sale Txn: ' . $sale->display_transaction_number . ' - ' . ($sale->customer->name ?? 'Guest'),
                 'external_reference' => $sale->invoice_number,
                 'created_by' => $sale->created_by ?? Auth::id() ?? 1,
             ]
@@ -51,6 +55,10 @@ class FinanceTransactionService
      */
     public function recordExpenseFromPurchase(Purchase $purchase): void
     {
+        if ($purchase->isMaterialReceipt()) {
+            return;
+        }
+
         $category = $this->getOrCreateCategory('Product Purchases', FinanceCategoryType::Expense);
 
         FinanceTransaction::updateOrCreate(
@@ -63,7 +71,7 @@ class FinanceTransactionService
                 'transaction_date' => $purchase->purchase_date,
                 'finance_category_id' => $category->id,
                 'amount' => $purchase->total,
-                'description' => 'Purchase Inv: ' . $purchase->invoice_number . ' - ' . ($purchase->supplier->name ?? 'Unknown'),
+                'description' => 'Purchase Txn: ' . $purchase->display_transaction_number . ' - ' . ($purchase->supplier->name ?? 'Unknown'),
                 'external_reference' => $purchase->invoice_number,
                 'created_by' => $purchase->created_by ?? Auth::id() ?? 1,
             ]

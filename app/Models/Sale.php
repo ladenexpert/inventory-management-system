@@ -16,6 +16,7 @@ class Sale extends Model
 
     protected $fillable = [
         'invoice_number',
+        'transaction_code',
         'transaction_type',
         'customer_id',
         'created_by',
@@ -31,6 +32,7 @@ class Sale extends Model
         'payment_method',
         'purpose',
         'formula',
+        'team_id',
         'project',
         'requested_by',
         'issued_by',
@@ -49,6 +51,7 @@ class Sale extends Model
         'total' => 'integer',
         'cash_received' => 'integer',
         'change' => 'integer',
+        'team_id' => 'integer',
     ];
 
     public function items(): HasMany
@@ -74,5 +77,32 @@ class Sale extends Model
     public function issuer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'issued_by');
+    }
+
+    public function team(): BelongsTo
+    {
+        return $this->belongsTo(Team::class)->withTrashed();
+    }
+
+    public function getTransactionNumberAttribute(): ?string
+    {
+        return $this->transaction_code;
+    }
+
+    public function getDisplayTransactionNumberAttribute(): string
+    {
+        if ($this->transaction_number) {
+            return $this->transaction_number;
+        }
+
+        return match ($this->transaction_type) {
+            SaleTransactionType::MATERIAL_USAGE => 'MU-' . $this->id,
+            default => 'INV-' . $this->id,
+        };
+    }
+
+    public function getReferenceNumberAttribute(): ?string
+    {
+        return $this->invoice_number;
     }
 }

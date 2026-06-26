@@ -19,7 +19,7 @@ enum SaleTransactionType: string
     {
         return match ($this) {
             self::SALE => 'INV',
-            self::MATERIAL_USAGE => 'MUS',
+            self::MATERIAL_USAGE => 'MU',
         };
     }
 

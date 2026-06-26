@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Exception;
+use App\Models\PhysicalForm;
 use App\Models\Product;
 use App\Models\StorageLocation;
 use Illuminate\Support\Str;
@@ -15,6 +16,7 @@ class ProductService
     public function __construct(
         protected BatchService $batchService,
         protected AuditLogService $auditLogService,
+        protected InventoryAdjustmentService $inventoryAdjustmentService,
     ) {
     }
 
@@ -27,6 +29,9 @@ class ProductService
             try {
                 $sku = $data->sku ?? $this->generateUniqueSku();
 
+                $physicalFormCode = $this->resolvePhysicalFormCode($data);
+                $physicalFormId = $this->resolvePhysicalFormId($data, $physicalFormCode);
+
                 $product = Product::create([
                     'category_id' => $data->category_id,
                     'unit_id' => $data->unit_id,
@@ -34,7 +39,8 @@ class ProductService
                     'sku' => $sku,
                     'item_code_ierp' => $data->item_code_ierp,
                     'name' => $data->name,
-                    'physical_form' => $data->physical_form,
+                    'physical_form' => $physicalFormCode,
+                    'physical_form_id' => $physicalFormId,
                     'purchase_price' => $data->purchase_price,
                     'selling_price' => $data->selling_price,
                     'quantity' => 0,
@@ -85,6 +91,10 @@ class ProductService
             try {
                 $lockedProduct = Product::whereKey($product->id)->lockForUpdate()->firstOrFail();
                 $targetQuantity = $data->quantity;
+                $currentQuantity = $this->batchService->sumAvailableQuantity($lockedProduct);
+
+                $physicalFormCode = $this->resolvePhysicalFormCode($data);
+                $physicalFormId = $this->resolvePhysicalFormId($data, $physicalFormCode);
 
                 $lockedProduct->update([
                     'category_id' => $data->category_id,
@@ -93,7 +103,8 @@ class ProductService
                     'sku' => $data->sku ?? $lockedProduct->sku,
                     'item_code_ierp' => $data->item_code_ierp,
                     'name' => $data->name,
-                    'physical_form' => $data->physical_form,
+                    'physical_form' => $physicalFormCode,
+                    'physical_form_id' => $physicalFormId,
                     'purchase_price' => $data->purchase_price,
                     'selling_price' => $data->selling_price,
                     'min_stock' => $data->min_stock,
@@ -102,13 +113,34 @@ class ProductService
                     'notes' => $data->notes,
                 ]);
 
-                $this->batchService->withinStockMutationScope(function () use ($lockedProduct, $targetQuantity, $data) {
+                $adjustment = null;
+
+                if ($targetQuantity !== $currentQuantity) {
+                    $direction = $targetQuantity > $currentQuantity ? 'in' : 'out';
+                    $adjustment = $this->inventoryAdjustmentService->create([
+                        'adjustment_type' => 'manual_stock_adjustment',
+                        'direction' => $direction,
+                        'source' => 'product_form',
+                        'reference' => $lockedProduct->item_code_ierp ?: $lockedProduct->sku,
+                        'notes' => 'Stock adjusted from product form update.',
+                        'adjusted_by' => auth()->id(),
+                        'adjusted_at' => now(),
+                        'meta' => [
+                            'product_id' => $lockedProduct->id,
+                            'quantity_before' => $currentQuantity,
+                            'quantity_after' => $targetQuantity,
+                        ],
+                    ], 'ADJ');
+                }
+
+                $this->batchService->withinStockMutationScope(function () use ($lockedProduct, $targetQuantity, $data, $adjustment) {
                     $this->batchService->adjustProductQuantity(
                         product: $lockedProduct,
                         targetQuantity: $targetQuantity,
                         unitCost: $data->purchase_price,
                         sellingPrice: $data->selling_price,
-                        notes: 'Stock adjusted from product form update.'
+                        notes: 'Stock adjusted from product form update.',
+                        inventoryAdjustment: $adjustment ?? null,
                     );
                 });
 
@@ -151,5 +183,33 @@ class ProductService
         } while (Product::where('sku', $sku)->exists());
 
         return $sku;
+    }
+
+    private function resolvePhysicalFormCode(ProductData $data): ?string
+    {
+        if ($data->physical_form !== null) {
+            return $data->physical_form;
+        }
+
+        if ($data->physical_form_id === null) {
+            return null;
+        }
+
+        return PhysicalForm::withTrashed()->find($data->physical_form_id)?->code;
+    }
+
+    private function resolvePhysicalFormId(ProductData $data, ?string $physicalFormCode): ?int
+    {
+        if ($data->physical_form_id !== null) {
+            return $data->physical_form_id;
+        }
+
+        if ($physicalFormCode === null) {
+            return null;
+        }
+
+        return PhysicalForm::withTrashed()
+            ->where('code', $physicalFormCode)
+            ->value('id');
     }
 }

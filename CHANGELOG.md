@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.4.7-rni-access-management-master-data-and-traceability-hardening
+
+- preserved the existing role/module access architecture and extended it instead of introducing a parallel permission system
+- added `Physical Forms` as master data with seeded defaults, additive `products.physical_form_id`, backward-compatible legacy string retention, and master-data import support
+- added `Teams` as master data with additive `sales.team_id`, import support, navigation, and required usage-team selection for new RNI material usage transactions
+- hardened RNI material usage so new transactions now require both `Team` and `Requested By` while historical `project` data remains preserved for fallback display/reporting
+- introduced reusable `TransactionCodeService` and extended unique transaction-code generation to material receipts and inventory adjustments while preserving existing legacy numbering behavior
+- added additive `inventory_adjustments` traceability so manual stock adjustments and stock-take adjustments get unique codes without renumbering historical sales or purchases
+- linked inventory movement history to adjustment transaction codes and adjustment users for better traceability and future ERP audit/report use
+- added admin-only `Stock Take Import` preview/apply flow with strict item, batch, expiry, unit, and location validation plus per-row adjustment history
+- kept legacy modules, routes, batch uniqueness, FEFO behavior, finance visibility rules, and PowerGrid column visibility patterns intact
+- expanded regression coverage for physical-form master linkage, required team/requested-by usage validation, auto-generated material receipt references, adjustment traceability, stock-take authorization, and stock-take variance application
+- completed post-validation hardening for Batch Monitoring transaction routing, context-aware operation line exports, export integrity, and permission-safe export visibility
+- validated the final `TransactionContext` contract across `Opening Stock`, `MR`, `PO`, `MU`, `INV`, `ADJ`, `STK`, and unified Inventory Movement History reporting
+- confirmed the final row-grain rule: operations UI remains header-level while operations export is intentionally line-level for ERP/API readiness
+- confirmed Batch Monitoring transaction links are context-aware, fail safe for unsupported or missing sources, and do not expose unauthorized transaction detail links
+- confirmed finance policy remains unchanged: `PO` and `INV` stay finance-relevant, while `MR`, `MU`, `Opening Stock`, `ADJ`, and `STK` remain excluded from finance posting and revenue/payment flow
+- confirmed Opening Stock and Stock Take remain inventory-affecting but excluded from purchase, sales, and finance business reporting
+- validation evidence recorded: `composer validate` passed, `php artisan optimize:clear` passed, `php artisan migrate:fresh --seed` passed, `php artisan test` passed with `160 tests / 1080 assertions`
+- focused validation suites passed: `BatchTransactionResolverTest`, `OperationLineExportTest`, `TransactionContextFoundationTest`, `ReportFinancialVisibilityTest`, `BatchPowerGridConsistencyTest`, `ReportExportRegressionTest`, `RniRoleAccessTest`, `ProductOpeningStockImportTest`, and `V047HardeningTest`
+- owner browser/UAT passed and confirmed Batch Monitoring links, line-level operation exports, filtered/no-selected export behavior, empty export integrity, non-finance export privacy, and dashboard/finance/history spot checks
+- status: validated and ready for owner manual commit/push/tag
+
 ## v0.4.6-reports-interactive-view-and-trend-charts
 
 - cleaned up the `Reports` menu into `Inventory & Expiry Monitoring`, `Inventory Movement History`, `Usage Report`, `Inbound & Purchase Analysis`, `Sales Analysis`, and `Stock Movement Classification`

@@ -21,7 +21,7 @@
 
     <div class="py-4">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            <livewire:reports.usage-history-table />
+            <livewire:material-usages.material-usage-table />
         </div>
     </div>
 </x-app-layout>

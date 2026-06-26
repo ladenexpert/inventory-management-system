@@ -3,7 +3,6 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class UpdatePurchaseRequest extends FormRequest
 {
@@ -20,12 +19,7 @@ class UpdatePurchaseRequest extends FormRequest
 
         return [
             'supplier_id' => $supplierRule,
-            'invoice_number' => [
-                'nullable',
-                'string',
-                'max:255',
-                Rule::unique('purchases', 'invoice_number')->ignore($this->route('purchase'))
-            ],
+            'invoice_number' => ['nullable', 'string', 'max:255'],
             'purchase_date' => ['required', 'date'],
             'due_date' => ['nullable', 'date', 'after_or_equal:purchase_date'],
             'notes' => ['nullable', 'string'],

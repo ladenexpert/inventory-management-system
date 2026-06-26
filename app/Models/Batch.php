@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\BatchPolicyService;
+use App\Support\TransactionContext;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -93,6 +94,22 @@ class Batch extends Model
             }
 
             return $this->storage_location ?: '-';
+        });
+    }
+
+    protected function sourceLabel(): Attribute
+    {
+        return Attribute::get(function () {
+            $purchase = $this->relationLoaded('purchase')
+                ? $this->purchase
+                : ($this->purchase_id ? $this->purchase()->first() : null);
+
+            $transactionNumber = $purchase?->transaction_code
+                ?? $this->getAttribute('source_transaction_number')
+                ?? $this->getAttribute('source_transaction_code');
+            $entryContext = $purchase?->entry_context ?? $this->getAttribute('source_entry_context');
+
+            return TransactionContext::labelForBatchSource($this->source, $transactionNumber, $entryContext);
         });
     }
 }

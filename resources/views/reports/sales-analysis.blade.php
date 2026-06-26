@@ -3,7 +3,7 @@
         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
                 <h2 class="font-semibold text-xl text-foreground leading-tight">Sales Analysis</h2>
-                <p class="mt-1 text-sm text-muted-foreground">Commercial sales performance for the last 30 days.</p>
+                <p class="mt-1 text-sm text-muted-foreground">Legacy sales performance for the last 30 days. RNI material usage stays outside this analysis.</p>
             </div>
             <div class="flex flex-wrap gap-2">
                 <x-secondary-button :href="route('reports.sales-analysis.export', ['format' => 'xlsx'])">Export XLSX</x-secondary-button>

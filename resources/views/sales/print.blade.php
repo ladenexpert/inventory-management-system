@@ -7,7 +7,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ $isMaterialUsage ? 'Material Usage Slip' : 'Legacy Sales Invoice' }} #{{ $sale->invoice_number }}</title>
+    <title>{{ $isMaterialUsage ? 'Material Usage Slip' : 'Legacy Sales Invoice' }} #{{ $sale->display_transaction_number }}</title>
     <style>
         @page {
             size: A4;
@@ -139,7 +139,8 @@
 
             <div class="meta">
                 <p><strong>Document</strong>: {{ $isMaterialUsage ? 'Material Usage Slip' : 'Legacy Sales Invoice' }}</p>
-                <p><strong>Number</strong>: {{ $sale->invoice_number }}</p>
+                <p><strong>Transaction Number</strong>: {{ $sale->display_transaction_number }}</p>
+                <p><strong>Reference</strong>: {{ $sale->reference_number ?? '-' }}</p>
                 <p><strong>Date</strong>: {{ optional($sale->usage_date ?? $sale->sale_date)?->format('d M Y') }}</p>
                 <p><strong>Status</strong>: {{ $sale->status->label() }}</p>
                 <p><strong>{{ $isMaterialUsage ? 'Issued By' : 'Customer' }}</strong>:
@@ -154,7 +155,7 @@
                 <p>{{ $isMaterialUsage ? ($sale->purpose ?? '-') : strtoupper($sale->payment_method->value) }}</p>
                 @if($isMaterialUsage)
                     <p class="muted">Formula: {{ $sale->formula ?? '-' }}</p>
-                    <p class="muted">Project: {{ $sale->project ?? '-' }}</p>
+                    <p class="muted">Team: {{ $sale->team?->name ?? $sale->project ?? '-' }}</p>
                 @else
                     <p class="muted">Issued by {{ $sale->issuer->name ?? $sale->creator->name ?? '-' }}</p>
                 @endif
@@ -240,7 +241,7 @@
             <div>
                 @if($isMaterialUsage)
                     <p><strong>Requested By:</strong> {{ $sale->requested_by ?? '-' }}</p>
-                    <p><strong>Project:</strong> {{ $sale->project ?? '-' }}</p>
+                    <p><strong>Team:</strong> {{ $sale->team?->name ?? $sale->project ?? '-' }}</p>
                 @else
                     <p><strong>Customer:</strong> {{ $sale->customer->name ?? 'Guest' }}</p>
                     <p><strong>Payment:</strong> {{ strtoupper($sale->payment_method->value) }}</p>

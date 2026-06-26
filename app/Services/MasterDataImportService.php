@@ -4,16 +4,21 @@ namespace App\Services;
 
 use App\DTOs\CategoryData;
 use App\DTOs\CustomerData;
+use App\DTOs\PhysicalFormData;
 use App\DTOs\ProductData;
 use App\DTOs\StorageLocationData;
 use App\DTOs\SupplierData;
+use App\DTOs\TeamData;
 use App\DTOs\UnitData;
 use App\Models\Category;
 use App\Models\Customer;
+use App\Models\PhysicalForm;
 use App\Models\Product;
 use App\Models\StorageLocation;
 use App\Models\Supplier;
+use App\Models\Team;
 use App\Models\Unit;
+use App\Support\RmpTerminology;
 use DateTimeInterface;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -31,6 +36,8 @@ class MasterDataImportService
         protected SupplierService $supplierService,
         protected CustomerService $customerService,
         protected StorageLocationService $storageLocationService,
+        protected PhysicalFormService $physicalFormService,
+        protected TeamService $teamService,
     ) {
     }
 
@@ -40,6 +47,12 @@ class MasterDataImportService
             'materials' => [
                 'label' => 'Materials',
                 'headers' => ['sku', 'item_code_ierp', 'name', 'category', 'unit', 'physical_form', 'supplier', 'purchase_price', 'selling_price', 'min_stock', 'is_active', 'description', 'notes'],
+                'template_headers' => ['SKU', RmpTerminology::ITEM_CODE, RmpTerminology::MATERIAL_NAME, 'Category', RmpTerminology::UNIT, RmpTerminology::PHYSICAL_FORM, 'Supplier', 'Purchase Price', 'Selling Price', 'Min Stock', RmpTerminology::STATUS, 'Description', RmpTerminology::NOTES],
+                'header_aliases' => [
+                    'item_code_ierp' => ['item_code', 'Item Code IERP'],
+                    'name' => ['product_name'],
+                    'is_active' => ['active'],
+                ],
                 'sample_rows' => [[
                     'RM-0001',
                     'IERP-RM-0001',
@@ -59,6 +72,7 @@ class MasterDataImportService
             'categories' => [
                 'label' => 'Categories',
                 'headers' => ['name', 'slug', 'description'],
+                'template_headers' => ['Name', 'Slug', 'Description'],
                 'sample_rows' => [[
                     'Excipients',
                     'excipients',
@@ -68,6 +82,7 @@ class MasterDataImportService
             'units' => [
                 'label' => 'Units',
                 'headers' => ['name', 'symbol'],
+                'template_headers' => ['Name', 'Symbol'],
                 'sample_rows' => [[
                     'Kilogram',
                     'KG',
@@ -76,6 +91,7 @@ class MasterDataImportService
             'suppliers' => [
                 'label' => 'Suppliers',
                 'headers' => ['name', 'contact_person', 'email', 'phone', 'address', 'notes'],
+                'template_headers' => ['Supplier Name', 'Contact Person', 'Email', 'Phone', 'Address', RmpTerminology::NOTES],
                 'sample_rows' => [[
                     'PT Sample Supplier',
                     'Nina',
@@ -88,6 +104,7 @@ class MasterDataImportService
             'customers' => [
                 'label' => 'Customers',
                 'headers' => ['name', 'email', 'phone', 'address', 'notes'],
+                'template_headers' => ['Customer Name', 'Email', 'Phone', 'Address', RmpTerminology::NOTES],
                 'sample_rows' => [[
                     'Apotek Sehat',
                     'buyer@example.com',
@@ -99,12 +116,35 @@ class MasterDataImportService
             'storage-locations' => [
                 'label' => 'Storage Locations',
                 'headers' => ['code', 'name', 'type', 'parent', 'description', 'is_active'],
+                'template_headers' => ['Storage Location Code', 'Storage Location Name', 'Type', 'Parent', 'Description', RmpTerminology::STATUS],
                 'sample_rows' => [[
                     'RACK-A1',
                     'Rack A1',
                     'rack',
                     '',
                     'Primary raw material rack',
+                    '1',
+                ]],
+            ],
+            'physical-forms' => [
+                'label' => 'Physical Forms',
+                'headers' => ['code', 'name', 'description', 'is_active'],
+                'template_headers' => ['Physical Form Code', 'Physical Form Name', 'Description', RmpTerminology::STATUS],
+                'sample_rows' => [[
+                    'powder',
+                    'Powder',
+                    'Default powder physical form',
+                    '1',
+                ]],
+            ],
+            'teams' => [
+                'label' => 'Teams',
+                'headers' => ['code', 'name', 'description', 'is_active'],
+                'template_headers' => ['Team Code', 'Team Name', 'Description', RmpTerminology::STATUS],
+                'sample_rows' => [[
+                    'RND',
+                    'R&D',
+                    'Research and development team',
                     '1',
                 ]],
             ],
@@ -135,7 +175,7 @@ class MasterDataImportService
 
         $writer = new Writer();
         $writer->openToFile($filePath);
-        $writer->addRow(Row::fromValues($definition['headers']));
+        $writer->addRow(Row::fromValues($definition['template_headers'] ?? $definition['headers']));
 
         foreach ($definition['sample_rows'] as $row) {
             $writer->addRow(Row::fromValues($row));
@@ -166,7 +206,7 @@ class MasterDataImportService
                     $cells = $row->toArray();
 
                     if ($headerMap === null) {
-                        $headerMap = $this->buildHeaderMap($definition['headers'], $cells);
+                        $headerMap = $this->buildHeaderMap($definition, $cells);
                         continue;
                     }
 
@@ -221,13 +261,15 @@ class MasterDataImportService
             'suppliers' => $this->persistSupplier($row),
             'customers' => $this->persistCustomer($row),
             'storage-locations' => $this->persistStorageLocation($row),
+            'physical-forms' => $this->persistPhysicalForm($row),
+            'teams' => $this->persistTeam($row),
             default => throw new RuntimeException("Unsupported import resource '{$resource}'."),
         };
     }
 
     protected function persistMaterial(array $row): void
     {
-        $name = $this->requireString($row['name'] ?? null, 'Material name is required.');
+        $name = $this->requireString($row['name'] ?? null, RmpTerminology::MATERIAL_NAME . ' is required.');
         $sku = $this->cleanString($row['sku'] ?? null);
         $itemCodeIerp = $this->cleanString($row['item_code_ierp'] ?? null);
 
@@ -236,7 +278,7 @@ class MasterDataImportService
         }
 
         if ($itemCodeIerp && Product::where('item_code_ierp', $itemCodeIerp)->exists()) {
-            throw new RuntimeException("Item Code IERP '{$itemCodeIerp}' is already registered.");
+            throw new RuntimeException(RmpTerminology::ITEM_CODE . " '{$itemCodeIerp}' is already registered.");
         }
 
         if (Product::where('name', $name)->exists()) {
@@ -346,8 +388,44 @@ class MasterDataImportService
         ]));
     }
 
-    protected function buildHeaderMap(array $expectedHeaders, array $headerRow): array
+    protected function persistPhysicalForm(array $row): void
     {
+        $code = Str::lower($this->requireString($row['code'] ?? null, 'Physical form code is required.'));
+        $name = $this->requireString($row['name'] ?? null, 'Physical form name is required.');
+
+        if (PhysicalForm::where('code', $code)->exists() || PhysicalForm::where('name', $name)->exists()) {
+            throw new RuntimeException("Physical form '{$name}' already exists.");
+        }
+
+        $this->physicalFormService->createPhysicalForm(PhysicalFormData::fromArray([
+            'code' => $code,
+            'name' => $name,
+            'description' => $this->cleanString($row['description'] ?? null),
+            'is_active' => $this->parseBoolean($row['is_active'] ?? null),
+        ]));
+    }
+
+    protected function persistTeam(array $row): void
+    {
+        $code = Str::upper($this->requireString($row['code'] ?? null, 'Team code is required.'));
+        $name = $this->requireString($row['name'] ?? null, 'Team name is required.');
+
+        if (Team::where('code', $code)->exists() || Team::where('name', $name)->exists()) {
+            throw new RuntimeException("Team '{$name}' already exists.");
+        }
+
+        $this->teamService->createTeam(TeamData::fromArray([
+            'code' => $code,
+            'name' => $name,
+            'description' => $this->cleanString($row['description'] ?? null),
+            'is_active' => $this->parseBoolean($row['is_active'] ?? null),
+        ]));
+    }
+
+    protected function buildHeaderMap(array $definition, array $headerRow): array
+    {
+        $expectedHeaders = $definition['headers'];
+        $templateHeaders = $definition['template_headers'] ?? $expectedHeaders;
         $normalizedHeaders = [];
 
         foreach ($headerRow as $index => $headerCell) {
@@ -359,16 +437,28 @@ class MasterDataImportService
         }
 
         $headerMap = [];
+        $headerLabels = [];
 
-        foreach ($expectedHeaders as $header) {
-            $normalizedHeader = $this->normalizeHeader($header);
+        foreach ($expectedHeaders as $index => $header) {
+            $label = $templateHeaders[$index] ?? $header;
+            $headerLabels[$header] = $label;
+            $aliases = array_merge(
+                [$header, $label],
+                $definition['header_aliases'][$header] ?? [],
+            );
 
-            if (array_key_exists($normalizedHeader, $normalizedHeaders)) {
-                $headerMap[$header] = $normalizedHeaders[$normalizedHeader];
+            foreach (array_unique(array_map([$this, 'normalizeHeader'], $aliases)) as $normalizedAlias) {
+                if (array_key_exists($normalizedAlias, $normalizedHeaders)) {
+                    $headerMap[$header] = $normalizedHeaders[$normalizedAlias];
+                    break;
+                }
             }
         }
 
-        $missingHeaders = array_values(array_filter($expectedHeaders, fn (string $header) => !array_key_exists($header, $headerMap)));
+        $missingHeaders = array_values(array_map(
+            fn (string $header) => $headerLabels[$header] ?? $header,
+            array_filter($expectedHeaders, fn (string $header) => !array_key_exists($header, $headerMap))
+        ));
 
         if (!empty($missingHeaders)) {
             throw new RuntimeException('Template is invalid. Missing headers: ' . implode(', ', $missingHeaders));
@@ -497,11 +587,19 @@ class MasterDataImportService
             ->replace([' ', '-'], '_')
             ->toString();
 
-        if (!array_key_exists($normalized, Product::physicalFormOptions())) {
+        $options = collect(Product::physicalFormOptions());
+
+        if ($options->has($normalized)) {
+            return $normalized;
+        }
+
+        $matchedCode = $options->search(fn (string $label) => Str::lower($label) === Str::lower($raw));
+
+        if ($matchedCode === false) {
             throw new RuntimeException("Physical form '{$raw}' is invalid.");
         }
 
-        return $normalized;
+        return (string) $matchedCode;
     }
 
     protected function parseInteger(mixed $value, string $errorMessage, bool $required): ?int
@@ -623,11 +721,6 @@ class MasterDataImportService
 
     protected function normalizeHeader(string $header): string
     {
-        return Str::of($header)
-            ->lower()
-            ->replace([' ', '-'], '_')
-            ->replaceMatches('/[^a-z0-9_]/', '')
-            ->trim('_')
-            ->toString();
+        return RmpTerminology::normalizeHeader($header);
     }
 }

@@ -115,7 +115,8 @@ class DashboardBatchAlertTest extends TestCase
         ]);
 
         $usage = Sale::create([
-            'invoice_number' => 'MUS.260618.0002',
+            'transaction_code' => 'MU.260618.0002',
+            'invoice_number' => 'REQ-260618-0002',
             'transaction_type' => SaleTransactionType::MATERIAL_USAGE,
             'created_by' => $user->id,
             'issued_by' => $user->id,
@@ -159,6 +160,6 @@ class DashboardBatchAlertTest extends TestCase
         $this->assertSame(1, $overview['near_expiry']);
         $this->assertSame(1, $overview['zero_cost_batch']);
         $this->assertSame('Compression test', $recentUsage[0]['purpose']);
-        $this->assertSame('MUS.260618.0002', $recentUsage[0]['usage_number']);
+        $this->assertSame('MU.260618.0002', $recentUsage[0]['usage_number']);
     }
 }

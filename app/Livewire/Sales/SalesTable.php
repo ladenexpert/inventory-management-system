@@ -6,8 +6,12 @@ use Carbon\Carbon;
 use App\Models\Sale;
 use App\Enums\SaleStatus;
 use App\Enums\SaleTransactionType;
+use App\Livewire\Concerns\AuthorizesComponentPermissions;
+use App\Services\OperationLineExportService;
 use App\Services\SaleService;
 use App\Exceptions\SaleException;
+use App\Support\RmpTerminology;
+use App\Support\TransactionContext;
 use Illuminate\Database\Eloquent\Builder;
 use PowerComponents\LivewirePowerGrid\Button;
 use PowerComponents\LivewirePowerGrid\Column;
@@ -20,7 +24,11 @@ use PowerComponents\LivewirePowerGrid\Components\SetUp\Exportable;
 
 final class SalesTable extends PowerGridComponent
 {
-    use WithExport;
+    use WithExport {
+        exportToCsv as protected powerGridExportToCsv;
+        exportToXLS as protected powerGridExportToXLS;
+    }
+    use AuthorizesComponentPermissions;
 
     public string $tableName = 'sales-table';
     public string $sortField = 'created_at';
@@ -35,10 +43,7 @@ final class SalesTable extends PowerGridComponent
     {
         $this->showCheckBox();
 
-        return [
-            PowerGrid::exportable('sales_export_' . now()->format('Y_m_d'))
-                ->type(Exportable::TYPE_XLS, Exportable::TYPE_CSV),
-
+        $setUp = [
             PowerGrid::header()
                 ->showSearchInput(),
 
@@ -46,12 +51,25 @@ final class SalesTable extends PowerGridComponent
                 ->showPerPage()
                 ->showRecordCount(),
         ];
+
+        if ($this->canExportLegacySales()) {
+            array_unshift(
+                $setUp,
+                PowerGrid::exportable(
+                    TransactionContext::definition(TransactionContext::LEGACY_SALE)['export_prefix'] . '_' . now()->format('Y_m_d')
+                )->type(Exportable::TYPE_XLS, Exportable::TYPE_CSV)
+            );
+        }
+
+        return $setUp;
     }
 
     public function datasource(): Builder
     {
-        return Sale::query()
-            ->where('transaction_type', SaleTransactionType::SALE->value)
+        return TransactionContext::applySaleContext(
+            Sale::query(),
+            TransactionContext::LEGACY_SALE,
+        )
             ->with(['customer', 'creator', 'items.product.unit']);
     }
 
@@ -59,7 +77,8 @@ final class SalesTable extends PowerGridComponent
     {
         return PowerGrid::fields()
             ->add('id')
-            ->add('invoice_number', fn(Sale $model) => $model->invoice_number ?: '-')
+            ->add('transaction_number', fn(Sale $model) => $model->display_transaction_number)
+            ->add('reference_number', fn(Sale $model) => $model->reference_number ?: '-')
             ->add('customer_name', fn(Sale $model) => $model->customer ? $model->customer->name : 'Guest')
             ->add('sku_list', function (Sale $model) {
                 $skus = $model->items
@@ -90,9 +109,7 @@ final class SalesTable extends PowerGridComponent
             })
             ->add('sale_date_formatted', fn(Sale $model) => Carbon::parse($model->sale_date)->format('d/m/Y'))
             ->add('total_formatted', fn(Sale $model) => format_money($model->total))
-            ->add('status_badge', function(Sale $model) {
-                return view('components.status-badge', ['status' => $model->status])->render();
-            })
+            ->add('status_label', fn(Sale $model) => $model->status->label())
             ->add('date_period', fn() => '')
             ->add('creator_name', fn(Sale $model) => $model->creator ? $model->creator->name : '-')
             ->add('created_at');
@@ -105,7 +122,11 @@ final class SalesTable extends PowerGridComponent
 
             Column::make('ID', 'id')->hidden(),
 
-            Column::make('Invoice', 'invoice_number')
+            Column::make(RmpTerminology::TRANSACTION_NUMBER, 'transaction_number', 'transaction_code')
+                ->searchable()
+                ->sortable(),
+
+            Column::make(RmpTerminology::REFERENCE_NUMBER, 'reference_number', 'invoice_number')
                 ->searchable()
                 ->sortable(),
 
@@ -115,9 +136,9 @@ final class SalesTable extends PowerGridComponent
 
             Column::make('SKU', 'sku_list'),
 
-            Column::make('Item Code IERP', 'item_codes'),
+            Column::make(RmpTerminology::ITEM_CODE, 'item_codes'),
 
-            Column::make('UOM', 'uom_list'),
+            Column::make(RmpTerminology::UNIT, 'uom_list'),
 
             Column::make('Created By', 'creator_name', 'created_by')
                 ->sortable(),
@@ -133,7 +154,7 @@ final class SalesTable extends PowerGridComponent
                 ->headerAttribute('text-right')
                 ->bodyAttribute('text-right'),
 
-            Column::make('Status', 'status_badge', 'status')
+            Column::make('Status', 'status_label', 'status')
                 ->sortable()
                 ->headerAttribute('text-center')
                 ->bodyAttribute('text-center'),
@@ -240,7 +261,7 @@ final class SalesTable extends PowerGridComponent
                     'method' => 'delete',
                     'params' => ['rowId' => $row->id],
                     'title' => 'Delete Sale?',
-                    'description' => "Are you sure you want to PERMANENTLY DELETE invoice '{$row->invoice_number}'? This action cannot be undone.",
+                    'description' => "Are you sure you want to permanently delete transaction '{$row->display_transaction_number}'? This action cannot be undone.",
                 ])
                 ->tooltip('Delete Sale')
                 ->can(fn($row) => $row->status === SaleStatus::CANCELLED),
@@ -261,5 +282,24 @@ final class SalesTable extends PowerGridComponent
                 $this->dispatch('toast', message: 'Error: ' . $e->getMessage(), type: 'error');
             }
         }
+    }
+
+    public function exportToXLS(bool $selected = false): \Symfony\Component\HttpFoundation\BinaryFileResponse|bool
+    {
+        $this->authorizePermission('legacy_sales', 'export');
+
+        return app(OperationLineExportService::class)->download($this, TransactionContext::LEGACY_SALE, 'xlsx', $selected);
+    }
+
+    public function exportToCsv(bool $selected = false): \Symfony\Component\HttpFoundation\BinaryFileResponse|bool
+    {
+        $this->authorizePermission('legacy_sales', 'export');
+
+        return app(OperationLineExportService::class)->download($this, TransactionContext::LEGACY_SALE, 'csv', $selected);
+    }
+
+    private function canExportLegacySales(): bool
+    {
+        return $this->hasPermission('legacy_sales', 'export');
     }
 }

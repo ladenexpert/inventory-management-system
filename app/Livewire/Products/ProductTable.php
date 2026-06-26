@@ -4,6 +4,7 @@ namespace App\Livewire\Products;
 
 use App\Livewire\Concerns\AuthorizesComponentPermissions;
 use App\Models\Product;
+use App\Support\RmpTerminology;
 use App\Services\ProductService;
 use App\Exceptions\ProductException;
 use Illuminate\Database\Eloquent\Builder;
@@ -133,7 +134,7 @@ final class ProductTable extends PowerGridComponent
             Column::make('SKU', 'sku')
                 ->searchable(),
 
-            Column::make('Item Code IERP', 'item_code_ierp')
+            Column::make(RmpTerminology::ITEM_CODE, 'item_code_ierp')
                 ->sortable()
                 ->searchable(),
 

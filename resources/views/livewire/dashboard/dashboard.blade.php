@@ -73,7 +73,7 @@
                                 <tr class="border-b">
                                     <td class="px-4 py-3">
                                         <div class="font-medium">{{ $receipt['receipt_number'] }}</div>
-                                        <div class="text-xs text-muted-foreground">{{ $receipt['purchase_date'] }} | {{ str($receipt['entry_context'])->headline() }}</div>
+                                        <div class="text-xs text-muted-foreground">{{ $receipt['purchase_date'] }} | {{ $receipt['context_label'] ?? str($receipt['entry_context'])->headline() }}</div>
                                     </td>
                                     <td class="px-4 py-3">{{ $receipt['supplier_name'] }}</td>
                                     <td class="px-4 py-3 text-right">{{ $receipt['line_count'] }}</td>
@@ -124,7 +124,7 @@
                         <div>
                             <p class="text-sm font-medium">{{ $usage['usage_number'] }}</p>
                             <p class="text-xs text-muted-foreground">{{ $usage['item_codes'] ?: '-' }}</p>
-                            <p class="text-xs text-muted-foreground">{{ $usage['purpose'] }} | Qty {{ $usage['total_qty'] }}</p>
+                            <p class="text-xs text-muted-foreground">{{ $usage['purpose'] }} | {{ $usage['team'] ?? '-' }} | Qty {{ $usage['total_qty'] }}</p>
                         </div>
                     @empty
                         <p class="text-sm text-muted-foreground">No usage history yet.</p>
@@ -208,9 +208,9 @@
                 <p class="mt-1 text-xs text-muted-foreground">Units issued or sold in the last 30 days</p>
             </div>
             <div class="rounded-xl border bg-card p-4 shadow-sm">
-                <p class="text-sm font-medium">Purchase / Sales</p>
+                <p class="text-sm font-medium">Legacy Purchase / Sales</p>
                 <p class="mt-2 text-2xl font-bold">{{ format_money($businessStats['purchase_total'] ?? 0) }}</p>
-                <p class="mt-1 text-xs text-muted-foreground">Purchases vs {{ format_money($businessStats['sales_total'] ?? 0) }} sales</p>
+                <p class="mt-1 text-xs text-muted-foreground">Legacy purchases vs {{ format_money($businessStats['sales_total'] ?? 0) }} legacy sales</p>
             </div>
             <div class="rounded-xl border bg-card p-4 shadow-sm">
                 <p class="text-sm font-medium">Material Consumption</p>

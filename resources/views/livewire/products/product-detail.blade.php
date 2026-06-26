@@ -139,7 +139,7 @@
                                         @if($canViewSensitiveValues)
                                             <td class="px-3 py-2 text-right text-gray-700">@money($batch->unit_cost)</td>
                                         @endif
-                                        <td class="px-3 py-2 text-gray-500">{{ str($batch->source)->headline() }}</td>
+                                        <td class="px-3 py-2 text-gray-500">{{ $batch->source_label }}</td>
                                     </tr>
                                 @empty
                                     <tr>

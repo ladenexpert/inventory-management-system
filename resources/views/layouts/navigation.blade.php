@@ -30,6 +30,7 @@
         if ($user->hasPermission('master_data', 'view')) {
             $masterDataItems[] = ['label' => 'Categories', 'href' => route('categories.index'), 'active' => request()->routeIs('categories.*')];
             $masterDataItems[] = ['label' => 'Units', 'href' => route('units.index'), 'active' => request()->routeIs('units.*')];
+            $masterDataItems[] = ['label' => 'Physical Forms', 'href' => route('physical-forms.index'), 'active' => request()->routeIs('physical-forms.*')];
         }
     }
     if ($user->hasPermission('master_data', 'view') && $modules['purchases']) {
@@ -40,6 +41,9 @@
     }
     if ($user->hasPermission('master_data', 'view') && $modules['materials']) {
         $masterDataItems[] = ['label' => 'Storage Locations', 'href' => route('storage-locations.index'), 'active' => request()->routeIs('storage-locations.*')];
+    }
+    if ($user->hasPermission('master_data', 'view') && $modules['rni']) {
+        $masterDataItems[] = ['label' => 'Teams', 'href' => route('teams.index'), 'active' => request()->routeIs('teams.*')];
     }
     if ($masterDataItems !== []) {
         $sections[] = ['label' => 'Master Data', 'icon' => 'master', 'items' => $masterDataItems];
@@ -54,6 +58,9 @@
     }
     if ($modules['rni'] && $user->hasPermission('material_usage', 'view')) {
         $operationsItems[] = ['label' => 'Material Usage', 'href' => route('material-usages.index'), 'active' => request()->routeIs('material-usages.*')];
+    }
+    if ($modules['rni'] && $user->hasPermission('stock_take', 'import')) {
+        $operationsItems[] = ['label' => 'Stock Take Import', 'href' => route('stock-take.index'), 'active' => request()->routeIs('stock-take.*')];
     }
     if ($user->hasPermission('legacy_sales', 'view') && $modules['sales']) {
         $operationsItems[] = ['label' => 'Legacy Sales', 'href' => route('sales.index'), 'active' => request()->routeIs('sales.*')];

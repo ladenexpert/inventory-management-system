@@ -3,7 +3,7 @@
         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
                 <h2 class="font-semibold text-xl text-foreground leading-tight">Inbound & Purchase Analysis</h2>
-                <p class="mt-1 text-sm text-muted-foreground">Operational inbound volume and, when allowed, purchase-value trends for the last 30 days.</p>
+                <p class="mt-1 text-sm text-muted-foreground">Inbound units cover received material receipts plus legacy purchases. Purchase-value widgets stay limited to legacy purchase context.</p>
             </div>
             <div class="flex flex-wrap gap-2">
                 <x-secondary-button :href="route('reports.purchase-analysis.export', ['format' => 'xlsx'])">Export XLSX</x-secondary-button>

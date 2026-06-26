@@ -12,6 +12,7 @@ use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\Sale;
 use App\Models\SaleItemBatch;
+use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -26,6 +27,7 @@ class StockSyncRegressionTest extends TestCase
     public function test_material_receipt_confirm_does_not_loop_stock_sync_queries(): void
     {
         $user = User::factory()->create();
+        $team = Team::factory()->create();
         $product = Product::factory()->create([
             'quantity' => 0,
             'purchase_price' => 4000,
@@ -121,6 +123,7 @@ class StockSyncRegressionTest extends TestCase
     public function test_material_usage_issue_does_not_loop_stock_sync_queries(): void
     {
         $user = User::factory()->create();
+        $team = Team::factory()->create();
         $product = Product::factory()->create([
             'name' => 'Citric Acid',
             'quantity' => 10,
@@ -139,10 +142,12 @@ class StockSyncRegressionTest extends TestCase
             'source' => 'purchase',
         ]);
 
-        $aggregateQueryCount = $this->countAggregateQueriesDuring(function () use ($user, $product, &$response) {
+        $aggregateQueryCount = $this->countAggregateQueriesDuring(function () use ($user, $product, $team, &$response) {
             $response = $this->actingAs($user)->postJson(route('material-usages.store'), [
                 'usage_date' => now()->toDateString(),
                 'purpose' => 'Loop regression',
+                'team_id' => $team->id,
+                'requested_by' => 'RNI Ops',
                 'issued_by' => $user->id,
                 'items' => [
                     [

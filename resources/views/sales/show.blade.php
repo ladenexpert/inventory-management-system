@@ -6,7 +6,8 @@
     $infoDescription = $isMaterialUsage
         ? 'Details of the issued raw material transaction.'
         : 'Details of the legacy sales transaction.';
-    $documentLabel = $isMaterialUsage ? 'Usage Number' : 'Invoice Number';
+    $documentLabel = 'Transaction Number';
+    $referenceLabel = $isMaterialUsage ? 'Reference' : 'Invoice Reference';
     $canViewUsageValue = !$isMaterialUsage || (($user?->canViewInventoryValue() ?? false) || ($user?->canAccessFinance() ?? false));
     $ownsMaterialUsage = $isMaterialUsage && $user && $sale->created_by === $user->id;
     $canCompleteUsage = !$isMaterialUsage || (($user?->hasPermission('material_usage', 'confirm') ?? false) && (!($user?->isRmDesk() ?? false) || $ownsMaterialUsage));
@@ -20,7 +21,7 @@
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-foreground leading-tight">
-                {{ __($pageTitle) }} #{{ $sale->invoice_number ?: $sale->id }}
+                {{ __($pageTitle) }} #{{ $sale->display_transaction_number }}
             </h2>
             <div class="flex items-center gap-2">
                 <x-secondary-button href="{{ route($indexRoute ?? 'sales.index') }}">
@@ -59,9 +60,12 @@
                         </x-detail-item>
                         @endif
 
-                        <!-- Invoice -->
-                        <x-detail-item :label="$documentLabel" :value="$sale->invoice_number ?? '-'">
+                        <x-detail-item :label="$documentLabel" :value="$sale->display_transaction_number">
                             <x-heroicon-o-document-text class="w-4 h-4 text-gray-400" />
+                        </x-detail-item>
+
+                        <x-detail-item :label="$referenceLabel" :value="$sale->reference_number ?? '-'">
+                            <x-heroicon-o-document-duplicate class="w-4 h-4 text-gray-400" />
                         </x-detail-item>
 
                         <!-- Sale Date -->
@@ -85,7 +89,7 @@
                             <x-heroicon-o-beaker class="w-4 h-4 text-gray-400" />
                         </x-detail-item>
 
-                        <x-detail-item label="Project" :value="$sale->project ?? '-'">
+                        <x-detail-item label="Team" :value="$sale->team?->name ?? $sale->project ?? '-'">
                             <x-heroicon-o-briefcase class="w-4 h-4 text-gray-400" />
                         </x-detail-item>
 

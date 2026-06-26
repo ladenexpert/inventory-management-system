@@ -10,6 +10,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use App\Services\ProductOpeningStockImportService;
+use App\Support\RmpTerminology;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ProductOpeningStockImportController extends Controller
@@ -66,23 +67,23 @@ class ProductOpeningStockImportController extends Controller
         $writer = new Writer();
         $writer->openToFile($filePath);
         $writer->addRow(Row::fromValues([
-            'sku',
-            'item_code_ierp',
-            'name',
-            'category',
-            'unit',
-            'physical_form',
-            'supplier',
-            'purchase_price',
-            'selling_price',
-            'opening_quantity',
-            'opening_batch_number',
-            'opening_expiry_date',
-            'storage_location',
-            'min_stock',
-            'is_active',
-            'description',
-            'notes',
+            'SKU',
+            RmpTerminology::ITEM_CODE,
+            RmpTerminology::MATERIAL_NAME,
+            'Category',
+            RmpTerminology::UNIT,
+            RmpTerminology::PHYSICAL_FORM,
+            'Supplier',
+            'Purchase Price',
+            'Selling Price',
+            'Opening Qty',
+            'Opening Batch No',
+            'Opening Expiry Date',
+            RmpTerminology::STORAGE_LOCATION,
+            'Min Stock',
+            RmpTerminology::STATUS,
+            'Description',
+            RmpTerminology::NOTES,
         ]));
         $writer->addRow(Row::fromValues([
             '# contoh',

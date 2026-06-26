@@ -63,13 +63,18 @@
                                             <button @click="toggleBatchMode(index)"
                                                 class="text-xs font-medium px-2 py-1 rounded"
                                                 :class="item.use_manual_batch ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-600'">
-                                                <span x-text="item.use_manual_batch ? 'Manual' : 'Auto FEFO'"></span>
+                                                <span x-text="item.use_manual_batch ? 'Manual Pick' : 'FEFO'"></span>
                                             </button>
                                             <div x-show="item.use_manual_batch && item.batch_select_open" class="mt-2 text-left">
                                                 <div class="text-xs text-gray-500 mb-1">Select batches:</div>
+                                                <div x-show="item.is_loading_batches" class="text-xs text-gray-500 mb-2">Loading available batches...</div>
+                                                <div x-show="item.batch_load_error" x-text="item.batch_load_error" class="text-xs text-red-600 mb-2"></div>
+                                                <div x-show="!item.is_loading_batches && !item.batch_load_error && item.available_batches.length === 0" class="text-xs text-amber-600 mb-2">
+                                                    No available batches found for this raw material.
+                                                </div>
                                                 <template x-for="(batch, batchIndex) in item.available_batches" :key="batch.id">
                                                     <div class="flex items-center justify-between text-xs p-2 rounded mb-1"
-                                                        :class="batch.can_be_sold ? 'bg-gray-50' : 'bg-red-50 border border-red-100'">
+                                                        :class="batch.can_be_consumed ? 'bg-gray-50' : 'bg-red-50 border border-red-100'">
                                                         <div>
                                                             <span x-text="batch.batch_number"></span>
                                                             <span class="ml-1 text-gray-500">
@@ -78,8 +83,11 @@
                                                             <span class="ml-1 text-gray-400">
                                                                 Avail: <span x-text="batch.available_quantity"></span>
                                                             </span>
+                                                            <span class="ml-1 text-gray-400">
+                                                                Loc: <span x-text="batch.storage_location_label || '-'"></span>
+                                                            </span>
                                                             <span class="ml-1"
-                                                                :class="batch.can_be_sold ? 'text-sky-600' : 'text-red-600'"
+                                                                :class="batch.can_be_consumed ? 'text-sky-600' : 'text-red-600'"
                                                                 x-text="batch.status_label"></span>
                                                         </div>
                                                         <input type="number"
@@ -87,7 +95,7 @@
                                                             min="0"
                                                             :max="batch.available_quantity"
                                                             class="w-16 text-center border-gray-300 rounded text-xs py-1 disabled:bg-gray-100 disabled:text-gray-400"
-                                                            :disabled="!batch.can_be_sold"
+                                                            :disabled="!batch.can_be_consumed"
                                                             @input="validateBatchQty(index, batchIndex)">
                                                     </div>
                                                     <div x-show="hasError(`items.${index}.batch_allocations.${batchIndex}.quantity`)" x-text="getError(`items.${index}.batch_allocations.${batchIndex}.quantity`)" class="text-xs text-red-600 mb-1"></div>
@@ -147,6 +155,12 @@
                         <div x-show="hasError('purpose')" x-text="getError('purpose')" class="text-xs text-red-600"></div>
                     </div>
 
+                    <div class="space-y-2">
+                        <label class="block text-xs font-bold text-gray-500 uppercase">Reference</label>
+                        <input type="text" x-model="form.invoice_number" class="block w-full rounded-md border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 text-sm" placeholder="Optional external reference">
+                        <div x-show="hasError('invoice_number')" x-text="getError('invoice_number')" class="text-xs text-red-600"></div>
+                    </div>
+
                     <div class="grid grid-cols-1 gap-4">
                         <div class="space-y-2">
                             <label class="block text-xs font-bold text-gray-500 uppercase">Formula</label>
@@ -155,14 +169,19 @@
                         </div>
 
                         <div class="space-y-2">
-                            <label class="block text-xs font-bold text-gray-500 uppercase">Project</label>
-                            <input type="text" x-model="form.project" class="block w-full rounded-md border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 text-sm" placeholder="Optional">
-                            <div x-show="hasError('project')" x-text="getError('project')" class="text-xs text-red-600"></div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase">Team</label>
+                            <select x-model="form.team_id" class="block w-full rounded-md border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 text-sm">
+                                <option value="">Select team</option>
+                                @foreach($teams as $team)
+                                    <option value="{{ $team->id }}">{{ $team->name }} ({{ $team->code }})</option>
+                                @endforeach
+                            </select>
+                            <div x-show="hasError('team_id')" x-text="getError('team_id')" class="text-xs text-red-600"></div>
                         </div>
 
                         <div class="space-y-2">
                             <label class="block text-xs font-bold text-gray-500 uppercase">Requested By</label>
-                            <input type="text" x-model="form.requested_by" class="block w-full rounded-md border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 text-sm" placeholder="Optional">
+                            <input type="text" x-model="form.requested_by" class="block w-full rounded-md border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 text-sm" placeholder="Required">
                             <div x-show="hasError('requested_by')" x-text="getError('requested_by')" class="text-xs text-red-600"></div>
                         </div>
 
@@ -189,11 +208,11 @@
                             <span class="font-semibold text-gray-900" x-text="totalQuantity"></span>
                         </div>
                         <div class="flex justify-between items-center text-sm">
-                            <span class="font-medium text-gray-600">Auto FEFO Lines</span>
+                            <span class="font-medium text-gray-600">FEFO Lines</span>
                             <span class="font-semibold text-gray-900" x-text="cart.filter(item => !item.use_manual_batch).length"></span>
                         </div>
                         <div class="flex justify-between items-center text-sm">
-                            <span class="font-medium text-gray-600">Manual Batch Lines</span>
+                            <span class="font-medium text-gray-600">Manual Pick Lines</span>
                             <span class="font-semibold text-gray-900" x-text="cart.filter(item => item.use_manual_batch).length"></span>
                         </div>
                     </div>
@@ -224,14 +243,19 @@
                     cart: [],
                     form: {
                         usage_date: @js(now()->format('Y-m-d')),
+                        invoice_number: '',
                         purpose: '',
                         formula: '',
-                        project: '',
+                        team_id: '',
                         requested_by: '',
                         issued_by: '{{ auth()->id() }}',
                         notes: ''
                     },
                     issuer: { id: '{{ auth()->id() }}', name: '{{ addslashes(auth()->user()->name) }}' },
+                    teamOptions: @js($teams->map(fn ($team) => [
+                        'id' => (string) $team->id,
+                        'label' => "{$team->name} ({$team->code})",
+                    ])->values()),
                     isSubmitting: false,
                     errors: {},
                     errorSummary: [],
@@ -245,6 +269,10 @@
 
                     get totalQuantity() {
                         return this.cart.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0);
+                    },
+
+                    selectedTeamLabel() {
+                        return this.teamOptions.find(team => team.id === String(this.form.team_id))?.label || '-';
                     },
 
                     hasError(field) {
@@ -334,7 +362,7 @@
                         });
                     },
 
-                    addProduct(product) {
+                    async addProduct(product) {
                         this.cart.push({
                             id: product.id,
                             name: product.name,
@@ -344,11 +372,15 @@
                             max_stock: parseInt(product.quantity || 0),
                             quantity: 1,
                             discount: 0,
-                            use_manual_batch: false,
-                            batch_select_open: false,
+                            use_manual_batch: true,
+                            batch_select_open: true,
+                            is_loading_batches: false,
+                            batch_load_error: '',
                             available_batches: [],
                             batch_allocations: []
                         });
+
+                        await this.loadBatchesForItem(this.cart.length - 1);
                     },
 
                     removeFromCart(index) {
@@ -367,28 +399,72 @@
                         }
                     },
 
-                    async toggleBatchMode(index) {
-                        const item = this.cart[index];
-                        item.use_manual_batch = !item.use_manual_batch;
-                        item.batch_select_open = item.use_manual_batch;
+                    buildBatchAllocations(batches, existingAllocations = []) {
+                        const existingMap = new Map(
+                            (existingAllocations || []).map(allocation => [allocation.batch_id, parseInt(allocation.quantity || 0)])
+                        );
 
-                        if (item.use_manual_batch && item.available_batches.length === 0) {
+                        return batches.map(batch => ({
+                            batch_id: batch.id,
+                            quantity: Math.min(existingMap.get(batch.id) || 0, batch.available_quantity)
+                        }));
+                    },
+
+                    async loadBatchesForItem(index) {
+                        const item = this.cart[index];
+
+                        if (!item) {
+                            return;
+                        }
+
+                        item.is_loading_batches = true;
+                        item.batch_load_error = '';
+
+                        try {
                             const response = await fetch('{{ route('ajax.batches.get') }}', {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
+                                    'Accept': 'application/json',
                                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                                 },
                                 body: JSON.stringify({ product_id: item.id })
                             });
 
                             const data = await response.json();
+
+                            if (!response.ok || data?.success === false) {
+                                throw new Error(data?.message || 'Failed to load available batches.');
+                            }
+
                             item.available_batches = data.data || [];
-                            item.batch_allocations = item.available_batches.map(batch => ({
-                                batch_id: batch.id,
-                                quantity: 0
-                            }));
+                            item.batch_allocations = this.buildBatchAllocations(item.available_batches, item.batch_allocations);
+
+                            if (item.available_batches.length === 0) {
+                                item.batch_load_error = 'No available batches found for this raw material.';
+                            }
+                        } catch (error) {
+                            item.available_batches = [];
+                            item.batch_allocations = [];
+                            item.batch_load_error = error?.message || 'Unable to load available batches.';
+                            this.$dispatch('toast', { message: item.batch_load_error, type: 'error' });
+                        } finally {
+                            item.is_loading_batches = false;
                         }
+                    },
+
+                    async toggleBatchMode(index) {
+                        const item = this.cart[index];
+                        item.use_manual_batch = !item.use_manual_batch;
+                        item.batch_select_open = item.use_manual_batch;
+
+                        if (item.use_manual_batch) {
+                            await this.loadBatchesForItem(index);
+                            return;
+                        }
+
+                        item.batch_load_error = '';
+                        item.batch_allocations = this.buildBatchAllocations(item.available_batches, []);
                     },
 
                     validateBatchQty(itemIndex, batchIndex) {
@@ -428,6 +504,16 @@
 
                         if (!this.form.purpose.trim()) {
                             this.$dispatch('toast', { message: 'Purpose is required.', type: 'error' });
+                            return;
+                        }
+
+                        if (!this.form.team_id) {
+                            this.$dispatch('toast', { message: 'Team is required.', type: 'error' });
+                            return;
+                        }
+
+                        if (!this.form.requested_by.trim()) {
+                            this.$dispatch('toast', { message: 'Requested by is required.', type: 'error' });
                             return;
                         }
 
@@ -472,9 +558,10 @@
 
                             const payload = {
                                 usage_date: this.form.usage_date,
+                                invoice_number: this.form.invoice_number,
                                 purpose: this.form.purpose,
                                 formula: this.form.formula,
-                                project: this.form.project,
+                                team_id: this.form.team_id,
                                 requested_by: this.form.requested_by,
                                 issued_by: this.form.issued_by,
                                 notes: this.form.notes,
@@ -524,9 +611,10 @@
                         this.clearErrors();
                         this.form = {
                             usage_date: @js(now()->format('Y-m-d')),
+                            invoice_number: '',
                             purpose: '',
                             formula: '',
-                            project: '',
+                            team_id: '',
                             requested_by: '',
                             issued_by: '{{ auth()->id() }}',
                             notes: ''
@@ -569,8 +657,10 @@
                         <span class="font-semibold text-right" x-text="form.formula || '-'"></span>
                     </div>
                     <div class="flex items-center justify-between">
-                        <span class="text-sm font-medium text-gray-500">Project</span>
-                        <span class="font-semibold text-right" x-text="form.project || '-'"></span>
+                        <span class="text-sm font-medium text-gray-500">Team</span>
+                        <span class="font-semibold text-right">
+                            <span x-text="selectedTeamLabel()"></span>
+                        </span>
                     </div>
                     <div class="flex items-center justify-between">
                         <span class="text-sm font-medium text-gray-500">Requested By</span>

@@ -35,15 +35,15 @@
             @endif
         </div>
 
-        <!-- Invoice (Optional) -->
+        <!-- Reference (Optional) -->
         <div class="space-y-2">
-            <x-input-label for="invoice_number" :value="$isMaterialReceipt ? __('Receipt Reference (Optional)') : __('Invoice Number (Optional)')" />
+            <x-input-label for="invoice_number" :value="$isMaterialReceipt ? __('Receipt Reference (Optional)') : __('Invoice Reference (Optional)')" />
             <x-text-input
                 id="invoice_number"
                 type="text"
                 name="invoice_number"
                 :value="old('invoice_number', $purchase->invoice_number ?? '')"
-                placeholder="Leave empty for drafts"
+                placeholder="Optional external reference"
                 class="block w-full"
             />
             <x-input-error :messages="$errors->get('invoice_number')" />

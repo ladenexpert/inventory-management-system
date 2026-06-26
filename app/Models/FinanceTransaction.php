@@ -50,8 +50,12 @@ class FinanceTransaction extends Model
     public function getSourceLabelAttribute(): string
     {
         return match ($this->reference_type) {
-            Sale::class => 'Legacy Sale / POS',
-            Purchase::class => 'Legacy Purchase',
+            Sale::class => $this->reference instanceof Sale && !$this->reference->transaction_type?->createsFinanceIncome()
+                ? 'Material Usage'
+                : 'Legacy Sale / POS',
+            Purchase::class => $this->reference instanceof Purchase && $this->reference->isMaterialReceipt()
+                ? 'Material Receipt'
+                : 'Legacy Purchase',
             default => 'Manual',
         };
     }
@@ -68,7 +72,7 @@ class FinanceTransaction extends Model
         }
 
         $label = $this->reference instanceof Sale ? 'Sale' : 'Purchase';
-        $number = $this->reference->invoice_number ?: ('#' . $this->reference->id);
+        $number = $this->reference->display_transaction_number ?: ('#' . $this->reference->id);
 
         return "{$label} {$number}";
     }

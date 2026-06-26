@@ -11,19 +11,25 @@ use App\Livewire\Customers\CustomerForm;
 use App\Livewire\Customers\CustomerTable;
 use App\Livewire\Products\ProductForm;
 use App\Livewire\Products\ProductTable;
+use App\Livewire\PhysicalForms\PhysicalFormForm;
+use App\Livewire\PhysicalForms\PhysicalFormTable;
 use App\Livewire\StorageLocations\StorageLocationForm;
 use App\Livewire\StorageLocations\StorageLocationTable;
 use App\Livewire\Suppliers\SupplierDetail;
 use App\Livewire\Suppliers\SupplierForm;
 use App\Livewire\Suppliers\SupplierTable;
+use App\Livewire\Teams\TeamForm;
+use App\Livewire\Teams\TeamTable;
 use App\Livewire\Units\UnitDetail;
 use App\Livewire\Units\UnitForm;
 use App\Livewire\Units\UnitTable;
 use App\Models\Category;
 use App\Models\Customer;
+use App\Models\PhysicalForm;
 use App\Models\Product;
 use App\Models\StorageLocation;
 use App\Models\Supplier;
+use App\Models\Team;
 use App\Models\Unit;
 use App\Models\User;
 use App\Services\RolePermissionService;
@@ -140,6 +146,14 @@ class MasterDataPermissionHardeningTest extends TestCase
         $supplier = Supplier::factory()->create();
         $customer = Customer::factory()->create();
         $location = StorageLocation::factory()->create();
+        $physicalForm = PhysicalForm::factory()->create([
+            'code' => 'custom_form',
+            'name' => 'Custom Form',
+        ]);
+        $team = Team::factory()->create([
+            'code' => 'TEAM-CUSTOM',
+            'name' => 'Custom Team',
+        ]);
         $product = Product::factory()->create();
 
         Livewire::actingAs($user);
@@ -173,6 +187,18 @@ class MasterDataPermissionHardeningTest extends TestCase
         Livewire::test(StorageLocationForm::class)->call('save')->assertStatus(403);
         Livewire::test(StorageLocationTable::class)->call('delete', $location->id)->assertStatus(403);
         Livewire::test(StorageLocationTable::class)->set('checkboxValues', [$location->id])->call('bulkDelete')->assertStatus(403);
+
+        Livewire::test(PhysicalFormForm::class)->call('create')->assertStatus(403);
+        Livewire::test(PhysicalFormForm::class)->call('edit', $physicalForm)->assertStatus(403);
+        Livewire::test(PhysicalFormForm::class)->call('save')->assertStatus(403);
+        Livewire::test(PhysicalFormTable::class)->call('delete', $physicalForm->id)->assertStatus(403);
+        Livewire::test(PhysicalFormTable::class)->set('checkboxValues', [$physicalForm->id])->call('bulkDelete')->assertStatus(403);
+
+        Livewire::test(TeamForm::class)->call('create')->assertStatus(403);
+        Livewire::test(TeamForm::class)->call('edit', $team)->assertStatus(403);
+        Livewire::test(TeamForm::class)->call('save')->assertStatus(403);
+        Livewire::test(TeamTable::class)->call('delete', $team->id)->assertStatus(403);
+        Livewire::test(TeamTable::class)->set('checkboxValues', [$team->id])->call('bulkDelete')->assertStatus(403);
 
         Livewire::test(ProductForm::class)->call('create')->assertStatus(403);
         Livewire::test(ProductForm::class)->call('edit', $product)->assertStatus(403);
@@ -273,6 +299,8 @@ class MasterDataPermissionHardeningTest extends TestCase
             ['route' => 'suppliers.index', 'title' => 'Suppliers', 'create_label' => 'Create Supplier'],
             ['route' => 'customers.index', 'title' => 'Customers', 'create_label' => 'Create Customer'],
             ['route' => 'storage-locations.index', 'title' => 'Storage Locations', 'create_label' => 'Create Location'],
+            ['route' => 'physical-forms.index', 'title' => 'Physical Forms', 'create_label' => 'Create Physical Form'],
+            ['route' => 'teams.index', 'title' => 'Teams', 'create_label' => 'Create Team'],
         ];
     }
 
@@ -285,6 +313,8 @@ class MasterDataPermissionHardeningTest extends TestCase
             'suppliers',
             'customers',
             'storage-locations',
+            'physical-forms',
+            'teams',
         ];
     }
 }

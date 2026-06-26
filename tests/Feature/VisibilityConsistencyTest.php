@@ -20,7 +20,9 @@ use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\SaleItemBatch;
 use App\Models\Setting;
+use App\Models\Team;
 use App\Models\User;
+use App\Support\RmpTerminology;
 use App\Services\DashboardStatsService;
 use App\Services\InventoryMovementHistoryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -80,6 +82,7 @@ class VisibilityConsistencyTest extends TestCase
     public function test_material_receipt_updates_dashboard_inventory_report_and_movement_history_immediately(): void
     {
         $user = User::factory()->create();
+        $team = Team::factory()->create();
         $product = Product::factory()->create([
             'sku' => 'RM-SYNC-001',
             'item_code_ierp' => 'IERP-RM-SYNC-001',
@@ -134,6 +137,7 @@ class VisibilityConsistencyTest extends TestCase
     public function test_material_usage_updates_dashboard_and_usage_analysis_immediately(): void
     {
         $user = User::factory()->create();
+        $team = Team::factory()->create();
         $product = Product::factory()->create([
             'sku' => 'RM-USAGE-001',
             'item_code_ierp' => 'IERP-RM-USAGE-001',
@@ -162,6 +166,8 @@ class VisibilityConsistencyTest extends TestCase
             ->postJson(route('material-usages.store'), [
                 'usage_date' => now()->toDateString(),
                 'purpose' => 'Immediate visibility',
+                'team_id' => $team->id,
+                'requested_by' => 'RNI Ops',
                 'issued_by' => $user->id,
                 'items' => [
                     [
@@ -179,10 +185,13 @@ class VisibilityConsistencyTest extends TestCase
         $this->assertSame(SaleTransactionType::MATERIAL_USAGE, $usage->transaction_type);
         $this->assertSame(0, FinanceTransaction::where('reference_type', Sale::class)->where('reference_id', $usage->id)->count());
         $this->assertSame(4, $service->getRniOverviewStats()['material_usage_this_month']);
+        $this->assertSame($team->name, $service->getRecentMaterialUsage(1)[0]['team']);
 
         $this->actingAs($user);
         Livewire::test(UsageHistoryTable::class)
-            ->assertSee($usage->invoice_number)
+            ->assertSee($usage->display_transaction_number)
+            ->assertSee('Team')
+            ->assertSee($team->name)
             ->assertSee('IERP-RM-USAGE-001')
             ->assertSee('USAGE-BATCH-001');
     }
@@ -190,6 +199,7 @@ class VisibilityConsistencyTest extends TestCase
     public function test_legacy_purchase_payment_and_legacy_sale_complete_refresh_finance_and_analysis(): void
     {
         $user = User::factory()->create();
+        $team = Team::factory()->create();
         $product = Product::factory()->create([
             'sku' => 'LEG-001',
             'item_code_ierp' => 'IERP-LEG-001',
@@ -332,6 +342,7 @@ class VisibilityConsistencyTest extends TestCase
     public function test_exports_and_usage_analysis_keep_sku_and_item_code_ierp_separate(): void
     {
         $user = User::factory()->create();
+        $team = Team::factory()->create();
         $product = Product::factory()->create([
             'sku' => 'SKU-EXPORT-001',
             'item_code_ierp' => null,
@@ -379,6 +390,8 @@ class VisibilityConsistencyTest extends TestCase
             ->postJson(route('material-usages.store'), [
                 'usage_date' => now()->toDateString(),
                 'purpose' => 'Usage export validation',
+                'team_id' => $team->id,
+                'requested_by' => 'RNI Ops',
                 'issued_by' => $user->id,
                 'items' => [
                     [
@@ -442,11 +455,13 @@ class VisibilityConsistencyTest extends TestCase
         $purchaseCsv = $this->downloadedFileContent($purchaseExport);
         $movementCsv = $this->downloadedFileContent($movementExport);
 
-        $this->assertStringContainsString('SKU,"Item Code IERP"', $salesCsv);
+        $this->assertStringContainsString('"Transaction Number","Reference Number",SKU,"Item Code"', $salesCsv);
         $this->assertStringContainsString('SKU-EXPORT-001,-', $salesCsv);
-        $this->assertStringContainsString('SKU,"Item Code IERP"', $purchaseCsv);
+        $this->assertStringContainsString('"Transaction Number","Reference Number",Supplier,SKU,"Item Code"', $purchaseCsv);
         $this->assertStringContainsString('SKU-EXPORT-001,-', $purchaseCsv);
-        $this->assertStringContainsString('"Material / Product Name",SKU,"Item Code IERP"', $movementCsv);
+        $this->assertStringContainsString($purchase->display_transaction_number, $purchaseCsv);
+        $this->assertStringContainsString('PO-EXPORT-001', $purchaseCsv);
+        $this->assertStringContainsString('"Material Name",SKU,"Item Code","Batch No"', $movementCsv);
         $this->assertStringContainsString('SKU-EXPORT-001,-', $movementCsv);
     }
 

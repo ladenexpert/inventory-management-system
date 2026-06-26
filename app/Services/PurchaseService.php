@@ -11,40 +11,54 @@ use App\Enums\PurchaseStatus;
 use App\Models\StorageLocation;
 use Illuminate\Support\Facades\DB;
 use App\Exceptions\PurchaseException;
+use Illuminate\Database\QueryException;
 
 class PurchaseService
 {
     public function __construct(
         protected FinanceTransactionService $financeService,
-        protected BatchService $batchService
+        protected BatchService $batchService,
+        protected TransactionCodeService $transactionCodeService,
     ) {
     }
 
     public function createPurchase(PurchaseData $data, int $userId): Purchase
     {
-        return DB::transaction(function () use ($data, $userId) {
+        $maxAttempts = 5;
+
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
             try {
-                $purchase = Purchase::create([
-                    'invoice_number' => $data->invoice_number,
-                    'supplier_id' => $data->supplier_id,
-                    'purchase_date' => $data->purchase_date,
-                    'due_date' => $data->due_date,
-                    'status' => $data->status,
-                    'notes' => $data->notes,
-                    'proof_image' => $data->proof_image,
-                    'entry_context' => $data->entry_context,
-                    'created_by'     => $userId,
-                    'total'          => 0,
-                ]);
+                return DB::transaction(function () use ($data, $userId) {
+                    $purchase = Purchase::create([
+                        'transaction_code' => $this->transactionCodeService->forPurchase($data->entry_context),
+                        'invoice_number' => $data->invoice_number,
+                        'supplier_id' => $data->supplier_id,
+                        'purchase_date' => $data->purchase_date,
+                        'due_date' => $data->due_date,
+                        'status' => $data->status,
+                        'notes' => $data->notes,
+                        'proof_image' => $data->proof_image,
+                        'entry_context' => $data->entry_context,
+                        'created_by'     => $userId,
+                        'total'          => 0,
+                    ]);
 
-                $this->syncItems($purchase, $data->items);
+                    $this->syncItems($purchase, $data->items);
 
-                return $purchase;
+                    return $purchase;
+                });
+            } catch (QueryException $e) {
+                if (!$this->isTransactionCodeCollision($e) || $attempt === $maxAttempts) {
+                    throw PurchaseException::creationFailed($e->getMessage(), ['supplier_id' => $data->supplier_id]);
+                }
 
+                usleep(50000);
             } catch (Exception $e) {
                 throw PurchaseException::creationFailed($e->getMessage(), ['supplier_id' => $data->supplier_id]);
             }
-        });
+        }
+
+        throw PurchaseException::creationFailed('Failed to generate a unique transaction number.', ['supplier_id' => $data->supplier_id]);
     }
 
     public function updatePurchase(Purchase $purchase, PurchaseData $data): Purchase
@@ -200,7 +214,12 @@ class PurchaseService
 
                 if ($hasPriceChange) {
                     $timestamp = now()->format('Y-m-d H:i');
-                    $ref = $lockedPurchase->invoice_number ? "Invoice #{$lockedPurchase->invoice_number}" : "Purchase #{$lockedPurchase->id}";
+                    $ref = "Transaction #{$lockedPurchase->display_transaction_number}";
+
+                    if ($lockedPurchase->reference_number) {
+                        $ref .= " (Reference #{$lockedPurchase->reference_number})";
+                    }
+
                     $logHeader = "\n\n[System Log - {$timestamp}] Price update via {$ref}:";
                     $updateData['notes'] = trim(($product->notes ?? '') . $logHeader . $priceChangeLog);
                 }
@@ -316,5 +335,15 @@ class PurchaseService
     private function duplicateBatchNumberMessage(string $batchNumber): string
     {
         return "Batch No. '{$batchNumber}' is already registered in RMP. Batch No. must stay unique for internal stock traceability. If the supplier/manufacturer batch number repeats on a different receipt, add an internal suffix or reference such as '{$batchNumber}-2', '{$batchNumber}-DN001', or '{$batchNumber}-20260625'.";
+    }
+
+    private function isTransactionCodeCollision(QueryException $exception): bool
+    {
+        $message = strtolower($exception->getMessage());
+
+        return str_contains($message, 'purchases.transaction_code')
+            || str_contains($message, 'purchases_transaction_code_unique')
+            || str_contains($message, 'unique constraint failed: purchases.transaction_code')
+            || str_contains($message, "for key 'purchases_transaction_code_unique'");
     }
 }

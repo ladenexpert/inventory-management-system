@@ -11,6 +11,7 @@ use App\Enums\SaleStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\SaleTransactionType;
 use App\Exceptions\SaleException;
+use App\Models\Team;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\QueryException;
 
@@ -18,8 +19,10 @@ class SaleService
 {
     public function __construct(
         protected FinanceTransactionService $financeService,
-        protected BatchService $batchService
+        protected BatchService $batchService,
+        protected ?TransactionCodeService $transactionCodeService = null,
     ) {
+        $this->transactionCodeService ??= app(TransactionCodeService::class);
     }
 
     /**
@@ -42,9 +45,12 @@ class SaleService
                             ->lockForUpdate()
                             ->get()
                             ->keyBy('id');
+                        $team = $data->team_id ? Team::withTrashed()->find($data->team_id) : null;
+                        $projectFallback = $data->project ?: $team?->name;
 
                         $sale = Sale::create([
-                            'invoice_number' => $this->generateReferenceNumber($data->transaction_type),
+                            'transaction_code' => $this->generateTransactionCode($data->transaction_type),
+                            'invoice_number' => $data->invoice_number,
                             'transaction_type' => $data->transaction_type,
                             'customer_id' => $data->customer_id,
                             'created_by' => $data->created_by,
@@ -54,7 +60,8 @@ class SaleService
                             'payment_method' => $data->payment_method,
                             'purpose' => $data->purpose,
                             'formula' => $data->formula,
-                            'project' => $data->project,
+                            'team_id' => $team?->id,
+                            'project' => $projectFallback,
                             'requested_by' => $data->requested_by,
                             'issued_by' => $data->issued_by ?? $data->created_by,
                             'notes' => $data->notes,
@@ -148,7 +155,7 @@ class SaleService
                         return $sale;
 
                     } catch (Exception $e) {
-                        if ($e instanceof SaleException || ($e instanceof QueryException && $this->isInvoiceNumberCollision($e))) {
+                        if ($e instanceof SaleException || ($e instanceof QueryException && $this->isTransactionCodeCollision($e))) {
                             throw $e;
                         }
 
@@ -156,7 +163,7 @@ class SaleService
                     }
                 });
             } catch (QueryException $e) {
-                if (!$this->isInvoiceNumberCollision($e)) {
+                if (!$this->isTransactionCodeCollision($e)) {
                     throw SaleException::creationFailed($e->getMessage(), ['data' => $data]);
                 }
 
@@ -331,32 +338,20 @@ class SaleService
     }
 
     /**
-     * Generate unique invoice number.
-     * Format: INV.YYMMDD.0001
+     * Generate unique transaction number.
      */
-    protected function generateReferenceNumber(SaleTransactionType $transactionType): string
+    protected function generateTransactionCode(SaleTransactionType $transactionType): string
     {
-        $prefix = $transactionType->referencePrefix() . '.' . date('ymd') . '.';
-
-        $latest = Sale::where('invoice_number', 'like', $prefix . '%')
-            ->orderBy('id', 'desc')
-            ->first();
-
-        if (!$latest) {
-            return $prefix . '0001';
-        }
-
-        $lastNumber = (int) substr($latest->invoice_number, -4);
-        return $prefix . str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
+        return $this->transactionCodeService->forSale($transactionType);
     }
 
-    protected function isInvoiceNumberCollision(QueryException $exception): bool
+    protected function isTransactionCodeCollision(QueryException $exception): bool
     {
         $message = strtolower($exception->getMessage());
 
-        return str_contains($message, 'sales.invoice_number')
-            || str_contains($message, 'sales_invoice_number_unique')
-            || str_contains($message, 'unique constraint failed: sales.invoice_number')
-            || str_contains($message, "for key 'sales_invoice_number_unique'");
+        return str_contains($message, 'sales.transaction_code')
+            || str_contains($message, 'sales_transaction_code_unique')
+            || str_contains($message, 'unique constraint failed: sales.transaction_code')
+            || str_contains($message, "for key 'sales_transaction_code_unique'");
     }
 }

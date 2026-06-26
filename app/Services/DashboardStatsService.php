@@ -12,6 +12,7 @@ use App\Models\Purchase;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Services\StockMovementClassificationService;
+use App\Support\TransactionContext;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -473,7 +474,7 @@ class DashboardStatsService
         return $this->remember("dashboard_recent_material_usage_{$limit}", now()->addMinutes(1), function () use ($limit) {
             return $this->materialUsageQuery()
                 ->where('status', '!=', 'cancelled')
-                ->with(['creator:id,name', 'issuer:id,name', 'items.product:id,name,sku,item_code_ierp'])
+                ->with(['creator:id,name', 'issuer:id,name', 'team:id,name', 'items.product:id,name,sku,item_code_ierp'])
                 ->orderByDesc('usage_date')
                 ->orderByDesc('sale_date')
                 ->limit($limit)
@@ -481,11 +482,11 @@ class DashboardStatsService
                 ->map(function (Sale $sale) {
                     return [
                         'id' => $sale->id,
-                        'usage_number' => $sale->invoice_number,
+                        'usage_number' => $sale->display_transaction_number,
                         'usage_date' => optional($sale->usage_date ?? $sale->sale_date)?->format('Y-m-d'),
                         'purpose' => $sale->purpose ?? '-',
                         'formula' => $sale->formula ?? '-',
-                        'project' => $sale->project ?? '-',
+                        'team' => $sale->team?->name ?? $sale->project ?? '-',
                         'issued_by' => $sale->issuer->name ?? $sale->creator->name ?? '-',
                         'item_codes' => $sale->items
                             ->map(fn ($item) => $item->product?->item_code_ierp_display ?? '-')
@@ -581,22 +582,26 @@ class DashboardStatsService
     public function getRecentReceipts(int $limit = 8): array
     {
         return $this->remember("dashboard_recent_receipts_{$limit}", now()->addMinutes(1), function () use ($limit) {
-            return Purchase::query()
+            return $this->receivedPurchasesQuery(TransactionContext::INBOUND_PURCHASE_ANALYSIS)
                 ->with(['supplier:id,name', 'items'])
-                ->whereIn('status', $this->receiptStatuses())
                 ->orderByDesc('purchase_date')
                 ->limit($limit)
                 ->get()
-                ->map(fn (Purchase $purchase) => [
-                    'id' => $purchase->id,
-                    'receipt_number' => $purchase->invoice_number ?: 'PUR-' . $purchase->id,
-                    'purchase_date' => optional($purchase->purchase_date)?->format('Y-m-d'),
-                    'supplier_name' => $purchase->supplier?->name ?? 'Unknown supplier',
-                    'line_count' => $purchase->items->count(),
-                    'total' => (int) $purchase->total,
-                    'status' => $purchase->status->label(),
-                    'entry_context' => $purchase->entry_context ?: 'legacy_purchase',
-                ])
+                ->map(function (Purchase $purchase) {
+                    $context = TransactionContext::resolvePurchaseContext($purchase);
+
+                    return [
+                        'id' => $purchase->id,
+                        'receipt_number' => $purchase->display_transaction_number,
+                        'purchase_date' => optional($purchase->purchase_date)?->format('Y-m-d'),
+                        'supplier_name' => $purchase->supplier?->name ?? 'Unknown supplier',
+                        'line_count' => $purchase->items->count(),
+                        'total' => (int) $purchase->total,
+                        'status' => $purchase->status->label(),
+                        'entry_context' => $context,
+                        'context_label' => TransactionContext::label($context),
+                    ];
+                })
                 ->toArray();
         });
     }
@@ -618,9 +623,8 @@ class DashboardStatsService
                 ->whereBetween('created_at', [$startDate, $endDate])
                 ->sum('quantity'));
 
-            $purchaseTotal = (int) Purchase::query()
+            $purchaseTotal = (int) $this->receivedPurchasesQuery(TransactionContext::LEGACY_PURCHASE)
                 ->whereBetween('purchase_date', [$startDate, $endDate])
-                ->whereIn('status', $this->receiptStatuses())
                 ->sum('total');
 
             $salesTotal = (int) $this->commercialSalesQuery()
@@ -653,10 +657,9 @@ class DashboardStatsService
         $cacheKey = "dashboard_purchase_trend_{$startDate->format('Ymd')}_{$endDate->format('Ymd')}";
 
         return $this->remember($cacheKey, now()->addMinutes(30), function () use ($startDate, $endDate) {
-            $data = Purchase::query()
+            $data = $this->receivedPurchasesQuery(TransactionContext::LEGACY_PURCHASE)
                 ->selectRaw('DATE(purchase_date) as date, SUM(total) as total')
                 ->whereBetween('purchase_date', [$startDate, $endDate])
-                ->whereIn('status', $this->receiptStatuses())
                 ->groupBy('date')
                 ->orderBy('date')
                 ->pluck('total', 'date')
@@ -727,10 +730,9 @@ class DashboardStatsService
         $cacheKey = "dashboard_top_suppliers_{$startDate->format('Ymd')}_{$endDate->format('Ymd')}_{$limit}";
 
         return $this->remember($cacheKey, now()->addMinutes(30), function () use ($startDate, $endDate, $limit) {
-            return Purchase::query()
+            return $this->receivedPurchasesQuery(TransactionContext::LEGACY_PURCHASE)
                 ->select('supplier_id', DB::raw('SUM(total) as total_spend'))
                 ->whereBetween('purchase_date', [$startDate, $endDate])
-                ->whereIn('status', $this->receiptStatuses())
                 ->whereNotNull('supplier_id')
                 ->with('supplier:id,name,phone')
                 ->groupBy('supplier_id')
@@ -795,7 +797,10 @@ class DashboardStatsService
                 return $sale->items->map(function (SaleItem $item) use ($sale) {
                     return [
                         'date' => optional($sale->sale_date)->format('Y-m-d') ?? '-',
-                        'invoice_number' => $sale->invoice_number ?: ('INV-' . $sale->id),
+                        'transaction_number' => $sale->display_transaction_number,
+                        'reference' => $sale->reference_number ?: '-',
+                        'invoice_number' => $sale->invoice_number,
+                        'context_label' => TransactionContext::label(TransactionContext::resolveSaleContext($sale)),
                         'sku' => $item->product?->sku_display ?? '-',
                         'item_code_ierp' => $item->product?->item_code_ierp_display ?? '-',
                         'product_name' => $item->product?->name ?? '-',
@@ -823,18 +828,21 @@ class DashboardStatsService
 
     public function getPurchaseAnalysisRows(Carbon $startDate, Carbon $endDate): Collection
     {
-        return Purchase::query()
+        return $this->receivedPurchasesQuery(TransactionContext::INBOUND_PURCHASE_ANALYSIS)
             ->with(['supplier:id,name', 'creator:id,name', 'items.product.unit', 'items.storageLocation', 'items.batch.storageLocationRecord'])
-            ->whereIn('status', $this->receiptStatuses())
             ->whereBetween('purchase_date', [$startDate, $endDate])
             ->orderByDesc('purchase_date')
             ->orderByDesc('id')
             ->get()
             ->flatMap(function (Purchase $purchase) {
-                return $purchase->items->map(function ($item) use ($purchase) {
+                $context = TransactionContext::resolvePurchaseContext($purchase);
+
+                return $purchase->items->map(function ($item) use ($purchase, $context) {
                     return [
                         'date' => optional($purchase->purchase_date)->format('Y-m-d') ?? '-',
-                        'reference' => $purchase->invoice_number ?: ('PUR-' . $purchase->id),
+                        'transaction_number' => $purchase->display_transaction_number,
+                        'reference' => $purchase->reference_number ?: '-',
+                        'context_label' => TransactionContext::label($context),
                         'supplier' => $purchase->supplier?->name ?? '-',
                         'sku' => $item->product?->sku_display ?? '-',
                         'item_code_ierp' => $item->product?->item_code_ierp_display ?? '-',
@@ -856,12 +864,18 @@ class DashboardStatsService
 
     protected function commercialSalesQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        return Sale::query()->where('transaction_type', SaleTransactionType::SALE->value);
+        return TransactionContext::applySaleContext(
+            Sale::query(),
+            TransactionContext::LEGACY_SALE,
+        );
     }
 
     protected function materialUsageQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        return Sale::query()->where('transaction_type', SaleTransactionType::MATERIAL_USAGE->value);
+        return TransactionContext::applySaleContext(
+            Sale::query(),
+            TransactionContext::MATERIAL_USAGE,
+        );
     }
 
     protected function fillDateSeries(Carbon $startDate, Carbon $endDate, array $data): array
@@ -888,5 +902,13 @@ class DashboardStatsService
             PurchaseStatus::RECEIVED->value,
             PurchaseStatus::PAID->value,
         ];
+    }
+
+    protected function receivedPurchasesQuery(string $context): Builder
+    {
+        return TransactionContext::applyPurchaseContext(
+            Purchase::query(),
+            $context,
+        )->whereIn('status', $this->receiptStatuses());
     }
 }

@@ -5,7 +5,8 @@
     $infoDescription = $isMaterialReceipt
         ? 'Details of the material receipt transaction.'
         : 'Details of the legacy purchase transaction.';
-    $invoiceLabel = $isMaterialReceipt ? 'Receipt Reference' : 'Invoice Number';
+    $transactionLabel = 'Transaction Number';
+    $invoiceLabel = $isMaterialReceipt ? 'Receipt Reference' : 'Invoice Reference';
     $proofFieldLabel = $isMaterialReceipt ? 'Receipt Evidence' : 'Proof of Receipt';
     $amountLabel = $isMaterialReceipt ? 'Total Receipt Value' : 'Total Purchase Value';
     $buyingLabel = $isMaterialReceipt ? 'Unit Cost' : 'Buying Price';
@@ -28,7 +29,7 @@
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-foreground leading-tight">
-                {{ __($pageTitle) }} #{{ $purchase->invoice_number ?: $purchase->id }}
+                {{ __($pageTitle) }} #{{ $purchase->display_transaction_number }}
             </h2>
             <div class="flex items-center gap-2">
                 <x-secondary-button href="{{ route($backRoute) }}">
@@ -69,8 +70,12 @@
                             <x-heroicon-o-building-storefront class="w-4 h-4 text-gray-400" />
                         </x-detail-item>
 
-                        <x-detail-item :label="$invoiceLabel" :value="$purchase->invoice_number ?? '-'">
+                        <x-detail-item :label="$transactionLabel" :value="$purchase->display_transaction_number">
                             <x-heroicon-o-document-text class="w-4 h-4 text-gray-400" />
+                        </x-detail-item>
+
+                        <x-detail-item :label="$invoiceLabel" :value="$purchase->reference_number ?? '-'">
+                            <x-heroicon-o-document-duplicate class="w-4 h-4 text-gray-400" />
                         </x-detail-item>
 
                         <x-detail-item :label="$isMaterialReceipt ? 'Receipt Date' : 'Purchase Date'" :value="$purchase->purchase_date?->format('d M Y') ?? '-'">
@@ -262,7 +267,7 @@
                                     class="relative bg-white rounded-lg max-w-md w-full p-6 shadow-xl"
                                 >
                                     <h3 class="text-lg font-medium text-gray-900 mb-4">
-                                        {{ $isMaterialReceipt ? 'Confirm Material Receipt #' : 'Receive Purchase #' }}{{ $purchase->invoice_number ?? $purchase->id }}
+                                        {{ $isMaterialReceipt ? 'Confirm Material Receipt #' : 'Receive Purchase #' }}{{ $purchase->display_transaction_number }}
                                     </h3>
 
                                     <form
@@ -276,16 +281,16 @@
                                         @method('PATCH')
 
                                         <div class="space-y-4">
-                                            @if($purchase->invoice_number)
+                                            @if($purchase->reference_number)
                                                 <div class="bg-gray-50 p-3 rounded-md border border-gray-200">
                                                     <span class="block text-xs font-medium text-gray-500 uppercase">{{ $invoiceLabel }}</span>
-                                                    <span class="text-sm font-semibold text-gray-900">{{ $purchase->invoice_number }}</span>
+                                                    <span class="text-sm font-semibold text-gray-900">{{ $purchase->reference_number }}</span>
                                                 </div>
                                             @else
                                                 <div class="space-y-2">
                                                     <x-input-label
                                                         for="invoice_number"
-                                                        :value="$isMaterialReceipt ? __('Final Receipt Reference (Optional)') : __('Final Invoice Number')"
+                                                        :value="$isMaterialReceipt ? __('Final Receipt Reference (Optional)') : __('Final Invoice Reference')"
                                                         :required="! $isMaterialReceipt"
                                                     />
                                                     <x-text-input
