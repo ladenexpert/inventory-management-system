@@ -1,5 +1,6 @@
 <x-modal name="customer-detail-modal" focusable>
     @if($customer)
+        @php($canUpdateMasterData = auth()->user()?->hasPermission('master_data', 'update') ?? false)
         <div class="p-6">
             <!-- Header -->
             <div class="mb-6 space-y-1.5 text-center sm:text-left border-b border-gray-200 pb-4">
@@ -61,10 +62,12 @@
                 <x-secondary-button type="button" x-on:click="$dispatch('close-modal', { name: 'customer-detail-modal' })">
                     {{ __('Close') }}
                 </x-secondary-button>
-                <x-primary-button type="button" x-on:click="$dispatch('close-modal', { name: 'customer-detail-modal' }); $dispatch('edit-customer', { customer: {{ $customer->id }} })" class="bg-amber-500 hover:bg-amber-600 focus:ring-amber-500">
-                    <x-heroicon-o-pencil-square class="w-4 h-4 mr-2" />
-                    {{ __('Edit Customer') }}
-                </x-primary-button>
+                @if($canUpdateMasterData)
+                    <x-primary-button type="button" x-on:click="$dispatch('close-modal', { name: 'customer-detail-modal' }); $dispatch('edit-customer', { customer: {{ $customer->id }} })" class="bg-amber-500 hover:bg-amber-600 focus:ring-amber-500">
+                        <x-heroicon-o-pencil-square class="w-4 h-4 mr-2" />
+                        {{ __('Edit Customer') }}
+                    </x-primary-button>
+                @endif
             </div>
         </div>
     @else

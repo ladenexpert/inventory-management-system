@@ -3,6 +3,7 @@
 namespace App\Livewire\Suppliers;
 
 use Exception;
+use App\Livewire\Concerns\AuthorizesComponentPermissions;
 use Livewire\Component;
 use App\Models\Supplier;
 use App\DTOs\SupplierData;
@@ -11,6 +12,8 @@ use App\Services\SupplierService;
 
 class SupplierForm extends Component
 {
+    use AuthorizesComponentPermissions;
+
     public ?Supplier $supplier = null;
 
     public string $name = '';
@@ -47,6 +50,8 @@ class SupplierForm extends Component
     #[On('create-supplier')]
     public function create(): void
     {
+        $this->authorizePermission('master_data', 'create');
+
         $this->reset();
         $this->isEditing = false;
         $this->dispatch('open-modal', name: 'supplier-modal');
@@ -55,6 +60,8 @@ class SupplierForm extends Component
     #[On('edit-supplier')]
     public function edit(Supplier $supplier): void
     {
+        $this->authorizePermission('master_data', 'update');
+
         $this->resetValidation();
         $this->supplier = $supplier;
         $this->name = $supplier->name;
@@ -70,6 +77,8 @@ class SupplierForm extends Component
 
     public function save(SupplierService $service): void
     {
+        $this->authorizePermission('master_data', $this->isEditing ? 'update' : 'create');
+
         $validated = $this->validate($this->rules());
 
         try {

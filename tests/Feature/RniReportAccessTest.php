@@ -81,21 +81,27 @@ class RniReportAccessTest extends TestCase
         $this->actingAs($user)
             ->get(route('reports.inventory'))
             ->assertOk()
-            ->assertSee('Current Inventory Report')
+            ->assertSee('Inventory & Expiry Monitoring')
             ->assertSee('Lactose Monohydrate')
             ->assertSee('LAC-001');
 
         $this->actingAs($user)
             ->get(route('reports.usage-history'))
             ->assertOk()
-            ->assertSee('Usage History Report')
+            ->assertSee('Usage Report')
             ->assertSee('Blend validation')
             ->assertSee('MUS.260618.0001');
 
         $this->actingAs($user)
             ->get(route('reports.expiry'))
             ->assertOk()
-            ->assertSee('Expiry Report')
+            ->assertSee('Inventory & Expiry Monitoring')
             ->assertSee('LAC-001');
+
+        $this->actingAs($user)
+            ->get(route('reports.stock-movement-classification'))
+            ->assertOk()
+            ->assertSee('Stock Movement Classification')
+            ->assertSee('Fast Moving');
     }
 }

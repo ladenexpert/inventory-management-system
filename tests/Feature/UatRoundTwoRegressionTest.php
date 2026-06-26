@@ -57,6 +57,7 @@ class UatRoundTwoRegressionTest extends TestCase
 
     public function test_product_edit_form_preloads_category_unit_supplier_and_physical_form(): void
     {
+        $user = User::factory()->create();
         $category = Category::factory()->create(['name' => 'Binders']);
         $unit = Unit::factory()->create(['name' => 'Kilogram', 'symbol' => 'KG']);
         $supplier = Supplier::factory()->create(['name' => 'PT Preload Supplier']);
@@ -66,6 +67,8 @@ class UatRoundTwoRegressionTest extends TestCase
             'supplier_id' => $supplier->id,
             'physical_form' => 'powder',
         ]);
+
+        Livewire::actingAs($user);
 
         Livewire::test(ProductForm::class)
             ->dispatch('edit-product', $product)

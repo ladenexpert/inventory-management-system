@@ -1,7 +1,8 @@
 <x-app-layout title="Materials">
     @php
         $user = auth()->user();
-        $canManageMaterials = $user?->hasPermission('materials', 'create');
+        $canCreateMaterials = $user?->hasPermission('materials', 'create');
+        $canUpdateMaterials = $user?->hasPermission('materials', 'update');
         $canImportMasterData = $user?->hasPermission('master_data', 'import');
         $canImportOpeningStock = $user?->hasPermission('opening_stock', 'import');
     @endphp
@@ -27,7 +28,7 @@
                         {{ __('Upload Opening Stock') }}
                     </x-secondary-button>
                 @endif
-                @if($canManageMaterials)
+                @if($canCreateMaterials)
                     <x-primary-button x-data x-on:click="$dispatch('create-product')">
                         <x-heroicon-o-plus class="w-4 h-4 mr-2" />
                         {{ __('Create Material') }}
@@ -43,6 +44,8 @@
         </div>
     </div>
 
-    <livewire:products.product-form />
+    @if($canCreateMaterials || $canUpdateMaterials)
+        <livewire:products.product-form />
+    @endif
     <livewire:products.product-detail />
 </x-app-layout>

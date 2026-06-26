@@ -4,6 +4,7 @@ namespace App\Livewire\StorageLocations;
 
 use App\DTOs\StorageLocationData;
 use App\Exceptions\StorageLocationException;
+use App\Livewire\Concerns\AuthorizesComponentPermissions;
 use App\Models\StorageLocation;
 use App\Services\StorageLocationService;
 use Illuminate\Validation\Rule;
@@ -12,6 +13,8 @@ use Livewire\Component;
 
 class StorageLocationForm extends Component
 {
+    use AuthorizesComponentPermissions;
+
     public bool $isEditing = false;
     public ?StorageLocation $location = null;
 
@@ -54,6 +57,8 @@ class StorageLocationForm extends Component
     #[On('create-storage-location')]
     public function create(): void
     {
+        $this->authorizePermission('master_data', 'create');
+
         $this->reset(['code', 'name', 'type', 'parent_id', 'description', 'location', 'isEditing']);
         $this->is_active = true;
 
@@ -63,6 +68,8 @@ class StorageLocationForm extends Component
     #[On('edit-storage-location')]
     public function edit(StorageLocation $location): void
     {
+        $this->authorizePermission('master_data', 'update');
+
         $this->location = $location;
         $this->code = $location->code;
         $this->name = $location->name;
@@ -77,6 +84,8 @@ class StorageLocationForm extends Component
 
     public function save(StorageLocationService $service): void
     {
+        $this->authorizePermission('master_data', $this->isEditing ? 'update' : 'create');
+
         $validated = $this->validate();
         $data = StorageLocationData::fromArray($validated);
 

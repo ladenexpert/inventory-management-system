@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Products;
 
+use App\Livewire\Concerns\AuthorizesComponentPermissions;
 use App\Models\Product;
 use App\Services\ProductService;
 use App\Exceptions\ProductException;
@@ -17,7 +18,11 @@ use PowerComponents\LivewirePowerGrid\Components\SetUp\Exportable;
 
 final class ProductTable extends PowerGridComponent
 {
-    use WithExport;
+    use WithExport {
+        exportToCsv as protected powerGridExportToCsv;
+        exportToXLS as protected powerGridExportToXLS;
+    }
+    use AuthorizesComponentPermissions;
 
     public string $tableName = 'product-table';
     public string $sortField = 'created_at';
@@ -30,13 +35,11 @@ final class ProductTable extends PowerGridComponent
 
     public function setUp(): array
     {
-        if ($this->canManageMaterials()) {
+        if ($this->canDeleteMaterials()) {
             $this->showCheckBox();
         }
 
-        return [
-            PowerGrid::exportable('product_export_' . now()->format('Y_m_d'))
-                ->type(Exportable::TYPE_XLS, Exportable::TYPE_CSV),
+        $setUp = [
 
             PowerGrid::header()
                 ->showSearchInput(),
@@ -45,6 +48,16 @@ final class ProductTable extends PowerGridComponent
                 ->showPerPage(perPage: 10, perPageValues: [10, 25, 50, 100])
                 ->showRecordCount(),
         ];
+
+        if ($this->canExportMaterials()) {
+            array_unshift(
+                $setUp,
+                PowerGrid::exportable('product_export_' . now()->format('Y_m_d'))
+                    ->type(Exportable::TYPE_XLS, Exportable::TYPE_CSV)
+            );
+        }
+
+        return $setUp;
     }
 
     public function datasource(): Builder
@@ -272,7 +285,7 @@ final class ProductTable extends PowerGridComponent
                 ->class('bg-amber-500 hover:bg-amber-600 text-white p-2 rounded-md flex items-center justify-center')
                 ->dispatch('edit-product', ['product' => $row->id])
                 ->tooltip('Edit Product')
-                ->can(fn () => $this->canManageMaterials()),
+                ->can(fn () => $this->canUpdateMaterials()),
 
             Button::add('delete')
                 ->slot('<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>')
@@ -285,13 +298,13 @@ final class ProductTable extends PowerGridComponent
                     'description' => "Are you sure you want to delete product '{$row->name}'? This action cannot be undone.",
                 ])
                 ->tooltip('Delete Product')
-                ->can(fn () => $this->canManageMaterials()),
+                ->can(fn () => $this->canDeleteMaterials()),
         ];
     }
 
     public function header(): array
     {
-        if (!$this->canManageMaterials()) {
+        if (!$this->canDeleteMaterials()) {
             return [];
         }
 
@@ -313,6 +326,8 @@ final class ProductTable extends PowerGridComponent
     #[\Livewire\Attributes\On('delete')]
     public function delete($rowId, ProductService $service): void
     {
+        $this->authorizePermission('materials', 'delete');
+
         $product = Product::find($rowId);
 
         if ($product) {
@@ -332,6 +347,8 @@ final class ProductTable extends PowerGridComponent
     #[\Livewire\Attributes\On('bulkDelete')]
     public function bulkDelete(ProductService $service): void
     {
+        $this->authorizePermission('materials', 'delete');
+
         $selectedIds = collect($this->checkboxValues)->filter()->values();
 
         if ($selectedIds->isEmpty()) {
@@ -361,9 +378,33 @@ final class ProductTable extends PowerGridComponent
         $this->dispatch('toast', message: $message, type: $failed > 0 ? 'warning' : 'success');
     }
 
-    private function canManageMaterials(): bool
+    public function exportToXLS(bool $selected = false): \Symfony\Component\HttpFoundation\BinaryFileResponse|bool
     {
-        return auth()->user()?->hasPermission('materials', 'delete') ?? false;
+        $this->authorizePermission('materials', 'export');
+
+        return $this->powerGridExportToXLS($selected);
+    }
+
+    public function exportToCsv(bool $selected = false): \Symfony\Component\HttpFoundation\BinaryFileResponse|bool
+    {
+        $this->authorizePermission('materials', 'export');
+
+        return $this->powerGridExportToCsv($selected);
+    }
+
+    private function canUpdateMaterials(): bool
+    {
+        return $this->hasPermission('materials', 'update');
+    }
+
+    private function canDeleteMaterials(): bool
+    {
+        return $this->hasPermission('materials', 'delete');
+    }
+
+    private function canExportMaterials(): bool
+    {
+        return $this->hasPermission('materials', 'export');
     }
 
     private function canViewSensitiveValues(): bool

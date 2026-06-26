@@ -204,11 +204,32 @@ Menu path:
 
 - `Reports`
 
-### Current Inventory Report
+Report menu:
+
+- `Inventory & Expiry Monitoring`
+- `Inventory Movement History`
+- `Usage Report`
+- `Inbound & Purchase Analysis`
+- `Sales Analysis`
+- `Stock Movement Classification`
+
+### Inventory & Expiry Monitoring
+
+This page consolidates the old inventory and expiry report views into one PowerGrid-backed report. The legacy expiry route still works, but it now renders the same consolidated experience with an expiry-focused preset.
+
+Interactive behavior:
+
+- global search
+- sorting
+- filters
+- column toggle
+- saved filter/sort/column state per user
+- CSV/XLS export for users with `reports.export`
 
 Columns:
 
 - Item Code IERP
+- SKU
 - Material / Product Name
 - Batch
 - Unit
@@ -219,8 +240,21 @@ Columns:
 - Expiry
 - Value for users with permission
 - Status
+- Days Remaining
+
+Filters:
+
+- expiry date
+- status
+- storage location
+
+Sensitive fields:
+
+- `Inventory Value` is shown and exported only when the signed-in role has `inventory_value.view` or equivalent finance visibility.
 
 ### Inventory Movement History
+
+This report remains on the existing manual Blade filter/export screen in this sprint to avoid a risky broad rewrite. Existing filters and exports remain available, but PowerGrid column-toggle persistence has not been added here yet.
 
 Columns:
 
@@ -247,11 +281,23 @@ Filters:
 - RM name
 - lot number
 
-### Usage Analysis
+### Usage Report
+
+The old usage history / usage analysis naming is now aligned as `Usage Report`.
+
+Interactive behavior:
+
+- global search
+- sorting
+- filters
+- column toggle
+- saved filter/sort/column state per user
+- CSV/XLS export for users with `reports.export`
 
 Columns:
 
 - Date
+- SKU
 - Item Code IERP
 - Material / Product Name
 - Batch
@@ -266,21 +312,74 @@ Columns:
 
 Usage detail and print views for `Formulator` and `RM Desk` remain operational, but cost/value fields are hidden unless the role has inventory value permission.
 
-### Expiry Report
+### Inbound & Purchase Analysis
 
-Columns:
+The report now separates operational inbound visibility from financial purchase visibility.
 
+Charts:
+
+- inbound trend
+- purchase trend
+
+Permission notes:
+
+- operational inbound counts and quantities can be shown without finance visibility
+- purchase total and other monetary fields are shown only when the role has the correct finance or value permission
+- export remains permission-safe even when the controller-based export cannot mirror every visible/hidden UI column choice
+
+### Sales Analysis
+
+The report now uses a chart-based trend section while keeping commercial sales data separate from RNI usage reporting.
+
+Charts:
+
+- sales trend
+
+Permission notes:
+
+- revenue, gross profit, customer spend, and financial sales totals require finance permission
+- non-finance roles only see safe operational context and do not receive financial values in export output
+
+### Stock Movement Classification
+
+This report provides summary cards, a classification chart, and an exportable detail table for mutually exclusive stock movement buckets.
+
+Classification precedence:
+
+1. Dead Stock
+2. Slow Moving
+3. Fast Moving
+4. Normal / Unclassified
+
+Classification rules:
+
+- `Fast Moving`: stock available is greater than zero and last outbound material usage is within the last 90 days
+- `Slow Moving`: stock available is greater than zero, not Fast, not Dead, and last outbound material usage is more than 180 days ago
+- `Dead Stock`: stock available is greater than zero and last outbound material usage is more than 365 days ago
+- if stock exists but outbound usage has never happened, the report uses first stock / receipt date as the movement-age basis
+- if that basis date is missing, the material is shown as `No Usage / Unclassified`
+
+Detail fields:
+
+- Classification
 - Item Code IERP
-- Material / Product Name
-- Batch
-- Qty
+- SKU
+- RM Name
+- Physical Form
+- Stock Available
 - Unit
+- Last Usage Date
+- Days Since Last Usage
+- Usage Qty 90 Days
+- Usage Qty 180 Days
+- Usage Qty 365 Days
+- Batch Count
+- Earliest Expiry Date
 - Storage Location
-- Expiry
+- Inventory Value when permitted
 - Status
-- Days Remaining
 
-All report pages support export through the existing table export flow.
+All upgraded PowerGrid report pages support export through the report table export flow for users with `reports.export`. Export follows the active filters/search/sort where supported by PowerGrid, and unauthorized sensitive columns are not rendered or exported. Legacy manual exports remain permission-safe but do not fully mirror visible-column state in this sprint.
 
 ## Dashboard
 
@@ -309,10 +408,9 @@ Focus:
 
 - inventory value
 - inbound trend
-- outbound trend
 - purchase trend
 - sales trend
-- material consumption trend
+- stock movement classification
 - fast moving materials
 - slow moving materials
 - dead stock
@@ -336,6 +434,6 @@ Use `Dashboard` -> `RNI Operations` for operational monitoring and `Dashboard` -
 
 ## Navigation
 
-- The compact top navigation uses `Dashboard`, `Operations`, `Master Data`, `Reports`, and `Administration`.
-- Finance remains available inside `Reports` for finance-enabled admin users such as `admin_rni`.
+- The compact top navigation uses `Dashboard`, `Operations`, `Master Data`, `Reports`, `Finance`, and `Administration` when the related modules and permissions are enabled.
+- Finance is separated from `Reports` again for finance-enabled users such as `admin_rni`.
 - Menu visibility now follows the seeded role-permission matrix, but the underlying routes remain in place and are blocked server-side when the role lacks permission.

@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Categories;
 
+use App\Livewire\Concerns\AuthorizesComponentPermissions;
 use Livewire\Component;
 use App\Models\Category;
 use App\DTOs\CategoryData;
@@ -13,6 +14,8 @@ use App\Exceptions\CategoryException;
 
 class CategoryForm extends Component
 {
+    use AuthorizesComponentPermissions;
+
     public bool $isEditing = false;
     public ?Category $category = null;
 
@@ -41,6 +44,8 @@ class CategoryForm extends Component
     #[On('create-category')]
     public function create(): void
     {
+        $this->authorizePermission('master_data', 'create');
+
         $this->reset(['name', 'description', 'category', 'isEditing']);
         $this->dispatch('open-modal', name: 'category-form-modal');
     }
@@ -48,6 +53,8 @@ class CategoryForm extends Component
     #[On('edit-category')]
     public function edit(Category $category): void
     {
+        $this->authorizePermission('master_data', 'update');
+
         $this->category = $category;
         $this->name = $category->name;
         $this->description = $category->description ?? '';
@@ -57,6 +64,8 @@ class CategoryForm extends Component
 
     public function save(CategoryService $service): void
     {
+        $this->authorizePermission('master_data', $this->isEditing ? 'update' : 'create');
+
         $validated = $this->validate();
 
         $slug = Str::slug(str_replace('&', '', $this->name));

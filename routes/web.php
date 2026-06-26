@@ -189,20 +189,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('inventory-movement-history.export');
         Route::view('usage-history', 'reports.usage-history')->name('usage-history');
         Route::view('expiry', 'reports.expiry')->name('expiry');
+        Route::get('stock-movement-classification', [ReportAnalyticsController::class, 'stockMovementClassification'])
+            ->name('stock-movement-classification');
     });
 
-    Route::middleware(['module:reports'])->prefix('reports')->name('reports.')->group(function () {
+    Route::middleware(['module:reports', 'permission:reports,view'])->prefix('reports')->name('reports.')->group(function () {
         Route::get('purchase-analysis', [ReportAnalyticsController::class, 'purchaseAnalysis'])
             ->middleware('permission:legacy_purchase,view')
             ->name('purchase-analysis');
         Route::get('purchase-analysis/export/{format}', [ReportAnalyticsController::class, 'exportPurchaseAnalysis'])
-            ->middleware('permission:legacy_purchase,export')
+            ->middleware(['permission:reports,export', 'permission:legacy_purchase,export'])
             ->name('purchase-analysis.export');
         Route::get('sales-analysis', [ReportAnalyticsController::class, 'salesAnalysis'])
             ->middleware('permission:legacy_sales,view')
             ->name('sales-analysis');
         Route::get('sales-analysis/export/{format}', [ReportAnalyticsController::class, 'exportSalesAnalysis'])
-            ->middleware('permission:legacy_sales,export')
+            ->middleware(['permission:reports,export', 'permission:legacy_sales,export'])
             ->name('sales-analysis.export');
     });
 

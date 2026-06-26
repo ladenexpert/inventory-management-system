@@ -11,6 +11,7 @@ use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\Sale;
 use App\Models\SaleItem;
+use App\Services\StockMovementClassificationService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -22,6 +23,7 @@ class DashboardStatsService
     public function __construct(
         protected BatchPolicyService $batchPolicyService,
         protected DashboardCacheService $dashboardCache,
+        protected StockMovementClassificationService $stockMovementClassificationService,
     ) {
     }
 
@@ -746,98 +748,37 @@ class DashboardStatsService
 
     public function getFastMovingMaterials(Carbon $startDate, Carbon $endDate, int $limit = 5): array
     {
-        $cacheKey = "dashboard_fast_moving_materials_{$startDate->format('Ymd')}_{$endDate->format('Ymd')}_{$limit}";
+        $cacheKey = "dashboard_fast_moving_materials_{$limit}";
 
-        return $this->remember($cacheKey, now()->addMinutes(30), function () use ($startDate, $endDate, $limit) {
-            return SaleItem::query()
-                ->select('product_id', DB::raw('SUM(quantity) as total_quantity'))
-                ->whereHas('sale', function (Builder $query) use ($startDate, $endDate) {
-                    $query
-                        ->whereBetween('sale_date', [$startDate, $endDate])
-                        ->where('status', '!=', 'cancelled')
-                        ->whereIn('transaction_type', [
-                            SaleTransactionType::SALE->value,
-                            SaleTransactionType::MATERIAL_USAGE->value,
-                        ]);
-                })
-                ->with('product:id,name,sku,item_code_ierp')
-                ->groupBy('product_id')
-                ->orderByDesc('total_quantity')
-                ->limit($limit)
-                ->get()
-                ->map(fn (SaleItem $item) => [
-                    'product_name' => $item->product?->name ?? 'Unknown Material',
-                    'item_code' => $item->product?->item_code_ierp_display ?? '-',
-                    'total_quantity' => (int) $item->total_quantity,
-                ])
-                ->toArray();
+        return $this->remember($cacheKey, now()->addMinutes(30), function () use ($limit) {
+            return $this->stockMovementClassificationService->topByClassification(
+                StockMovementClassificationService::FAST_MOVING,
+                $limit,
+            );
         });
     }
 
     public function getSlowMovingMaterials(Carbon $startDate, Carbon $endDate, int $limit = 5): array
     {
-        $cacheKey = "dashboard_slow_moving_materials_{$startDate->format('Ymd')}_{$endDate->format('Ymd')}_{$limit}";
+        $cacheKey = "dashboard_slow_moving_materials_{$limit}";
 
-        return $this->remember($cacheKey, now()->addMinutes(30), function () use ($startDate, $endDate, $limit) {
-            return Product::query()
-                ->select('products.id', 'products.name', 'products.sku', 'products.item_code_ierp')
-                ->leftJoinSub(
-                    SaleItem::query()
-                        ->select('product_id', DB::raw('SUM(quantity) as total_quantity'))
-                        ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
-                        ->whereBetween('sales.sale_date', [$startDate, $endDate])
-                        ->where('sales.status', '!=', 'cancelled')
-                        ->whereIn('sales.transaction_type', [
-                            SaleTransactionType::SALE->value,
-                            SaleTransactionType::MATERIAL_USAGE->value,
-                        ])
-                        ->groupBy('product_id'),
-                    'movement_totals',
-                    'movement_totals.product_id',
-                    '=',
-                    'products.id'
-                )
-                ->where('products.is_active', true)
-                ->whereRaw('COALESCE(movement_totals.total_quantity, 0) > 0')
-                ->orderByRaw('COALESCE(movement_totals.total_quantity, 0) asc')
-                ->orderByDesc('products.quantity')
-                ->limit($limit)
-                ->get()
-                ->map(fn (Product $product) => [
-                    'product_name' => $product->name,
-                    'item_code' => $product->item_code_ierp_display,
-                    'total_quantity' => (int) ($product->total_quantity ?? 0),
-                ])
-                ->toArray();
+        return $this->remember($cacheKey, now()->addMinutes(30), function () use ($limit) {
+            return $this->stockMovementClassificationService->topByClassification(
+                StockMovementClassificationService::SLOW_MOVING,
+                $limit,
+            );
         });
     }
 
     public function getDeadStock(int $days = 90, int $limit = 5): array
     {
-        $cutoff = now()->subDays($days)->startOfDay();
-        $cacheKey = "dashboard_dead_stock_{$days}_{$limit}_{$cutoff->format('Ymd')}";
+        $cacheKey = "dashboard_dead_stock_{$limit}";
 
-        return $this->remember($cacheKey, now()->addMinutes(30), function () use ($cutoff, $limit) {
-            $movedProductIds = SaleItem::query()
-                ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
-                ->where('sales.sale_date', '>=', $cutoff)
-                ->where('sales.status', '!=', 'cancelled')
-                ->distinct()
-                ->pluck('sale_items.product_id');
-
-            return Product::query()
-                ->where('is_active', true)
-                ->where('quantity', '>', 0)
-                ->whereNotIn('id', $movedProductIds)
-                ->orderByDesc('quantity')
-                ->limit($limit)
-                ->get()
-                ->map(fn (Product $product) => [
-                    'product_name' => $product->name,
-                    'item_code' => $product->item_code_ierp_display,
-                    'quantity' => (int) $product->quantity,
-                ])
-                ->toArray();
+        return $this->remember($cacheKey, now()->addMinutes(30), function () use ($limit) {
+            return $this->stockMovementClassificationService->topByClassification(
+                StockMovementClassificationService::DEAD_STOCK,
+                $limit,
+            );
         });
     }
 

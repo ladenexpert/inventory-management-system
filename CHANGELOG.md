@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.4.6-reports-interactive-view-and-trend-charts
+
+- cleaned up the `Reports` menu into `Inventory & Expiry Monitoring`, `Inventory Movement History`, `Usage Report`, `Inbound & Purchase Analysis`, `Sales Analysis`, and `Stock Movement Classification`
+- consolidated the inventory and expiry report experience into a shared `Inventory & Expiry Monitoring` PowerGrid with legacy route compatibility through report presets
+- enabled reports-only PowerGrid search, filters, sorting, column toggles, persistence, and permission-gated export behavior for the upgraded inventory, usage, and stock movement report tables
+- added a lightweight report-only Chart.js foundation with reusable Blade and Alpine wiring for trend and summary charts
+- upgraded `Inbound & Purchase Analysis` and `Sales Analysis` to chart-based trend sections while keeping sensitive purchase, revenue, gross profit, and value data permission-aware
+- added the new `Stock Movement Classification` report with shared dashboard/report classification rules, summary cards, chart output, detail export, and boundary-tested fast/slow/dead logic based on outbound material usage
+- aligned dashboard fast/slow/dead material widgets with the shared stock movement classification service to avoid conflicting definitions between dashboard and reports
+- tightened report exports so purchase and sales CSV output never includes unauthorized finance or inventory-value fields
+- documented the sprint limitation that legacy `Inventory Movement History` remains on its existing manual filter/export view rather than being fully migrated to PowerGrid in this release
+- expanded regression coverage for consolidated report navigation, stock movement thresholds, chart payloads, and finance-sensitive report visibility
+
 ## v0.4.5-rni-access-control-and-uat-defect-stabilization
 
 - added the missing `sessions` infrastructure migration so the default database-backed `cache`, `session`, and `queue` drivers all work after `php artisan migrate:fresh --seed`

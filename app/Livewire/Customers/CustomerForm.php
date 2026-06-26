@@ -3,6 +3,7 @@
 namespace App\Livewire\Customers;
 
 use Exception;
+use App\Livewire\Concerns\AuthorizesComponentPermissions;
 use Livewire\Component;
 use App\Models\Customer;
 use App\DTOs\CustomerData;
@@ -11,6 +12,8 @@ use App\Services\CustomerService;
 
 class CustomerForm extends Component
 {
+    use AuthorizesComponentPermissions;
+
     public ?Customer $customer = null;
 
     public string $name = '';
@@ -44,6 +47,8 @@ class CustomerForm extends Component
     #[On('create-customer')]
     public function create(): void
     {
+        $this->authorizePermission('master_data', 'create');
+
         $this->reset();
         $this->isEditing = false;
         $this->dispatch('open-modal', name: 'customer-modal');
@@ -52,6 +57,8 @@ class CustomerForm extends Component
     #[On('edit-customer')]
     public function edit(Customer $customer): void
     {
+        $this->authorizePermission('master_data', 'update');
+
         $this->resetValidation();
         $this->customer = $customer;
         $this->name = $customer->name;
@@ -66,6 +73,8 @@ class CustomerForm extends Component
 
     public function save(CustomerService $service): void
     {
+        $this->authorizePermission('master_data', $this->isEditing ? 'update' : 'create');
+
         $validated = $this->validate($this->rules());
 
         try {

@@ -3,6 +3,7 @@
 namespace App\Livewire\Products;
 
 use App\DTOs\ProductData;
+use App\Livewire\Concerns\AuthorizesComponentPermissions;
 use App\Models\Product;
 use App\Models\StorageLocation;
 use Livewire\Component;
@@ -13,6 +14,8 @@ use App\Exceptions\ProductException;
 
 class ProductForm extends Component
 {
+    use AuthorizesComponentPermissions;
+
     public bool $isEditing = false;
     public ?Product $product = null;
     public int $formRevision = 0;
@@ -58,6 +61,8 @@ class ProductForm extends Component
     #[On('create-product')]
     public function create(): void
     {
+        $this->authorizePermission('materials', 'create');
+
         $this->reset([
             'sku',
             'item_code_ierp',
@@ -92,6 +97,8 @@ class ProductForm extends Component
     #[On('edit-product')]
     public function edit(Product $product): void
     {
+        $this->authorizePermission('materials', 'update');
+
         $this->product = $product;
         $this->sku = $product->sku;
         $this->item_code_ierp = $product->item_code_ierp;
@@ -153,6 +160,8 @@ class ProductForm extends Component
 
     public function save(ProductService $service): void
     {
+        $this->authorizePermission('materials', $this->isEditing ? 'update' : 'create');
+
         $validated = $this->validate();
 
         if (!empty($validated['opening_storage_location_id']) && empty($validated['opening_storage_location'])) {

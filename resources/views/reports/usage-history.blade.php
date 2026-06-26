@@ -1,8 +1,8 @@
-<x-app-layout title="Usage History Report">
+<x-app-layout title="Usage Report">
     <x-slot name="header">
         <div>
-            <h2 class="font-semibold text-xl text-foreground leading-tight">{{ __('Usage History Report') }}</h2>
-            <p class="text-sm text-muted-foreground mt-1">Export date, SKU, Item Code IERP, material name, batch, quantity, purpose, formula, project, and issuer details.</p>
+            <h2 class="font-semibold text-xl text-foreground leading-tight">{{ __('Usage Report') }}</h2>
+            <p class="text-sm text-muted-foreground mt-1">Detailed outbound material usage with export, filters, search, and a saved report-table view per user.</p>
         </div>
     </x-slot>
 

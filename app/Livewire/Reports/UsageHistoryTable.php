@@ -31,14 +31,26 @@ final class UsageHistoryTable extends PowerGridComponent
 
     public function setUp(): array
     {
-        return [
-            PowerGrid::exportable('usage_history_' . now()->format('Y_m_d'))
-                ->type(Exportable::TYPE_XLS, Exportable::TYPE_CSV),
-            PowerGrid::header()->showSearchInput(),
+        $this->persist(['columns', 'filters', 'sorting'], (string) (auth()->id() ?? 'guest'));
+
+        $setUp = [
+            PowerGrid::header()
+                ->showSearchInput()
+                ->showToggleColumns(),
             PowerGrid::footer()
                 ->showPerPage(perPage: 10, perPageValues: [10, 25, 50, 100])
                 ->showRecordCount(),
         ];
+
+        if ($this->canExportReport()) {
+            array_unshift(
+                $setUp,
+                PowerGrid::exportable('usage_report_' . now()->format('Y_m_d'))
+                    ->type(Exportable::TYPE_XLS, Exportable::TYPE_CSV)
+            );
+        }
+
+        return $setUp;
     }
 
     public function datasource(): Builder
@@ -156,5 +168,10 @@ final class UsageHistoryTable extends PowerGridComponent
                 ->route('material-usages.print', ['sale' => $saleId])
                 ->tooltip('Print usage slip'),
         ];
+    }
+
+    private function canExportReport(): bool
+    {
+        return auth()->user()?->hasPermission('reports', 'export') ?? false;
     }
 }

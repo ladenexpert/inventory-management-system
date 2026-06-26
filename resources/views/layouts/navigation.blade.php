@@ -58,12 +58,8 @@
     if ($user->hasPermission('legacy_sales', 'view') && $modules['sales']) {
         $operationsItems[] = ['label' => 'Legacy Sales', 'href' => route('sales.index'), 'active' => request()->routeIs('sales.*')];
     }
-    if ($modules['reports'] && $user->hasPermission('reports', 'view')) {
-        $operationsItems[] = ['label' => 'Current Inventory', 'href' => route('reports.inventory'), 'active' => request()->routeIs('reports.inventory')];
-        if ($modules['materials'] && $user->hasPermission('batches', 'view')) {
-            $operationsItems[] = ['label' => 'Batch Monitoring', 'href' => route('batches.index'), 'active' => request()->routeIs('batches.*')];
-        }
-        $operationsItems[] = ['label' => 'Inventory Movement History', 'href' => route('reports.inventory-movement-history'), 'active' => request()->routeIs('reports.inventory-movement-history*')];
+    if ($modules['materials'] && $user->hasPermission('batches', 'view')) {
+        $operationsItems[] = ['label' => 'Batch Monitoring', 'href' => route('batches.index'), 'active' => request()->routeIs('batches.*')];
     }
     if ($operationsItems !== []) {
         $sections[] = ['label' => 'Operations', 'icon' => 'operations', 'items' => $operationsItems];
@@ -77,21 +73,26 @@
 
     $reportItems = [];
     if ($modules['reports'] && $user->hasPermission('reports', 'view')) {
-        $reportItems[] = ['label' => 'Inventory Report', 'href' => route('reports.inventory'), 'active' => request()->routeIs('reports.inventory')];
-        $reportItems[] = ['label' => 'Expiry Report', 'href' => route('reports.expiry'), 'active' => request()->routeIs('reports.expiry')];
-        $reportItems[] = ['label' => 'Usage Analysis', 'href' => route('reports.usage-history'), 'active' => request()->routeIs('reports.usage-history')];
+        $reportItems[] = [
+            'label' => 'Inventory & Expiry Monitoring',
+            'href' => route('reports.inventory'),
+            'active' => request()->routeIs('reports.inventory') || request()->routeIs('reports.expiry'),
+        ];
+        $reportItems[] = ['label' => 'Inventory Movement History', 'href' => route('reports.inventory-movement-history'), 'active' => request()->routeIs('reports.inventory-movement-history*')];
+        $reportItems[] = ['label' => 'Usage Report', 'href' => route('reports.usage-history'), 'active' => request()->routeIs('reports.usage-history')];
         if ($user->hasPermission('legacy_purchase', 'view')) {
-            $reportItems[] = ['label' => 'Purchase Analysis', 'href' => route('reports.purchase-analysis'), 'active' => request()->routeIs('reports.purchase-analysis')];
+            $reportItems[] = ['label' => 'Inbound & Purchase Analysis', 'href' => route('reports.purchase-analysis'), 'active' => request()->routeIs('reports.purchase-analysis')];
         }
         if ($user->hasPermission('legacy_sales', 'view')) {
             $reportItems[] = ['label' => 'Sales Analysis', 'href' => route('reports.sales-analysis'), 'active' => request()->routeIs('reports.sales-analysis')];
         }
-    }
-    if ($financeItems !== []) {
-        $reportItems = array_merge($reportItems, $financeItems);
+        $reportItems[] = ['label' => 'Stock Movement Classification', 'href' => route('reports.stock-movement-classification'), 'active' => request()->routeIs('reports.stock-movement-classification')];
     }
     if ($reportItems !== []) {
         $sections[] = ['label' => 'Reports', 'icon' => 'reports', 'items' => $reportItems];
+    }
+    if ($financeItems !== []) {
+        $sections[] = ['label' => 'Finance', 'icon' => 'finance', 'items' => $financeItems];
     }
 
     $administrationItems = [];
@@ -129,6 +130,8 @@
                                     <x-heroicon-o-cube class="mr-2 h-4 w-4" />
                                 @elseif($section['icon'] === 'reports')
                                     <x-heroicon-o-document-chart-bar class="mr-2 h-4 w-4" />
+                                @elseif($section['icon'] === 'finance')
+                                    <x-heroicon-o-banknotes class="mr-2 h-4 w-4" />
                                 @else
                                     <x-heroicon-o-cog-6-tooth class="mr-2 h-4 w-4" />
                                 @endif

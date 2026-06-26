@@ -82,6 +82,7 @@ The current grouped navigation is:
 - `Operations`
 - `Master Data`
 - `Reports`
+- `Finance`
 - `Administration`
 
 RNI labels remain user-facing:
@@ -89,7 +90,9 @@ RNI labels remain user-facing:
 - `Material Usage`
 - `Material Receipt`
 - `Materials`
-- `Reports`
+- `Inventory & Expiry Monitoring`
+- `Usage Report`
+- `Stock Movement Classification`
 - `RNI Operations`
 - `Business Insights`
 

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Services\DashboardStatsService;
+use App\Services\ReportChartService;
+use App\Services\StockMovementClassificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -13,16 +15,21 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ReportAnalyticsController extends Controller
 {
-    public function salesAnalysis(DashboardStatsService $service)
+    public function salesAnalysis(DashboardStatsService $service, ReportChartService $charts, Request $request)
     {
         $startDate = now()->subDays(29)->startOfDay();
         $endDate = now()->endOfDay();
+        $canViewSalesFinancials = $request->user()?->canAccessFinance() ?? false;
 
         return view('reports.sales-analysis', [
             'stats' => $service->getSalesStats($startDate, $endDate, 'last_30_days'),
-            'salesTrend' => $service->getSalesTrend($startDate, $endDate),
-            'topCustomers' => $service->getTopCustomers($startDate, $endDate, 10),
-            'fastMovingMaterials' => $service->getFastMovingMaterials($startDate, $endDate, 10),
+            'canViewSalesFinancials' => $canViewSalesFinancials,
+            'salesTrendChart' => $canViewSalesFinancials
+                ? $charts->line('Sales Revenue', $service->getSalesTrend($startDate, $endDate), '#1d4ed8', 'currency')
+                : null,
+            'topCustomers' => $canViewSalesFinancials
+                ? $service->getTopCustomers($startDate, $endDate, 10)
+                : [],
         ]);
     }
 
@@ -34,12 +41,12 @@ class ReportAnalyticsController extends Controller
             now()->subDays(29)->startOfDay(),
             now()->endOfDay(),
         );
+        $canViewSalesFinancials = $request->user()?->canAccessFinance() ?? false;
 
         $filePath = $this->prepareExportFile("sales-analysis-{$format}", $format);
         $writer = $format === 'csv' ? new CsvWriter() : new XlsxWriter();
 
-        $writer->openToFile($filePath);
-        $writer->addRow(Row::fromValues([
+        $headers = [
             'Date',
             'Invoice Number',
             'SKU',
@@ -52,13 +59,22 @@ class ReportAnalyticsController extends Controller
             'Unit',
             'Customer',
             'Status',
-            'Revenue',
-            'Sale Total',
-            'Created By',
-        ]));
+        ];
+
+        if ($canViewSalesFinancials) {
+            $headers = array_merge($headers, [
+                'Revenue',
+                'Sale Total',
+            ]);
+        }
+
+        $headers[] = 'Created By';
+
+        $writer->openToFile($filePath);
+        $writer->addRow(Row::fromValues($headers));
 
         foreach ($rows as $row) {
-            $writer->addRow(Row::fromValues([
+            $values = [
                 $row['date'],
                 $row['invoice_number'],
                 $row['sku'],
@@ -71,10 +87,16 @@ class ReportAnalyticsController extends Controller
                 $row['unit'],
                 $row['customer'],
                 $row['status'],
-                $row['line_revenue'],
-                $row['sale_total'],
-                $row['created_by'],
-            ]));
+            ];
+
+            if ($canViewSalesFinancials) {
+                $values[] = $row['line_revenue'];
+                $values[] = $row['sale_total'];
+            }
+
+            $values[] = $row['created_by'];
+
+            $writer->addRow(Row::fromValues($values));
         }
 
         $writer->close();
@@ -84,16 +106,24 @@ class ReportAnalyticsController extends Controller
             ->deleteFileAfterSend(true);
     }
 
-    public function purchaseAnalysis(DashboardStatsService $service)
+    public function purchaseAnalysis(DashboardStatsService $service, ReportChartService $charts, Request $request)
     {
         $startDate = now()->subDays(29)->startOfDay();
         $endDate = now()->endOfDay();
+        $canViewPurchaseFinancials = $request->user()?->canAccessFinance() ?? false;
+        $canViewInventoryValue = ($request->user()?->canViewInventoryValue() ?? false) || $canViewPurchaseFinancials;
 
         return view('reports.purchase-analysis', [
-            'purchaseTrend' => $service->getPurchaseTrend($startDate, $endDate),
-            'inboundTrend' => $service->getInboundTrend($startDate, $endDate),
-            'topSuppliers' => $service->getTopSuppliers($startDate, $endDate, 10),
+            'purchaseTrendChart' => $canViewPurchaseFinancials
+                ? $charts->line('Purchase Total', $service->getPurchaseTrend($startDate, $endDate), '#b45309', 'currency')
+                : null,
+            'inboundTrendChart' => $charts->bar('Inbound Units', $service->getInboundTrend($startDate, $endDate), '#0f766e'),
+            'topSuppliers' => $canViewPurchaseFinancials
+                ? $service->getTopSuppliers($startDate, $endDate, 10)
+                : [],
             'businessStats' => $service->getBusinessInsightStats($startDate, $endDate),
+            'canViewPurchaseFinancials' => $canViewPurchaseFinancials,
+            'canViewInventoryValue' => $canViewInventoryValue,
         ]);
     }
 
@@ -105,12 +135,12 @@ class ReportAnalyticsController extends Controller
             now()->subDays(29)->startOfDay(),
             now()->endOfDay(),
         );
+        $canViewPurchaseFinancials = $request->user()?->canAccessFinance() ?? false;
 
         $filePath = $this->prepareExportFile("purchase-analysis-{$format}", $format);
         $writer = $format === 'csv' ? new CsvWriter() : new XlsxWriter();
 
-        $writer->openToFile($filePath);
-        $writer->addRow(Row::fromValues([
+        $headers = [
             'Date',
             'Reference',
             'Supplier',
@@ -123,13 +153,22 @@ class ReportAnalyticsController extends Controller
             'Quantity',
             'Unit',
             'Status',
-            'Line Amount',
-            'Purchase Total',
-            'Created By',
-        ]));
+        ];
+
+        if ($canViewPurchaseFinancials) {
+            $headers = array_merge($headers, [
+                'Line Amount',
+                'Purchase Total',
+            ]);
+        }
+
+        $headers[] = 'Created By';
+
+        $writer->openToFile($filePath);
+        $writer->addRow(Row::fromValues($headers));
 
         foreach ($rows as $row) {
-            $writer->addRow(Row::fromValues([
+            $values = [
                 $row['date'],
                 $row['reference'],
                 $row['supplier'],
@@ -142,10 +181,16 @@ class ReportAnalyticsController extends Controller
                 $row['quantity'],
                 $row['unit'],
                 $row['status'],
-                $row['line_amount'],
-                $row['purchase_total'],
-                $row['created_by'],
-            ]));
+            ];
+
+            if ($canViewPurchaseFinancials) {
+                $values[] = $row['line_amount'];
+                $values[] = $row['purchase_total'];
+            }
+
+            $values[] = $row['created_by'];
+
+            $writer->addRow(Row::fromValues($values));
         }
 
         $writer->close();
@@ -153,6 +198,23 @@ class ReportAnalyticsController extends Controller
         return response()
             ->download($filePath, 'purchase-analysis.' . $format)
             ->deleteFileAfterSend(true);
+    }
+
+    public function stockMovementClassification(
+        StockMovementClassificationService $classificationService,
+        ReportChartService $charts
+    ) {
+        $summary = $classificationService->summary();
+
+        return view('reports.stock-movement-classification', [
+            'summary' => $summary,
+            'classificationChart' => $charts->bar(
+                'Material Count',
+                $classificationService->chartSummary(),
+                '#0f766e'
+            ),
+            'hasUnclassifiedMaterials' => ($summary['normal_unclassified'] + $summary['no_usage_unclassified']) > 0,
+        ]);
     }
 
     private function prepareExportFile(string $baseName, string $format): string

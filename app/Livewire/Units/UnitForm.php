@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Units;
 
+use App\Livewire\Concerns\AuthorizesComponentPermissions;
 use Livewire\Component;
 use App\Models\Unit;
 use App\DTOs\UnitData;
@@ -12,6 +13,8 @@ use App\Exceptions\UnitException;
 
 class UnitForm extends Component
 {
+    use AuthorizesComponentPermissions;
+
     public bool $isEditing = false;
     public ?Unit $unit = null;
 
@@ -39,6 +42,8 @@ class UnitForm extends Component
     #[On('create-unit')]
     public function create(): void
     {
+        $this->authorizePermission('master_data', 'create');
+
         $this->reset(['name', 'symbol', 'unit', 'isEditing']);
         $this->dispatch('open-modal', name: 'unit-form-modal');
     }
@@ -46,6 +51,8 @@ class UnitForm extends Component
     #[On('edit-unit')]
     public function edit(Unit $unit): void
     {
+        $this->authorizePermission('master_data', 'update');
+
         $this->unit = $unit;
         $this->name = $unit->name;
         $this->symbol = $unit->symbol;
@@ -55,6 +62,8 @@ class UnitForm extends Component
 
     public function save(UnitService $service): void
     {
+        $this->authorizePermission('master_data', $this->isEditing ? 'update' : 'create');
+
         $validated = $this->validate();
 
         $data = UnitData::fromArray($validated);

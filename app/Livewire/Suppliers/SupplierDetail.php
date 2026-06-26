@@ -2,12 +2,15 @@
 
 namespace App\Livewire\Suppliers;
 
+use App\Livewire\Concerns\AuthorizesComponentPermissions;
 use App\Models\Supplier;
 use Livewire\Component;
 use Livewire\Attributes\On;
 
 class SupplierDetail extends Component
 {
+    use AuthorizesComponentPermissions;
+
     public ?Supplier $supplier = null;
 
     public function render()
@@ -24,6 +27,8 @@ class SupplierDetail extends Component
 
     public function edit()
     {
+        $this->authorizePermission('master_data', 'update');
+
         if ($this->supplier) {
             $this->dispatch('close-modal', name: 'supplier-detail-modal');
             $this->dispatch('edit-supplier', ['supplier' => $this->supplier->id]);

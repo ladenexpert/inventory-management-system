@@ -30,7 +30,7 @@ class ModuleManagementTest extends TestCase
         $response = $this->actingAs($user)->get(route('dashboard'));
 
         $response->assertOk();
-        $response->assertDontSee('Current Inventory');
-        $response->assertDontSee('Expiry Report');
+        $response->assertDontSee('Inventory & Expiry Monitoring');
+        $response->assertDontSee('Stock Movement Classification');
     }
 }

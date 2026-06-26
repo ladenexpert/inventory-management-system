@@ -138,6 +138,52 @@ class RniRoleAccessTest extends TestCase
         $response->assertDontSee('Create Usage');
     }
 
+    public function test_rm_desk_can_create_material_usage(): void
+    {
+        $rmDesk = User::factory()->create([
+            'role' => UserRole::RM_DESK,
+        ]);
+
+        $product = Product::factory()->create([
+            'quantity' => 8,
+            'purchase_price' => 1200,
+        ]);
+
+        Batch::create([
+            'product_id' => $product->id,
+            'batch_number' => 'RMD-CREATE-001',
+            'expiry_date' => now()->addDays(20)->toDateString(),
+            'received_at' => now()->subDay(),
+            'unit_cost' => 1200,
+            'selling_price' => 1500,
+            'quantity' => 8,
+            'available_quantity' => 8,
+            'source' => 'purchase',
+        ]);
+
+        $this->actingAs($rmDesk)
+            ->postJson(route('material-usages.store'), [
+                'usage_date' => now()->toDateString(),
+                'purpose' => 'RM Desk usage',
+                'issued_by' => $rmDesk->id,
+                'items' => [
+                    [
+                        'product_id' => $product->id,
+                        'quantity' => 3,
+                        'discount' => 0,
+                    ],
+                ],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.transaction_type', SaleTransactionType::MATERIAL_USAGE->value);
+
+        $this->assertDatabaseHas('sales', [
+            'created_by' => $rmDesk->id,
+            'purpose' => 'RM Desk usage',
+            'transaction_type' => SaleTransactionType::MATERIAL_USAGE->value,
+        ]);
+    }
+
     public function test_rm_desk_can_cancel_only_their_own_material_usage(): void
     {
         $rmDesk = User::factory()->create([

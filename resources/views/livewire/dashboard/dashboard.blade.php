@@ -266,7 +266,7 @@
                             <span class="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold">{{ number_format($material['quantity']) }}</span>
                         </div>
                     @empty
-                        <p class="text-sm text-muted-foreground">No dead stock in the last 90 days.</p>
+                        <p class="text-sm text-muted-foreground">No dead stock found under the current classification rules.</p>
                     @endforelse
                 </div>
             </div>
