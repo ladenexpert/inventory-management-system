@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.4.8.1-delete-refresh-and-aggregate-consistency-hotfix
+
+- treated this work as a new hotfix milestone on top of committed `v0.4.8` without amending, tagging, pushing, or making release decisions
+- fixed dashboard/report refresh consistency after destructive mutations by moving shared dashboard cache version bumps to after-commit timing when transactions are active
+- added the missing dashboard/report cache invalidation on successful product/material soft delete while preserving existing delete semantics and audit logging
+- blocked material/product soft delete when `SUM(batches.available_quantity)` is still above zero, so materials with active stock or active zero-cost stock cannot be deleted
+- confirmed the browser `ProductTable` row delete and bulk delete actions both use the centralized `ProductService::deleteProduct()` guard path
+- strengthened the delete guard so batch availability remains the primary authority and `products.quantity` also blocks delete as a fail-safe when stock/cache drift still indicates active stock
+- kept material/product delete as a master-data lifecycle action only: no new `inventory_logs`, no auto stock adjustment, and no new delete movement type
+- clarified that stock must be reduced to zero first through official stock movement flows such as Stock Take, Manual Adjustment, or Material Usage before delete is allowed
+- corrected current-state dashboard, inventory monitoring, expiry monitoring, and batch monitoring queries so soft-deleted materials no longer remain in active operational counts
+- preserved historical movement and transaction evidence for soft-deleted materials through existing `withTrashed()` history relationships instead of deleting stock or audit data
+- preserved existing Material Receipt, Material Usage, Stock Take, Opening Stock, batch authority, quantity cache sync, and legacy Purchase/Sales finance semantics without adding new movement types
+- added hotfix regression coverage for service-level active-stock delete blocking, ProductTable row/bulk delete blocking, quantity-cache fail-safe blocking, zero-cost active-stock delete blocking, zero-stock delete without delete movement creation, material usage cancel/restore refresh, legacy sale cancel/restore refresh, soft-deleted material exclusion from current-state aggregates, and historical evidence retention
+- automation validation passed: `composer validate`, `composer install --dry-run`, `php artisan optimize:clear`, focused deletion/visibility hotfix coverage, and `php artisan test` with `178 tests / 1203 assertions`
+- status: automation-validated and pending owner browser-UAT, manual review, commit, push, and tag
+- release handling note: Codex did not commit, tag, or push
+
 ## v0.4.8-stock-take-reconciliation-and-flexible-valuation-guardrail
 
 - replaced the session-only Stock Take preview/apply flow with a persistent Stock Take session and row evidence model while keeping the existing controller + Blade architecture

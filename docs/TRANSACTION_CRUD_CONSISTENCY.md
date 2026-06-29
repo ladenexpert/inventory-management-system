@@ -153,7 +153,7 @@ Rules confirmed:
 
 ## Refresh Rule
 
-- Dashboard and analytics caches are versioned and invalidated immediately after stock or finance mutations.
+- Dashboard and analytics caches are versioned and invalidated after successful transaction commit for stock, finance, and destructive product/material mutations.
 - Cache invalidation is triggered after:
   - material receipt confirmation
   - legacy purchase receipt
@@ -162,6 +162,25 @@ Rules confirmed:
   - sale / usage cancellation or restore
   - legacy purchase mark-paid
   - finance transaction create, update, delete, or void
+  - product / material soft delete
+
+## v0.4.8.1 Hotfix Addendum
+
+- Root cause confirmed for the hotfix:
+  - product/material soft delete did not invalidate the shared dashboard/report cache
+  - several current-state batch-backed queries were still counting soft-deleted materials because they did not exclude deleted products
+- Current delete guard for materials/products:
+  - active stock authority is `SUM(batches.available_quantity)`, not `products.quantity`
+  - browser `ProductTable` row and bulk delete actions both call the centralized `ProductService::deleteProduct()` path
+  - delete is blocked when active stock is greater than zero, including zero-cost active stock
+  - delete is also blocked when `products.quantity` still shows positive stock as a fail-safe against stock/cache drift
+  - delete is allowed only after official stock movement flows reduce active stock to zero
+- Preserved behavior:
+  - Material Receipt, Material Usage, Stock Take, and Opening Stock semantics remain unchanged
+  - no finance posting semantics changed
+  - product/material delete is not a stock movement and creates no `inventory_logs` row
+  - no new stock movement types were introduced
+  - historical movement and transaction evidence for deleted materials remains preserved
 
 ## Item Code Rule
 

@@ -92,12 +92,12 @@ class DashboardStatsService
     public function getInventoryValuation(): array
     {
         return $this->remember('dashboard_inventory_valuation', now()->addMinutes(5), function () {
-            $costValue = (int) Batch::query()
+            $costValue = (int) $this->activeBatchQuery()
                 ->where('available_quantity', '>', 0)
                 ->selectRaw('COALESCE(SUM(available_quantity * unit_cost), 0) as total')
                 ->value('total');
 
-            $sellingValue = (int) Batch::query()
+            $sellingValue = (int) $this->activeBatchQuery()
                 ->join('products', 'products.id', '=', 'batches.product_id')
                 ->where('batches.available_quantity', '>', 0)
                 ->selectRaw('COALESCE(SUM(batches.available_quantity * COALESCE(batches.selling_price, products.selling_price)), 0) as total')
@@ -143,7 +143,7 @@ class DashboardStatsService
         $cacheKey = "dashboard_batch_alerts_{$today->format('Ymd')}_{$nearExpiryDays}";
 
         return $this->remember($cacheKey, now()->addMinutes(30), function () use ($today, $until, $nearExpiryDays) {
-            $sellableBase = Batch::query()
+            $sellableBase = $this->activeBatchQuery()
                 ->where('available_quantity', '>', 0)
                 ->where('source', '!=', BatchStatus::QUARANTINED->value);
 
@@ -156,11 +156,11 @@ class DashboardStatsService
                 ->whereDate('expiry_date', '<=', $until)
                 ->count();
 
-            $depletedCount = Batch::query()
+            $depletedCount = $this->activeBatchQuery()
                 ->where('available_quantity', '<=', 0)
                 ->count();
 
-            $zeroCostCount = Batch::query()
+            $zeroCostCount = $this->activeBatchQuery()
                 ->where('available_quantity', '>', 0)
                 ->where('unit_cost', '=', 0)
                 ->count();
@@ -186,7 +186,7 @@ class DashboardStatsService
         $cacheKey = "dashboard_urgent_batches_{$today->format('Ymd')}_{$limit}_{$nearExpiryDays}";
 
         return $this->remember($cacheKey, now()->addMinutes(30), function () use ($until, $limit) {
-            return Batch::query()
+            return $this->activeBatchQuery()
                 ->with('product:id,name,sku,item_code_ierp')
                 ->where('available_quantity', '>', 0)
                 ->where('source', '!=', BatchStatus::QUARANTINED->value)
@@ -220,7 +220,7 @@ class DashboardStatsService
     public function getTopBatchValuations(int $limit = 5): array
     {
         return $this->remember("dashboard_batch_valuations_{$limit}", now()->addMinutes(10), function () use ($limit) {
-            return Batch::query()
+            return $this->activeBatchQuery()
                 ->with('product:id,name,sku,item_code_ierp')
                 ->where('available_quantity', '>', 0)
                 ->orderByRaw('(available_quantity * unit_cost) DESC')
@@ -416,7 +416,7 @@ class DashboardStatsService
     public function getRniOverviewStats(): array
     {
         return $this->remember('dashboard_rni_overview_stats', now()->addMinutes(5), function () {
-            $activeBatches = Batch::query()
+            $activeBatches = $this->activeBatchQuery()
                 ->with('product')
                 ->where('available_quantity', '>', 0)
                 ->get();
@@ -535,7 +535,7 @@ class DashboardStatsService
         $until = $today->copy()->addDays($this->batchPolicyService->nearExpiryThresholdDays())->endOfDay();
 
         return $this->remember("dashboard_near_expiry_material_risks_{$limit}_{$today->format('Ymd')}", now()->addMinutes(5), function () use ($today, $until, $limit) {
-            return Batch::query()
+            return $this->activeBatchQuery()
                 ->select('product_id')
                 ->selectRaw('MIN(expiry_date) as nearest_expiry_date')
                 ->selectRaw('SUM(available_quantity) as at_risk_quantity')
@@ -910,5 +910,12 @@ class DashboardStatsService
             Purchase::query(),
             $context,
         )->whereIn('status', $this->receiptStatuses());
+    }
+
+    protected function activeBatchQuery(): Builder
+    {
+        return Batch::query()->whereHas('product', function (Builder $query) {
+            $query->whereNull('products.deleted_at');
+        });
     }
 }

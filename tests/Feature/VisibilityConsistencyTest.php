@@ -7,6 +7,7 @@ use App\Enums\PurchaseStatus;
 use App\Enums\SaleStatus;
 use App\Enums\SaleTransactionType;
 use App\Enums\UserRole;
+use App\Livewire\Batches\BatchTable;
 use App\Livewire\Products\ProductTable;
 use App\Livewire\Reports\InventoryReportTable;
 use App\Livewire\Reports\UsageHistoryTable;
@@ -25,6 +26,7 @@ use App\Models\User;
 use App\Support\RmpTerminology;
 use App\Services\DashboardStatsService;
 use App\Services\InventoryMovementHistoryService;
+use App\Services\ProductService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
 use Livewire\Livewire;
@@ -196,6 +198,74 @@ class VisibilityConsistencyTest extends TestCase
             ->assertSee('USAGE-BATCH-001');
     }
 
+    public function test_material_usage_cancel_and_restore_refresh_dashboard_and_usage_report_immediately(): void
+    {
+        $user = User::factory()->create();
+        $team = Team::factory()->create();
+        $product = Product::factory()->create([
+            'sku' => 'RM-USAGE-DEL-001',
+            'item_code_ierp' => 'IERP-RM-USAGE-DEL-001',
+            'quantity' => 6,
+            'purchase_price' => 9000,
+            'selling_price' => 12000,
+        ]);
+
+        Batch::create([
+            'product_id' => $product->id,
+            'batch_number' => 'USAGE-DEL-BATCH-001',
+            'expiry_date' => now()->addMonths(3)->toDateString(),
+            'received_at' => now()->subDay(),
+            'storage_location' => 'RM-U3',
+            'unit_cost' => 9000,
+            'selling_price' => 12000,
+            'quantity' => 6,
+            'available_quantity' => 6,
+            'source' => 'purchase',
+        ]);
+
+        $this->actingAs($user)
+            ->postJson(route('material-usages.store'), [
+                'usage_date' => now()->toDateString(),
+                'purpose' => 'Cancel restore refresh',
+                'team_id' => $team->id,
+                'requested_by' => 'RNI Ops',
+                'issued_by' => $user->id,
+                'items' => [
+                    [
+                        'product_id' => $product->id,
+                        'quantity' => 3,
+                        'unit_price' => 9000,
+                        'discount' => 0,
+                    ],
+                ],
+            ])
+            ->assertCreated();
+
+        $usage = Sale::query()->latest('id')->firstOrFail();
+        $service = app(DashboardStatsService::class);
+
+        $this->assertSame(3, $service->getRniOverviewStats()['material_usage_this_month']);
+
+        app(\App\Services\SaleService::class)->cancelSale($usage->fresh(), 'Hotfix regression test');
+
+        $this->assertSame(0, $service->getRniOverviewStats()['material_usage_this_month']);
+        $this->assertSame(6, $product->fresh()->quantity);
+
+        $this->actingAs($user);
+        Livewire::test(UsageHistoryTable::class)
+            ->assertDontSee($usage->display_transaction_number);
+
+        app(\App\Services\SaleService::class)->restoreSale($usage->fresh());
+
+        $this->assertSame(3, $service->getRniOverviewStats()['material_usage_this_month']);
+        $this->assertSame(3, $product->fresh()->quantity);
+
+        $this->actingAs($user);
+        Livewire::test(UsageHistoryTable::class)
+            ->assertSee($usage->fresh()->display_transaction_number)
+            ->assertSee('IERP-RM-USAGE-DEL-001');
+    }
+
     public function test_legacy_purchase_payment_and_legacy_sale_complete_refresh_finance_and_analysis(): void
     {
         $user = User::factory()->create();
@@ -281,6 +351,170 @@ class VisibilityConsistencyTest extends TestCase
 
         $this->get(route('reports.sales-analysis.export', ['format' => 'csv']))
             ->assertOk();
+    }
+
+    public function test_legacy_sale_cancel_and_restore_refresh_sales_and_finance_aggregates(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create([
+            'sku' => 'LEG-SALE-DEL-001',
+            'item_code_ierp' => 'IERP-LEG-SALE-DEL-001',
+            'quantity' => 5,
+            'purchase_price' => 8000,
+            'selling_price' => 14000,
+        ]);
+
+        Batch::create([
+            'product_id' => $product->id,
+            'batch_number' => 'LEG-SALE-DEL-BATCH-001',
+            'expiry_date' => now()->addMonths(2)->toDateString(),
+            'received_at' => now()->subDay(),
+            'storage_location' => 'FG-02',
+            'unit_cost' => 8000,
+            'selling_price' => 14000,
+            'quantity' => 5,
+            'available_quantity' => 5,
+            'source' => 'purchase',
+        ]);
+
+        $this->actingAs($user)
+            ->postJson(route('sales.store'), [
+                'sale_date' => now()->toDateString(),
+                'payment_method' => PaymentMethod::TRANSFER->value,
+                'status' => SaleStatus::COMPLETED->value,
+                'global_discount' => 0,
+                'items' => [
+                    [
+                        'product_id' => $product->id,
+                        'quantity' => 2,
+                        'unit_price' => 14000,
+                        'discount' => 0,
+                    ],
+                ],
+            ])
+            ->assertCreated();
+
+        $sale = Sale::query()->latest('id')->firstOrFail();
+        $dashboard = app(DashboardStatsService::class);
+        $start = now()->subDays(29)->startOfDay();
+        $end = now()->endOfDay();
+
+        $this->assertSame(1, $dashboard->getSalesStats($start, $end, 'last_30_days')['count']);
+        $this->assertSame(28000.0, $dashboard->getCashFlowStats($start, $end, 'last_30_days')['income']);
+        $this->assertSame(1, FinanceTransaction::where('reference_type', Sale::class)->where('reference_id', $sale->id)->count());
+
+        app(\App\Services\SaleService::class)->cancelSale($sale->fresh(), 'Hotfix regression test');
+
+        $this->assertSame(0, $dashboard->getSalesStats($start, $end, 'last_30_days')['count']);
+        $this->assertSame(0.0, $dashboard->getCashFlowStats($start, $end, 'last_30_days')['income']);
+        $this->assertTrue($dashboard->getSalesAnalysisRows($start, $end)->isEmpty());
+        $this->assertSame(0, FinanceTransaction::where('reference_type', Sale::class)->where('reference_id', $sale->id)->count());
+
+        app(\App\Services\SaleService::class)->restoreSale($sale->fresh());
+
+        $this->assertSame(0, $dashboard->getSalesStats($start, $end, 'last_30_days')['count']);
+        $this->assertSame(0.0, $dashboard->getCashFlowStats($start, $end, 'last_30_days')['income']);
+        $this->assertTrue($dashboard->getSalesAnalysisRows($start, $end)->isEmpty());
+        $this->assertSame(0, FinanceTransaction::where('reference_type', Sale::class)->where('reference_id', $sale->id)->count());
+    }
+
+    public function test_soft_deleted_material_is_removed_from_current_dashboard_and_batch_reports_but_history_remains(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create([
+            'sku' => 'RM-DELETE-001',
+            'item_code_ierp' => 'IERP-RM-DELETE-001',
+            'quantity' => 4,
+            'purchase_price' => 6000,
+            'selling_price' => 9000,
+            'is_active' => true,
+        ]);
+
+        $batch = Batch::create([
+            'product_id' => $product->id,
+            'batch_number' => 'DEL-BATCH-001',
+            'expiry_date' => now()->addMonths(5)->toDateString(),
+            'received_at' => now()->subDay(),
+            'storage_location' => 'RM-D1',
+            'unit_cost' => 6000,
+            'selling_price' => 9000,
+            'quantity' => 4,
+            'available_quantity' => 4,
+            'source' => 'purchase',
+        ]);
+
+        InventoryLog::create([
+            'product_id' => $product->id,
+            'batch_id' => $batch->id,
+            'movement_type' => 'opening_balance',
+            'quantity' => 4,
+            'quantity_before' => 0,
+            'quantity_after' => 4,
+            'notes' => 'Soft delete refresh regression',
+        ]);
+
+        $dashboard = app(DashboardStatsService::class);
+        $inventoryLogCountBeforeDelete = InventoryLog::count();
+        $inventoryAdjustmentCountBeforeDelete = \App\Models\InventoryAdjustment::count();
+
+        $this->assertSame(1, $dashboard->getRniOverviewStats()['total_rm']);
+        $this->assertSame(4, $dashboard->getRniOverviewStats()['total_physical_stock_quantity']);
+        $this->assertSame(24000, $dashboard->getInventoryValuation()['cost_value']);
+
+        $this->actingAs($user);
+        $this->batchServiceZeroOutProduct($product);
+        app(ProductService::class)->deleteProduct($product);
+
+        $this->assertSame(0, $dashboard->getRniOverviewStats()['total_rm']);
+        $this->assertSame(0, $dashboard->getRniOverviewStats()['total_physical_stock_quantity']);
+        $this->assertSame(0, $dashboard->getInventoryValuation()['cost_value']);
+        $this->assertSoftDeleted('products', ['id' => $product->id]);
+        $this->assertSame($inventoryLogCountBeforeDelete + 1, InventoryLog::count());
+        $this->assertSame($inventoryAdjustmentCountBeforeDelete + 1, \App\Models\InventoryAdjustment::count());
+
+        $historyRows = app(InventoryMovementHistoryService::class)->exportRows();
+        $this->assertTrue($historyRows->contains(
+            fn (array $row) => $row['item_code_ierp'] === 'IERP-RM-DELETE-001'
+                && $row['lot_number'] === 'DEL-BATCH-001'
+        ));
+
+        Livewire::test(InventoryReportTable::class)
+            ->assertDontSee('IERP-RM-DELETE-001')
+            ->assertDontSee('DEL-BATCH-001');
+
+        Livewire::test(BatchTable::class)
+            ->assertDontSee('IERP-RM-DELETE-001')
+            ->assertDontSee('DEL-BATCH-001');
+
+        $classificationRecords = app(\App\Services\StockMovementClassificationService::class)->records();
+        $this->assertFalse($classificationRecords->contains(fn (array $row) => $row['item_code'] === 'IERP-RM-DELETE-001'));
+    }
+
+    private function batchServiceZeroOutProduct(Product $product): void
+    {
+        $adjustment = app(\App\Services\InventoryAdjustmentService::class)->create([
+            'adjustment_type' => 'manual_stock_adjustment',
+            'direction' => 'out',
+            'source' => 'test_zero_out_before_delete',
+            'reference' => $product->item_code_ierp ?: $product->sku,
+            'notes' => 'Zero out stock before delete regression.',
+            'adjusted_by' => auth()->id(),
+            'adjusted_at' => now(),
+            'meta' => [
+                'product_id' => $product->id,
+            ],
+        ], 'ADJ');
+
+        app(\App\Services\BatchService::class)->withinStockMutationScope(function () use ($product, $adjustment) {
+            app(\App\Services\BatchService::class)->adjustProductQuantity(
+                product: $product->fresh(),
+                targetQuantity: 0,
+                unitCost: (int) $product->purchase_price,
+                sellingPrice: (int) $product->selling_price,
+                notes: 'Zero out stock before delete regression.',
+                inventoryAdjustment: $adjustment,
+            );
+        });
     }
 
     public function test_item_code_ierp_remains_nullable_and_separate_from_sku_in_lists_and_history(): void

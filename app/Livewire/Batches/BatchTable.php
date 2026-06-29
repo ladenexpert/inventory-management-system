@@ -83,6 +83,8 @@ final class BatchTable extends PowerGridComponent
             ->leftJoin('suppliers as purchase_suppliers', 'purchase_suppliers.id', '=', 'purchases.supplier_id')
             ->leftJoin('suppliers as product_suppliers', 'product_suppliers.id', '=', 'products.supplier_id')
             ->leftJoin('storage_locations', 'storage_locations.id', '=', 'batches.storage_location_id')
+            ->whereNotNull('products.id')
+            ->whereNull('products.deleted_at')
             ->when(empty($this->sortField), fn ($query) => $query->orderBy('expiry_date'));
     }
 

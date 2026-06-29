@@ -17,6 +17,7 @@ This sprint does **not** turn `inventory_logs` into the only source of truth. It
 Available stock for selling and reservation is determined from active batch balances:
 
 - `SUM(batches.available_quantity)` per product
+- current-state dashboard, inventory, expiry, and batch monitoring surfaces must exclude soft-deleted materials from that active operational count
 
 ### 2. Cached aggregate
 
@@ -44,6 +45,16 @@ Expected movement types:
 - `legacy_sync`
 
 ## Inventory Movement Rules
+
+### Material / product delete
+
+- Material/product delete is a master-data lifecycle action, not an inventory movement.
+- Material/product delete must not create an `inventory_logs` row.
+- Material/product delete must not auto-create a stock adjustment.
+- Material/product delete is blocked while active stock exists, using `SUM(batches.available_quantity)` as the authority.
+- Material/product delete also fails safe when `products.quantity` still shows positive stock, even if batch sums appear zero, so stock/cache drift cannot bypass the delete guard.
+- Stock must be reduced to zero first through official stock movement flows such as Stock Take, Manual Adjustment, or Material Usage before soft delete is allowed.
+- After active stock reaches zero, soft delete remains allowed and historical stock-affecting movement rows remain visible.
 
 ### Opening balance
 
@@ -185,8 +196,9 @@ This avoids drifting aggregate stock, recursive sync loops, and repeated aggrega
 
 ## Dashboard And Report Refresh
 
-- Dashboard and report aggregates may be cached, but cached keys must be invalidated immediately after stock or finance mutations.
-- The cache invalidation point is the end of the stock mutation scope for inventory changes and the finance transaction service for finance changes.
+- Dashboard and report aggregates may be cached, but cached keys must be invalidated after successful stock, finance, or destructive product mutations.
+- The cache invalidation point is registered after successful transaction commit when a database transaction is active.
+- Zero-stock product/material soft delete must invalidate dashboard/report aggregates even though historical batch and movement evidence remains preserved.
 - This keeps:
   - current inventory
   - inventory movement history

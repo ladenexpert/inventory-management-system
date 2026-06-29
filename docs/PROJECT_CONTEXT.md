@@ -17,12 +17,43 @@ RMP is therefore not positioned as a one-off RNI inventory UAT system. The curre
 
 ## Current Milestone
 
-- Milestone: `v0.4.8-stock-take-reconciliation-and-flexible-valuation-guardrail`
+- Milestone: `v0.4.8.1-delete-refresh-and-aggregate-consistency-hotfix`
 - Status: implemented and automation-validated
 - Owner state: pending owner browser-UAT, manual review, commit, push, and tag
 - Release handling note: release decisions remain owner-managed, and Codex did not commit, tag, or push
 
-## v0.4.8 Scope
+## v0.4.8.1 Hotfix Scope
+
+### 1. Root Cause Found
+
+- Product/material soft delete was not invalidating the shared dashboard/report cache version.
+- Several current-state dashboard and batch-backed report queries were still counting soft-deleted materials because they operated from `batches` plus raw joins without excluding deleted products.
+- Stock and finance destructive flows already reused the shared invalidation path in most places, but the hotfix now ensures cache version bumps are registered after successful transaction commit when a database transaction is active.
+- The browser delete path was already using `ProductService`, but the delete guard only checked batch availability and did not fail safe on `products.quantity` when legacy/cache drift still showed active stock.
+
+### 2. Hotfix Behavior
+
+- Dashboard/report cache versioning now refreshes after successful destructive stock or finance mutations commit.
+- Product/material soft delete is blocked while active stock still exists based on `SUM(batches.available_quantity)`.
+- `SUM(batches.available_quantity)` remains the primary delete guard authority, while `products.quantity` also blocks delete as a fail-safe when stock/cache drift still indicates active stock.
+- Successful zero-stock product/material soft delete still refreshes dashboard/report aggregates immediately.
+- Product/material delete remains a master-data lifecycle action only and does not create `inventory_logs`, inventory adjustments, finance entries, or a new movement type.
+- Current-state dashboard cards, inventory monitoring, expiry monitoring, and batch monitoring exclude soft-deleted materials from active operational counts.
+- Historical inventory movement evidence remains available for deleted materials through existing history relationships.
+
+### 3. Preserved Semantics
+
+- Material Receipt behavior is unchanged.
+- Material Usage behavior is unchanged.
+- Stock Take behavior is unchanged.
+- Opening Stock behavior is unchanged.
+- Batch availability remains the stock authority.
+- `products.quantity` remains a synchronized aggregate cache, not the stock authority.
+- No finance posting semantics changed.
+- No new package, migration, Filament adoption, or UI framework migration was introduced.
+- PHP `8.2` compatibility remains preserved.
+
+## v0.4.8 Baseline Scope
 
 ### 1. Stock Take Reconciliation Flow
 
@@ -98,16 +129,32 @@ The v0.4.8 implementation intentionally preserves:
 
 ## Validation Evidence
 
-Automation validation completed for v0.4.8:
+Automation validation completed for v0.4.8.1:
 
 - `composer validate`: passed
 - `composer install --dry-run`: passed
 - `php artisan optimize:clear`: passed
+- `php artisan test --filter=MasterDataDeletionTest`: passed
+- `php artisan test tests/Feature/VisibilityConsistencyTest.php`: passed
 - `php artisan test --filter=StockTakeImportTest`: passed
 - `php artisan test --filter=V047HardeningTest`: passed
-- `php artisan test`: passed, `168` tests / `1146` assertions
+- `php artisan test --filter=VisibilityConsistencyTest`: passed
+- `php artisan test`: passed, `178` tests / `1203` assertions
 
-Focused v0.4.8 coverage includes:
+Focused v0.4.8.1 hotfix coverage includes:
+
+- active-stock product delete blocking
+- ProductTable row delete blocking
+- ProductTable bulk delete blocking
+- quantity-cache fail-safe delete blocking
+- active zero-cost stock product delete blocking
+- zero-stock delete without delete movement creation
+- material usage cancel / restore refresh consistency
+- legacy sale cancel / restore refresh consistency
+- soft-deleted material exclusion from current dashboard and batch-backed reports
+- historical inventory movement retention for soft-deleted materials
+
+Focused v0.4.8 baseline coverage still includes:
 
 - Stock Take import persistence
 - unmatched batch handling
@@ -123,7 +170,17 @@ Focused v0.4.8 coverage includes:
 
 Owner browser-UAT is still required before any release action.
 
-Recommended owner checks for v0.4.8:
+Recommended owner checks for v0.4.8.1:
+
+- attempt to delete a material with active stock and verify delete is blocked with guidance to reduce stock to zero first
+- attempt to delete a material with active zero-cost stock and verify delete is still blocked
+- delete a material that is allowed by the current rules and verify Dashboard, Inventory & Expiry Monitoring, and Batch Monitoring stop counting it immediately
+- verify the allowed zero-stock delete creates no new Inventory Movement History row and no auto adjustment
+- cancel and restore a Material Usage and verify Dashboard plus Usage Report refresh immediately
+- cancel and restore a completed legacy sale and verify sales/finance insight cards stop counting it while cancelled and remain excluded while restored-to-pending
+- verify Inventory Movement History still preserves deleted-material history rows
+
+Recommended owner checks for the preserved v0.4.8 baseline:
 
 - import a Stock Take file for existing matched batches
 - verify unmatched rows stay visible as `error`
@@ -133,11 +190,12 @@ Recommended owner checks for v0.4.8:
 - verify closed session no longer allows stock-impacting actions
 - verify non-admin users do not see valuation columns in Stock Take export/view
 
-## Guardrails Preserved In v0.4.8
+## Guardrails Preserved In v0.4.8.1
 
 - no Material Receipt rewrite
 - no Material Usage rewrite
 - no Opening Stock rewrite
+- no Stock Take rewrite
 - no finance posting change
 - no batch creation from Stock Take
 - no batch unit-cost overwrite

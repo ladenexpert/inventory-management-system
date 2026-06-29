@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Exception;
+use App\Models\Batch;
 use App\Models\PhysicalForm;
 use App\Models\Product;
 use App\Models\StorageLocation;
@@ -17,6 +18,7 @@ class ProductService
         protected BatchService $batchService,
         protected AuditLogService $auditLogService,
         protected InventoryAdjustmentService $inventoryAdjustmentService,
+        protected DashboardCacheService $dashboardCache,
     ) {
     }
 
@@ -162,13 +164,43 @@ class ProductService
     {
         DB::transaction(function () use ($product) {
             try {
-                $product->delete();
-                $this->auditLogService->logDeletion($product);
+                $lockedProduct = Product::whereKey($product->id)->lockForUpdate()->firstOrFail();
+                $this->assertCanDeleteProduct($lockedProduct);
+
+                $lockedProduct->delete();
+                $this->auditLogService->logDeletion($lockedProduct);
+                $this->dashboardCache->forgetDashboardData();
 
             } catch (Exception $e) {
+                if ($e instanceof ProductException) {
+                    throw $e;
+                }
+
                 throw ProductException::deletionFailed($e->getMessage(), ['id' => $product->id]);
             }
         });
+    }
+
+    protected function assertCanDeleteProduct(Product $product): void
+    {
+        $batchActiveStock = (int) Batch::query()
+            ->where('product_id', $product->id)
+            ->lockForUpdate()
+            ->selectRaw('COALESCE(SUM(available_quantity), 0) as total_quantity')
+            ->value('total_quantity');
+
+        $cachedQuantity = (int) $product->quantity;
+
+        if ($batchActiveStock > 0 || $cachedQuantity > 0) {
+            throw ProductException::deletionFailed(
+                'Material cannot be deleted because active stock still exists. Please reduce stock to zero through Stock Take, Adjustment, or Usage before deleting this material.',
+                [
+                    'id' => $product->id,
+                    'batch_active_stock' => $batchActiveStock,
+                    'cached_quantity' => $cachedQuantity,
+                ],
+            );
+        }
     }
 
     /**

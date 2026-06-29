@@ -70,6 +70,8 @@ final class ExpiryReportTable extends PowerGridComponent
             ->leftJoin('products', 'products.id', '=', 'batches.product_id')
             ->leftJoin('units', 'units.id', '=', 'products.unit_id')
             ->leftJoin('storage_locations', 'storage_locations.id', '=', 'batches.storage_location_id')
+            ->whereNotNull('products.id')
+            ->whereNull('products.deleted_at')
             ->whereNotNull('expiry_date');
     }
 

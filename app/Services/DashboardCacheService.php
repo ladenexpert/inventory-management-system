@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class DashboardCacheService
 {
@@ -15,11 +16,24 @@ class DashboardCacheService
 
     public function forgetDashboardData(): void
     {
-        Cache::forever(self::VERSION_KEY, $this->currentVersion() + 1);
+        if (DB::transactionLevel() > 0) {
+            DB::afterCommit(function (): void {
+                $this->bumpVersion();
+            });
+
+            return;
+        }
+
+        $this->bumpVersion();
     }
 
     private function currentVersion(): int
     {
         return (int) Cache::get(self::VERSION_KEY, 1);
+    }
+
+    private function bumpVersion(): void
+    {
+        Cache::forever(self::VERSION_KEY, $this->currentVersion() + 1);
     }
 }
