@@ -2,15 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\StockTakeSession;
 use App\Services\StockTakeImportService;
+use App\Support\RmpTerminology;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use OpenSpout\Common\Entity\Row;
-use OpenSpout\Writer\XLSX\Writer;
-use App\Support\RmpTerminology;
+use OpenSpout\Writer\CSV\Writer as CsvWriter;
+use OpenSpout\Writer\XLSX\Writer as XlsxWriter;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class StockTakeImportController extends Controller
@@ -22,8 +24,26 @@ class StockTakeImportController extends Controller
 
     public function index(): View
     {
+        $sessions = StockTakeSession::query()
+            ->with(['importedByUser', 'reviewedByUser', 'postedByUser', 'closedByUser'])
+            ->latest('id')
+            ->paginate(10);
+
         return view('stock-take.import', [
-            'preview' => session('stock_take_preview'),
+            'sessions' => $sessions,
+        ]);
+    }
+
+    public function show(StockTakeSession $stockTakeSession): View
+    {
+        $session = $this->stockTakeImportService->loadSession($stockTakeSession);
+        $rows = $session->rows()->with(['batch.product.unit', 'product.unit', 'inventoryAdjustment'])->paginate(50);
+
+        return view('stock-take.show', [
+            'session' => $session,
+            'rows' => $rows,
+            'summary' => $this->stockTakeImportService->summarizeSessionRows($session->rows),
+            'canViewValuation' => $this->canViewValuation(),
         ]);
     }
 
@@ -34,45 +54,161 @@ class StockTakeImportController extends Controller
         ]);
 
         try {
-            $preview = $this->stockTakeImportService->previewFromFile($request->file('file')->getRealPath());
+            $session = $this->stockTakeImportService->createSessionFromFile(
+                $request->file('file')->getRealPath(),
+                (int) $request->user()->id,
+            );
 
-            session([
-                'stock_take_preview' => $preview,
-                'stock_take_preview_rows' => $preview['rows'],
-            ]);
+            $summary = $this->stockTakeImportService->summarizeSessionRows($session->rows);
+            $message = $summary['error_rows'] === 0
+                ? 'Stock take import preview created successfully.'
+                : 'Stock take import created with row errors. Review the session before posting.';
 
-            $message = $preview['errors'] === []
-                ? 'Stock take preview generated successfully.'
-                : 'Stock take preview generated with validation errors. Please review before applying.';
-
-            return back()->with($preview['errors'] === [] ? 'success' : 'warning', $message);
+            return redirect()
+                ->route('stock-take.show', $session)
+                ->with($summary['error_rows'] === 0 ? 'success' : 'warning', $message);
         } catch (\Throwable $e) {
             return back()->with('error', 'Failed to generate stock take preview: ' . $e->getMessage());
         }
     }
 
-    public function apply(Request $request): RedirectResponse
+    public function recalculate(Request $request, StockTakeSession $stockTakeSession): RedirectResponse
     {
-        $rows = session('stock_take_preview_rows', []);
-        $preview = session('stock_take_preview');
-
-        if ($rows === [] || !is_array($rows)) {
-            return back()->with('error', 'No stock take preview is available to apply.');
-        }
-
-        if (!empty($preview['errors'])) {
-            return back()->with('error', 'Please resolve preview errors before applying stock take adjustments.');
-        }
-
         try {
-            $result = $this->stockTakeImportService->applyPreviewRows($rows, (int) $request->user()->id);
+            $session = $this->stockTakeImportService->recalculateSession(
+                $stockTakeSession,
+                (int) $request->user()->id,
+            );
 
-            session()->forget(['stock_take_preview', 'stock_take_preview_rows']);
+            return redirect()
+                ->route('stock-take.show', $session)
+                ->with('success', 'System quantities and variances were recalculated from current batch stock.');
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Failed to recalculate stock take session: ' . $e->getMessage());
+        }
+    }
 
-            return back()->with('success', "Stock take applied. Adjusted rows: {$result['applied_rows']}, skipped rows: {$result['skipped_rows']}.");
+    public function apply(Request $request, StockTakeSession $stockTakeSession): RedirectResponse
+    {
+        try {
+            $result = $this->stockTakeImportService->postSession(
+                $stockTakeSession,
+                (int) $request->user()->id,
+            );
+
+            $flash = match ($result['status']) {
+                'posted' => 'success',
+                'stale' => 'warning',
+                default => 'error',
+            };
+
+            return redirect()
+                ->route('stock-take.show', $result['session'])
+                ->with($flash, $result['message']);
         } catch (\Throwable $e) {
             return back()->with('error', 'Failed to apply stock take adjustments: ' . $e->getMessage());
         }
+    }
+
+    public function close(Request $request, StockTakeSession $stockTakeSession): RedirectResponse
+    {
+        try {
+            $session = $this->stockTakeImportService->closeSession(
+                $stockTakeSession,
+                (int) $request->user()->id,
+            );
+
+            return redirect()
+                ->route('stock-take.show', $session)
+                ->with('success', 'Stock take session closed successfully.');
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Failed to close stock take session: ' . $e->getMessage());
+        }
+    }
+
+    public function export(StockTakeSession $stockTakeSession, string $format): BinaryFileResponse
+    {
+        abort_unless(in_array($format, ['xlsx', 'csv'], true), 404);
+
+        $directory = storage_path('app/temp');
+
+        if (!File::isDirectory($directory)) {
+            File::makeDirectory($directory, 0755, true);
+        }
+
+        $extension = $format === 'csv' ? 'csv' : 'xlsx';
+        $filePath = $directory . DIRECTORY_SEPARATOR . 'stock-take-session-' . Str::random(8) . '.' . $extension;
+        $writer = $format === 'csv' ? new CsvWriter() : new XlsxWriter();
+        $includeValuation = $this->canViewValuation();
+        $rows = $this->stockTakeImportService->exportRows(
+            $this->stockTakeImportService->loadSession($stockTakeSession),
+            $includeValuation,
+        );
+
+        $headers = [
+            'Row',
+            RmpTerminology::SKU,
+            RmpTerminology::ITEM_CODE,
+            'Material',
+            RmpTerminology::BATCH_NO,
+            'System Qty',
+            RmpTerminology::COUNTED_QTY,
+            'Variance Qty',
+            RmpTerminology::EXPIRY_DATE,
+            RmpTerminology::STORAGE_LOCATION,
+            RmpTerminology::REFERENCE_NUMBER,
+            RmpTerminology::STATUS,
+            RmpTerminology::NOTES,
+            'Error Message',
+        ];
+
+        if ($includeValuation) {
+            $headers = array_merge($headers, [
+                'Unit Cost',
+                'Adjustment Value',
+                RmpTerminology::INVENTORY_VALUE,
+                'Average Cost',
+            ]);
+        }
+
+        $writer->openToFile($filePath);
+        $writer->addRow(Row::fromValues($headers));
+
+        foreach ($rows as $row) {
+            $values = [
+                $row['row_number'],
+                $row['sku'],
+                $row['item_code'],
+                $row['material_name'],
+                $row['batch_number'],
+                $row['system_qty'],
+                $row['counted_qty'],
+                $row['variance_qty'],
+                $row['expiry_date'],
+                $row['storage_location'],
+                $row['reference'],
+                Str::headline((string) $row['status']),
+                $row['notes'],
+                $row['error_message'],
+            ];
+
+            if ($includeValuation) {
+                $values = array_merge($values, [
+                    $row['unit_cost'],
+                    $row['adjustment_value'],
+                    $row['inventory_value'],
+                    $row['average_cost'],
+                ]);
+            }
+
+            $writer->addRow(Row::fromValues($values));
+        }
+
+        $writer->close();
+
+        return response()
+            ->download($filePath, "stock_take_session_{$stockTakeSession->session_code}.{$extension}")
+            ->deleteFileAfterSend(true);
     }
 
     public function downloadTemplate(): BinaryFileResponse
@@ -85,7 +221,7 @@ class StockTakeImportController extends Controller
 
         $filePath = $directory . DIRECTORY_SEPARATOR . 'template-stock-take-import-' . Str::random(8) . '.xlsx';
 
-        $writer = new Writer();
+        $writer = new XlsxWriter();
         $writer->openToFile($filePath);
         $writer->addRow(Row::fromValues([
             RmpTerminology::SKU,
@@ -123,5 +259,13 @@ class StockTakeImportController extends Controller
         $writer->close();
 
         return response()->download($filePath, 'template-stock-take-import.xlsx')->deleteFileAfterSend(true);
+    }
+
+    private function canViewValuation(): bool
+    {
+        $user = auth()->user();
+
+        return ($user?->canViewInventoryValue() ?? false)
+            || ($user?->canAccessFinance() ?? false);
     }
 }

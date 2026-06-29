@@ -14,7 +14,7 @@
                 <div>
                     <h3 class="text-xl font-bold text-foreground tracking-tight">{{ $product->name }}</h3>
                     <p class="text-sm text-muted-foreground font-mono">{{ $product->sku }}</p>
-                    <p class="text-xs text-muted-foreground">Item Code IERP: {{ $product->item_code_ierp_display }}</p>
+                    <p class="text-xs text-muted-foreground">Item Code: {{ $product->item_code_ierp_display }}</p>
                 </div>
                 <div>
                     @if($product->is_active)

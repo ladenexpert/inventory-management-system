@@ -35,6 +35,8 @@ Expected movement types:
 - `opening_balance`
 - `adjustment_in`
 - `adjustment_out`
+- `stock_take_adjustment_in`
+- `stock_take_adjustment_out`
 - `purchase_receive`
 - `sale_out`
 - `sale_cancel_restore`
@@ -58,6 +60,18 @@ Expected movement types:
 
 - Decreasing product quantity consumes from existing batches
 - Product aggregate is synchronized after deduction
+
+### Stock Take adjustment
+
+- Stock Take stores a row-level `system_qty` snapshot, `counted_qty`, and derived `variance_qty`
+- Stock Take in v0.4.8 reconciles existing matched batches only
+- Stock Take never creates a new batch in this milestone
+- Before posting, the current `batches.available_quantity` must still match the reviewed snapshot
+- If the current quantity changed after review, posting is blocked and the session must be recalculated
+- plus variance writes `stock_take_adjustment_in`
+- minus variance writes `stock_take_adjustment_out`
+- zero variance writes no movement but keeps Stock Take evidence
+- Stock Take remains excluded from purchase, sales, usage, and finance side effects
 
 ### Purchase receive
 
@@ -152,6 +166,9 @@ Batch valuation rule:
 
 - `inventory_value = available_quantity x unit_cost`
 - zero-cost batches are valid and remain sellable when otherwise eligible
+- Stock Take may use existing batch `unit_cost` only for admin-visible reporting such as adjustment value
+- Stock Take does not overwrite `batch.unit_cost`
+- `products.purchase_price` remains a derived average-cost cache and is not the authoritative Stock Take posting cost
 
 ## Synchronization Rule
 

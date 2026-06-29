@@ -26,6 +26,11 @@ class TransactionCodeService
         return $this->generate('inventory_adjustments', 'transaction_code', $prefix);
     }
 
+    public function forStockTakeSession(): string
+    {
+        return $this->generate('stock_take_sessions', 'session_code', 'STK');
+    }
+
     public function generate(string $table, string $column, string $prefix): string
     {
         $root = strtoupper(trim($prefix)) . '.' . now()->format('ymd') . '.';

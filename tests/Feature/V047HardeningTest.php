@@ -13,6 +13,7 @@ use App\Models\PhysicalForm;
 use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\StorageLocation;
+use App\Models\StockTakeSession;
 use App\Models\Team;
 use App\Models\Unit;
 use App\Models\User;
@@ -213,11 +214,13 @@ class V047HardeningTest extends TestCase
         $this->actingAs($admin)
             ->from(route('stock-take.index'))
             ->post(route('stock-take.preview'), ['file' => $file])
-            ->assertRedirect(route('stock-take.index'));
+            ->assertRedirect();
+
+        $session = StockTakeSession::query()->latest('id')->firstOrFail();
 
         $this->actingAs($admin)
-            ->post(route('stock-take.apply'))
-            ->assertRedirect();
+            ->post(route('stock-take.apply', $session))
+            ->assertRedirect(route('stock-take.show', $session));
 
         $adjustment = InventoryAdjustment::query()->where('adjustment_type', 'stock_take_import')->firstOrFail();
 
@@ -286,7 +289,8 @@ class V047HardeningTest extends TestCase
         ]));
 
         $this->actingAs($admin)->post(route('stock-take.preview'), ['file' => $file])->assertRedirect();
-        $this->actingAs($admin)->post(route('stock-take.apply'))->assertRedirect();
+        $session = StockTakeSession::query()->latest('id')->firstOrFail();
+        $this->actingAs($admin)->post(route('stock-take.apply', $session))->assertRedirect(route('stock-take.show', $session));
 
         $adjustment = InventoryAdjustment::query()->where('adjustment_type', 'stock_take_import')->latest('id')->firstOrFail();
 

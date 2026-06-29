@@ -2,14 +2,16 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Batch;
 use App\Models\FinanceTransaction;
 use App\Models\InventoryAdjustment;
 use App\Models\Product;
+use App\Models\StockTakeSession;
 use App\Models\StorageLocation;
 use App\Models\Unit;
 use App\Models\User;
-use App\Support\RmpTerminology;
+use App\Services\RolePermissionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Tests\Concerns\ReadsDownloadedSpreadsheet;
@@ -20,7 +22,7 @@ class StockTakeImportTest extends TestCase
     use RefreshDatabase;
     use ReadsDownloadedSpreadsheet;
 
-    public function test_stock_take_import_page_explains_sku_and_batch_requirement(): void
+    public function test_stock_take_import_page_explains_existing_batch_requirement(): void
     {
         $admin = User::factory()->create();
 
@@ -28,10 +30,10 @@ class StockTakeImportTest extends TestCase
             ->get(route('stock-take.index'))
             ->assertOk()
             ->assertSee('SKU, Batch No, and Counted Qty are required.')
-            ->assertSee('Item Code, Material, Expiry, Storage Location, Reference Number, and Notes are optional.');
+            ->assertSee('does not create new batches');
     }
 
-    public function test_stock_take_template_includes_sku_first_and_marks_required_columns(): void
+    public function test_stock_take_template_includes_current_headers(): void
     {
         $admin = User::factory()->create();
 
@@ -41,20 +43,20 @@ class StockTakeImportTest extends TestCase
         $rows = $this->downloadedSpreadsheetRows($response);
 
         $this->assertSame([
-            RmpTerminology::SKU,
-            RmpTerminology::ITEM_CODE,
+            'SKU',
+            'Item Code',
             'Material',
-            RmpTerminology::BATCH_NO,
+            'Batch No',
             'Expiry',
-            RmpTerminology::STORAGE_LOCATION,
-            RmpTerminology::COUNTED_QTY,
-            RmpTerminology::REFERENCE_NUMBER,
-            RmpTerminology::NOTES,
+            'Storage Location',
+            'Counted Qty',
+            'Reference Number',
+            'Notes',
         ], $rows[0]);
         $this->assertSame('# Required: SKU, Batch No, Counted Qty. Optional: Item Code, Material, Expiry, Storage Location, Reference Number, Notes.', $rows[1][0]);
     }
 
-    public function test_stock_take_preview_accepts_blank_item_code_and_blank_storage_location_when_sku_and_batch_are_valid(): void
+    public function test_preview_creates_persistent_session_and_accepts_blank_optional_cross_check_fields(): void
     {
         $admin = User::factory()->create();
         [$product, $batch] = $this->seedStockTakeBatch(
@@ -70,237 +72,61 @@ class StockTakeImportTest extends TestCase
             "{$product->sku},,{$product->name},{$batch->batch_number},,,10,STK-OPTIONAL,Blank item code and storage location are allowed",
         ]);
 
-        $this->actingAs($admin)
-            ->from(route('stock-take.index'))
-            ->post(route('stock-take.preview'), ['file' => $file])
-            ->assertRedirect(route('stock-take.index'))
-            ->assertSessionHas('stock_take_preview', function (array $preview) use ($product, $batch) {
-                return $preview['errors'] === []
-                    && count($preview['rows']) === 1
-                    && $preview['rows'][0]['sku'] === $product->sku
-                    && $preview['rows'][0]['item_code'] === $product->item_code_ierp
-                    && $preview['rows'][0]['batch_number'] === $batch->batch_number
-                    && $preview['rows'][0]['storage_location'] === $batch->resolved_storage_location
-                    && $preview['rows'][0]['variance'] === 0;
-            });
+        $response = $this->actingAs($admin)
+            ->post(route('stock-take.preview'), ['file' => $file]);
+
+        $session = StockTakeSession::query()->firstOrFail();
+
+        $response->assertRedirect(route('stock-take.show', $session));
+        $this->assertSame('imported', $session->status);
+        $this->assertSame(1, $session->row_count);
+        $this->assertSame(0, $session->error_count);
+        $this->assertDatabaseHas('stock_take_rows', [
+            'stock_take_session_id' => $session->id,
+            'sku' => $product->sku,
+            'item_code' => $product->item_code_ierp,
+            'batch_number' => $batch->batch_number,
+            'storage_location' => $batch->resolved_storage_location,
+            'system_qty' => 10,
+            'counted_qty' => 10,
+            'variance_qty' => 0,
+            'status' => 'imported',
+        ]);
     }
 
-    public function test_stock_take_preview_accepts_blank_expiry_when_sku_and_batch_are_valid(): void
+    public function test_preview_marks_unmatched_batch_row_as_error_and_blocks_posting(): void
     {
         $admin = User::factory()->create();
-        [$product, $batch] = $this->seedStockTakeBatch(
-            sku: 'SKU-STK-EXP-BLANK-001',
-            itemCode: 'IERP-STK-EXP-BLANK-001',
-            batchNumber: 'STK-EXP-BLANK-001',
+        [$product] = $this->seedStockTakeBatch(
+            sku: 'SKU-STK-UNMATCH-001',
+            itemCode: 'IERP-STK-UNMATCH-001',
+            batchNumber: 'STK-UNMATCH-001',
             availableQuantity: 10,
-            locationCode: 'RACK-EXP-BLANK',
+            locationCode: 'RACK-UNMATCH',
         );
 
         $file = $this->makeCsvFile([
             'sku,item_code,material,batch_no,expiry,storage_location,counted_qty,reference,notes',
-            "{$product->sku},,{$product->name},{$batch->batch_number},,RACK-EXP-BLANK,10,STK-EXP-BLANK,Blank expiry passes",
+            "{$product->sku},,{$product->name},UNKNOWN-BATCH,,RACK-UNMATCH,7,STK-UNMATCH,Unmatched batch",
         ]);
+
+        $this->actingAs($admin)->post(route('stock-take.preview'), ['file' => $file]);
+
+        $session = StockTakeSession::query()->firstOrFail();
+        $row = $session->rows()->firstOrFail();
+
+        $this->assertSame('error', $row->status);
+        $this->assertSame('Unknown Batch No.', $row->error_message);
 
         $this->actingAs($admin)
-            ->post(route('stock-take.preview'), ['file' => $file])
-            ->assertRedirect()
-            ->assertSessionHas('stock_take_preview', fn (array $preview) => $preview['errors'] === [] && ($preview['rows'][0]['expiry_date'] ?? null) === $batch->expiry_date->format('Y-m-d'));
+            ->post(route('stock-take.apply', $session))
+            ->assertRedirect(route('stock-take.show', $session))
+            ->assertSessionHas('error');
+
+        $this->assertSame(0, InventoryAdjustment::count());
     }
 
-    public function test_stock_take_preview_accepts_matching_expiry_when_provided(): void
-    {
-        $admin = User::factory()->create();
-        [$product, $batch] = $this->seedStockTakeBatch(
-            sku: 'SKU-STK-EXP-MATCH-001',
-            itemCode: 'IERP-STK-EXP-MATCH-001',
-            batchNumber: 'STK-EXP-MATCH-001',
-            availableQuantity: 10,
-            locationCode: 'RACK-EXP-MATCH',
-        );
-
-        $file = $this->makeCsvFile([
-            'sku,item_code,material,batch_no,expiry,storage_location,counted_qty,reference,notes',
-            "{$product->sku},,{$product->name},{$batch->batch_number},{$batch->expiry_date->format('Y-m-d')},,10,STK-EXP-MATCH,Matching expiry passes",
-        ]);
-
-        $this->actingAs($admin)
-            ->post(route('stock-take.preview'), ['file' => $file])
-            ->assertRedirect()
-            ->assertSessionHas('stock_take_preview', fn (array $preview) => $preview['errors'] === [] && ($preview['rows'][0]['expiry_date'] ?? null) === $batch->expiry_date->format('Y-m-d'));
-    }
-
-    public function test_stock_take_preview_rejects_mismatched_expiry(): void
-    {
-        $admin = User::factory()->create();
-        [$product, $batch] = $this->seedStockTakeBatch(
-            sku: 'SKU-STK-EXP-ERR-001',
-            itemCode: 'IERP-STK-EXP-ERR-001',
-            batchNumber: 'STK-EXP-ERR-001',
-            availableQuantity: 10,
-            locationCode: 'RACK-EXP-ERR',
-        );
-
-        $file = $this->makeCsvFile([
-            'sku,item_code,material,batch_no,expiry,storage_location,counted_qty,reference,notes',
-            "{$product->sku},,{$product->name},{$batch->batch_number}," . now()->addYear()->format('Y-m-d') . ",,10,STK-EXP-ERR,Mismatched expiry fails",
-        ]);
-
-        $this->actingAs($admin)
-            ->post(route('stock-take.preview'), ['file' => $file])
-            ->assertRedirect()
-            ->assertSessionHas('stock_take_preview', function (array $preview) use ($batch) {
-                return ($preview['errors'][0]['message'] ?? null) === "Batch No '{$batch->batch_number}' expiry does not match the current batch record.";
-            });
-    }
-
-    public function test_stock_take_preview_accepts_matching_storage_location_when_provided(): void
-    {
-        $admin = User::factory()->create();
-        [$product, $batch] = $this->seedStockTakeBatch(
-            sku: 'SKU-STK-LOC-001',
-            itemCode: 'IERP-STK-LOC-001',
-            batchNumber: 'STK-LOC-001',
-            availableQuantity: 10,
-            locationCode: 'RACK-MATCH',
-        );
-
-        $file = $this->makeCsvFile([
-            'sku,item_code,material,batch_no,expiry,storage_location,counted_qty,reference,notes',
-            "{$product->sku},,{$product->name},{$batch->batch_number},,RACK-MATCH,10,STK-LOC-MATCH,Matching location passes",
-        ]);
-
-        $this->actingAs($admin)
-            ->post(route('stock-take.preview'), ['file' => $file])
-            ->assertRedirect()
-            ->assertSessionHas('stock_take_preview', fn (array $preview) => $preview['errors'] === [] && ($preview['rows'][0]['storage_location'] ?? null) === $batch->resolved_storage_location);
-    }
-
-    public function test_stock_take_preview_rejects_mismatched_storage_location(): void
-    {
-        $admin = User::factory()->create();
-        [$product, $batch] = $this->seedStockTakeBatch(
-            sku: 'SKU-STK-LOC-ERR-001',
-            itemCode: 'IERP-STK-LOC-ERR-001',
-            batchNumber: 'STK-LOC-ERR-001',
-            availableQuantity: 10,
-            locationCode: 'RACK-REAL',
-        );
-
-        StorageLocation::factory()->create([
-            'code' => 'RACK-WRONG',
-            'name' => 'Rack Wrong',
-        ]);
-
-        $file = $this->makeCsvFile([
-            'sku,item_code,material,batch_no,expiry,storage_location,counted_qty,reference,notes',
-            "{$product->sku},,{$product->name},{$batch->batch_number},,RACK-WRONG,10,STK-LOC-ERR,Mismatched location fails",
-        ]);
-
-        $this->actingAs($admin)
-            ->post(route('stock-take.preview'), ['file' => $file])
-            ->assertRedirect()
-            ->assertSessionHas('stock_take_preview', function (array $preview) use ($batch) {
-                return ($preview['errors'][0]['message'] ?? null) === "Batch No '{$batch->batch_number}' storage location does not match the current batch record.";
-            });
-    }
-
-    public function test_stock_take_preview_requires_sku(): void
-    {
-        $admin = User::factory()->create();
-        [, $batch] = $this->seedStockTakeBatch(
-            sku: 'SKU-STK-MISSING-001',
-            itemCode: 'IERP-STK-MISSING-001',
-            batchNumber: 'STK-MISSING-001',
-            availableQuantity: 10,
-            locationCode: 'RACK-MISSING-SKU',
-        );
-
-        $file = $this->makeCsvFile([
-            'sku,item_code,material,batch_no,expiry,storage_location,counted_qty,reference,notes',
-            ",IERP-STK-MISSING-001,Missing SKU Material,{$batch->batch_number},{$batch->expiry_date->format('Y-m-d')},RACK-MISSING-SKU,10,STK-MISSING-SKU,Missing SKU",
-        ]);
-
-        $this->actingAs($admin)
-            ->post(route('stock-take.preview'), ['file' => $file])
-            ->assertRedirect()
-            ->assertSessionHas('stock_take_preview', function (array $preview) {
-                return ($preview['errors'][0]['message'] ?? null) === 'SKU is required.';
-            });
-    }
-
-    public function test_stock_take_preview_rejects_unknown_sku(): void
-    {
-        $admin = User::factory()->create();
-        [, $batch] = $this->seedStockTakeBatch(
-            sku: 'SKU-STK-KNOWN-001',
-            itemCode: 'IERP-STK-KNOWN-001',
-            batchNumber: 'STK-KNOWN-001',
-            availableQuantity: 10,
-            locationCode: 'RACK-UNKNOWN-SKU',
-        );
-
-        $file = $this->makeCsvFile([
-            'sku,item_code,material,batch_no,expiry,storage_location,counted_qty,reference,notes',
-            "SKU-STK-UNKNOWN-404,,Unknown SKU Material,{$batch->batch_number},{$batch->expiry_date->format('Y-m-d')},RACK-UNKNOWN-SKU,10,STK-UNKNOWN-SKU,Unknown SKU",
-        ]);
-
-        $this->actingAs($admin)
-            ->post(route('stock-take.preview'), ['file' => $file])
-            ->assertRedirect()
-            ->assertSessionHas('stock_take_preview', function (array $preview) {
-                return ($preview['errors'][0]['message'] ?? null) === 'Unknown SKU.';
-            });
-    }
-
-    public function test_stock_take_preview_requires_batch_number(): void
-    {
-        $admin = User::factory()->create();
-        [$product, $batch] = $this->seedStockTakeBatch(
-            sku: 'SKU-STK-MISSING-BATCH-001',
-            itemCode: 'IERP-STK-MISSING-BATCH-001',
-            batchNumber: 'STK-MISSING-BATCH-001',
-            availableQuantity: 10,
-            locationCode: 'RACK-MISSING-BATCH',
-        );
-
-        $file = $this->makeCsvFile([
-            'sku,item_code,material,batch_no,expiry,storage_location,counted_qty,reference,notes',
-            "{$product->sku},,{$product->name},,{$batch->expiry_date->format('Y-m-d')},RACK-MISSING-BATCH,10,STK-MISSING-BATCH,Missing Batch No",
-        ]);
-
-        $this->actingAs($admin)
-            ->post(route('stock-take.preview'), ['file' => $file])
-            ->assertRedirect()
-            ->assertSessionHas('stock_take_preview', function (array $preview) {
-                return ($preview['errors'][0]['message'] ?? null) === 'Batch No is required.';
-            });
-    }
-
-    public function test_stock_take_preview_requires_counted_qty(): void
-    {
-        $admin = User::factory()->create();
-        [$product, $batch] = $this->seedStockTakeBatch(
-            sku: 'SKU-STK-MISSING-QTY-001',
-            itemCode: 'IERP-STK-MISSING-QTY-001',
-            batchNumber: 'STK-MISSING-QTY-001',
-            availableQuantity: 10,
-            locationCode: 'RACK-MISSING-QTY',
-        );
-
-        $file = $this->makeCsvFile([
-            'sku,item_code,material,batch_no,expiry,storage_location,counted_qty,reference,notes',
-            "{$product->sku},,{$product->name},{$batch->batch_number},,, ,STK-MISSING-QTY,Missing counted qty",
-        ]);
-
-        $this->actingAs($admin)
-            ->post(route('stock-take.preview'), ['file' => $file])
-            ->assertRedirect()
-            ->assertSessionHas('stock_take_preview', function (array $preview) {
-                return ($preview['errors'][0]['message'] ?? null) === 'Counted Qty is required.';
-            });
-    }
-
-    public function test_stock_take_preview_and_apply_handle_positive_negative_and_zero_variance_correctly(): void
+    public function test_posting_handles_positive_negative_and_zero_variance_without_finance_side_effects(): void
     {
         $admin = User::factory()->create();
         [$positiveProduct, $positiveBatch] = $this->seedStockTakeBatch(
@@ -332,21 +158,12 @@ class StockTakeImportTest extends TestCase
             "{$zeroProduct->sku},,{$zeroProduct->name},{$zeroBatch->batch_number},{$zeroBatch->expiry_date->format('Y-m-d')},RACK-ZERO,10,STK-ZERO,Zero variance",
         ]);
 
-        $this->actingAs($admin)
-            ->post(route('stock-take.preview'), ['file' => $file])
-            ->assertRedirect()
-            ->assertSessionHas('stock_take_preview', function (array $preview) {
-                return $preview['errors'] === []
-                    && $preview['summary']['valid_rows'] === 3
-                    && $preview['summary']['adjustment_rows'] === 2
-                    && $preview['rows'][0]['variance'] === 2
-                    && $preview['rows'][1]['variance'] === -3
-                    && $preview['rows'][2]['variance'] === 0;
-            });
+        $this->actingAs($admin)->post(route('stock-take.preview'), ['file' => $file]);
+        $session = StockTakeSession::query()->firstOrFail();
 
         $this->actingAs($admin)
-            ->post(route('stock-take.apply'))
-            ->assertRedirect()
+            ->post(route('stock-take.apply', $session))
+            ->assertRedirect(route('stock-take.show', $session))
             ->assertSessionHas('success');
 
         $this->assertSame(12, $positiveBatch->fresh()->available_quantity);
@@ -362,6 +179,149 @@ class StockTakeImportTest extends TestCase
         $this->assertTrue($adjustments->pluck('transaction_code')->every(fn (?string $code) => is_string($code) && str_starts_with($code, 'STK.')));
         $this->assertSame(['in', 'out'], $adjustments->pluck('direction')->sort()->values()->all());
         $this->assertSame(0, FinanceTransaction::count());
+        $this->assertDatabaseHas('stock_take_sessions', [
+            'id' => $session->id,
+            'status' => 'posted',
+        ]);
+    }
+
+    public function test_posting_is_blocked_when_current_qty_changed_since_review_until_recalculated(): void
+    {
+        $admin = User::factory()->create();
+        [, $batch] = $this->seedStockTakeBatch(
+            sku: 'SKU-STK-STALE-001',
+            itemCode: 'IERP-STK-STALE-001',
+            batchNumber: 'STK-STALE-001',
+            availableQuantity: 10,
+            locationCode: 'RACK-STALE',
+        );
+
+        $file = $this->makeCsvFile([
+            'sku,item_code,material,batch_no,expiry,storage_location,counted_qty,reference,notes',
+            "SKU-STK-STALE-001,,Material SKU-STK-STALE-001,{$batch->batch_number},{$batch->expiry_date->format('Y-m-d')},RACK-STALE,8,STK-STALE,Stale guard",
+        ]);
+
+        $this->actingAs($admin)->post(route('stock-take.preview'), ['file' => $file]);
+        $session = StockTakeSession::query()->firstOrFail();
+
+        $batch->update([
+            'quantity' => 11,
+            'available_quantity' => 11,
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('stock-take.apply', $session))
+            ->assertRedirect(route('stock-take.show', $session))
+            ->assertSessionHas('warning');
+
+        $session->refresh();
+        $row = $session->rows()->firstOrFail();
+
+        $this->assertSame('reviewed', $session->status);
+        $this->assertSame('stale', $row->status);
+        $this->assertSame(0, InventoryAdjustment::count());
+
+        $this->actingAs($admin)
+            ->post(route('stock-take.recalculate', $session))
+            ->assertRedirect(route('stock-take.show', $session))
+            ->assertSessionHas('success');
+
+        $row = $session->fresh()->rows()->firstOrFail();
+        $this->assertSame('reviewed', $row->status);
+        $this->assertSame(11, $row->system_qty);
+        $this->assertSame(-3, $row->variance_qty);
+    }
+
+    public function test_duplicate_posting_is_blocked_and_close_locks_the_session(): void
+    {
+        $admin = User::factory()->create();
+        [, $batch] = $this->seedStockTakeBatch(
+            sku: 'SKU-STK-CLOSE-001',
+            itemCode: 'IERP-STK-CLOSE-001',
+            batchNumber: 'STK-CLOSE-001',
+            availableQuantity: 10,
+            locationCode: 'RACK-CLOSE',
+        );
+
+        $file = $this->makeCsvFile([
+            'sku,item_code,material,batch_no,expiry,storage_location,counted_qty,reference,notes',
+            "SKU-STK-CLOSE-001,,Material SKU-STK-CLOSE-001,{$batch->batch_number},{$batch->expiry_date->format('Y-m-d')},RACK-CLOSE,9,STK-CLOSE,Close flow",
+        ]);
+
+        $this->actingAs($admin)->post(route('stock-take.preview'), ['file' => $file]);
+        $session = StockTakeSession::query()->firstOrFail();
+
+        $this->actingAs($admin)->post(route('stock-take.apply', $session))->assertSessionHas('success');
+        $this->assertSame(1, InventoryAdjustment::count());
+
+        $this->actingAs($admin)
+            ->post(route('stock-take.apply', $session))
+            ->assertRedirect(route('stock-take.show', $session))
+            ->assertSessionHas('error');
+
+        $this->assertSame(1, InventoryAdjustment::count());
+
+        $this->actingAs($admin)
+            ->post(route('stock-take.close', $session))
+            ->assertRedirect(route('stock-take.show', $session))
+            ->assertSessionHas('success');
+
+        $session->refresh();
+        $this->assertSame('closed', $session->status);
+        $this->assertSame('closed', $session->rows()->firstOrFail()->status);
+
+        $this->actingAs($admin)
+            ->post(route('stock-take.recalculate', $session))
+            ->assertRedirect()
+            ->assertSessionHas('error');
+    }
+
+    public function test_export_hides_valuation_for_non_admin_but_shows_it_for_authorized_admin(): void
+    {
+        $admin = User::factory()->create();
+        $rmDesk = User::factory()->create(['role' => UserRole::RM_DESK]);
+        $this->grantStockTakeViewExportToRmDesk($rmDesk);
+
+        [, $batch] = $this->seedStockTakeBatch(
+            sku: 'SKU-STK-EXPORT-001',
+            itemCode: 'IERP-STK-EXPORT-001',
+            batchNumber: 'STK-EXPORT-001',
+            availableQuantity: 10,
+            locationCode: 'RACK-EXPORT',
+        );
+
+        $file = $this->makeCsvFile([
+            'sku,item_code,material,batch_no,expiry,storage_location,counted_qty,reference,notes',
+            "SKU-STK-EXPORT-001,,Material SKU-STK-EXPORT-001,{$batch->batch_number},{$batch->expiry_date->format('Y-m-d')},RACK-EXPORT,9,STK-EXPORT,Export privacy",
+        ]);
+
+        $this->actingAs($admin)->post(route('stock-take.preview'), ['file' => $file]);
+        $session = StockTakeSession::query()->firstOrFail();
+
+        $adminExport = $this->actingAs($admin)->get(route('stock-take.export', ['stockTakeSession' => $session, 'format' => 'csv']));
+        $adminExport->assertOk();
+        $adminCsv = file_get_contents($adminExport->baseResponse->getFile()->getPathname());
+        $this->assertStringContainsString('Unit Cost', $adminCsv);
+        $this->assertStringContainsString('Adjustment Value', $adminCsv);
+        $this->assertStringContainsString('Average Cost', $adminCsv);
+
+        $rmDeskExport = $this->actingAs($rmDesk)->get(route('stock-take.export', ['stockTakeSession' => $session, 'format' => 'csv']));
+        $rmDeskExport->assertOk();
+        $rmDeskCsv = file_get_contents($rmDeskExport->baseResponse->getFile()->getPathname());
+        $this->assertStringNotContainsString('Unit Cost', $rmDeskCsv);
+        $this->assertStringNotContainsString('Adjustment Value', $rmDeskCsv);
+        $this->assertStringNotContainsString('Average Cost', $rmDeskCsv);
+        $this->assertStringContainsString('Variance Qty', $rmDeskCsv);
+    }
+
+    private function grantStockTakeViewExportToRmDesk(User $user): void
+    {
+        $service = app(RolePermissionService::class);
+        $permissions = $service->permissionsForRole($user->role->value);
+        $permissions['stock_take']['view'] = true;
+        $permissions['stock_take']['export'] = true;
+
+        $service->syncRolePermissions($user->role->value, $permissions);
     }
 
     private function seedStockTakeBatch(
@@ -384,6 +344,7 @@ class StockTakeImportTest extends TestCase
             'item_code_ierp' => $itemCode,
             'name' => "Material {$sku}",
             'quantity' => $availableQuantity,
+            'purchase_price' => 7000,
             'unit_id' => $unit->id,
         ]);
         $batch = Batch::create([

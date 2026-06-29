@@ -59,8 +59,8 @@
     if ($modules['rni'] && $user->hasPermission('material_usage', 'view')) {
         $operationsItems[] = ['label' => 'Material Usage', 'href' => route('material-usages.index'), 'active' => request()->routeIs('material-usages.*')];
     }
-    if ($modules['rni'] && $user->hasPermission('stock_take', 'import')) {
-        $operationsItems[] = ['label' => 'Stock Take Import', 'href' => route('stock-take.index'), 'active' => request()->routeIs('stock-take.*')];
+    if ($modules['rni'] && $user->hasAnyPermission([['stock_take', 'view'], ['stock_take', 'import'], ['stock_take', 'confirm']])) {
+        $operationsItems[] = ['label' => 'Stock Take', 'href' => route('stock-take.index'), 'active' => request()->routeIs('stock-take.*')];
     }
     if ($user->hasPermission('legacy_sales', 'view') && $modules['sales']) {
         $operationsItems[] = ['label' => 'Legacy Sales', 'href' => route('sales.index'), 'active' => request()->routeIs('sales.*')];

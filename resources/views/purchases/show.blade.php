@@ -132,7 +132,7 @@
                             <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                                 <tr>
                                     <th class="px-6 py-3">SKU</th>
-                                    <th class="px-6 py-3">Item Code IERP</th>
+                                    <th class="px-6 py-3">Item Code</th>
                                     <th class="px-6 py-3">{{ $isMaterialReceipt ? 'Raw Material' : 'Product' }}</th>
                                     <th class="px-6 py-3">Batch No</th>
                                     <th class="px-6 py-3">Expiry</th>

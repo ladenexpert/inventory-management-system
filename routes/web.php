@@ -179,17 +179,29 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('material-usages.restore');
 
         Route::get('stock-take/import', [StockTakeImportController::class, 'index'])
-            ->middleware('permission:stock_take,import')
+            ->middleware('permission:stock_take,view')
             ->name('stock-take.index');
         Route::post('stock-take/import/preview', [StockTakeImportController::class, 'preview'])
             ->middleware('permission:stock_take,import')
             ->name('stock-take.preview');
-        Route::post('stock-take/import/apply', [StockTakeImportController::class, 'apply'])
-            ->middleware('permission:stock_take,import')
-            ->name('stock-take.apply');
         Route::get('stock-take/import/template', [StockTakeImportController::class, 'downloadTemplate'])
             ->middleware('permission:stock_take,import')
             ->name('stock-take.template');
+        Route::get('stock-take/{stockTakeSession}', [StockTakeImportController::class, 'show'])
+            ->middleware('permission:stock_take,view')
+            ->name('stock-take.show');
+        Route::post('stock-take/{stockTakeSession}/recalculate', [StockTakeImportController::class, 'recalculate'])
+            ->middleware('permission:stock_take,update')
+            ->name('stock-take.recalculate');
+        Route::post('stock-take/{stockTakeSession}/apply', [StockTakeImportController::class, 'apply'])
+            ->middleware('permission:stock_take,confirm')
+            ->name('stock-take.apply');
+        Route::post('stock-take/{stockTakeSession}/close', [StockTakeImportController::class, 'close'])
+            ->middleware('permission:stock_take,confirm')
+            ->name('stock-take.close');
+        Route::get('stock-take/{stockTakeSession}/export/{format}', [StockTakeImportController::class, 'export'])
+            ->middleware('permission:stock_take,export')
+            ->name('stock-take.export');
     });
 
     // =========================================================================

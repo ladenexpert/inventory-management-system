@@ -1,114 +1,102 @@
-<x-app-layout title="Stock Take Import">
+<x-app-layout title="Stock Take">
     <x-slot name="header">
-        <div class="flex justify-between items-center">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-                <h2 class="font-semibold text-xl text-foreground leading-tight">Stock Take Import</h2>
-                <p class="text-sm text-muted-foreground mt-1">Preview counted stock variances first, then apply traceable adjustment transactions.</p>
+                <h2 class="font-semibold text-xl text-foreground leading-tight">Stock Take</h2>
+                <p class="text-sm text-muted-foreground mt-1">Import counted stock for existing batches, review the variance, then post a traceable stock take adjustment.</p>
             </div>
-            <x-secondary-button :href="route('stock-take.template')">Download Template</x-secondary-button>
+            @if(auth()->user()?->hasPermission('stock_take', 'import'))
+                <x-secondary-button :href="route('stock-take.template')">
+                    Download Template
+                </x-secondary-button>
+            @endif
         </div>
     </x-slot>
 
     <div class="py-4">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
-            <div class="bg-white shadow-sm sm:rounded-lg border border-gray-200 p-6">
-                <form action="{{ route('stock-take.preview') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
-                    @csrf
+            @if(auth()->user()?->hasPermission('stock_take', 'import'))
+                <div class="bg-white border border-border rounded-lg p-6 space-y-4">
+                    <h3 class="text-base font-semibold text-foreground">Import Stock Take File</h3>
                     <div class="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-                        SKU, Batch No, and Counted Qty are required. Item Code, Material, Expiry, Storage Location, Reference Number, and Notes are optional. If Expiry or Storage Location is provided, it must match the existing batch record during preview.
-                    </div>
-                    <div>
-                        <x-input-label for="file" :value="'Upload Stock Take File'" required />
-                        <input id="file" type="file" name="file" accept=".xlsx,.csv,.ods" class="mt-2 block w-full text-sm text-gray-500 file:mr-4 file:rounded-md file:border-0 file:bg-indigo-50 file:px-4 file:py-2 file:font-semibold file:text-indigo-700 hover:file:bg-indigo-100" />
-                        <x-input-error :messages="$errors->get('file')" class="mt-2" />
-                    </div>
-                    <div class="flex justify-end">
-                        <x-primary-button type="submit">Preview Variance</x-primary-button>
-                    </div>
-                </form>
-            </div>
-
-            @if($preview)
-                <div class="bg-white shadow-sm sm:rounded-lg border border-gray-200 p-6 space-y-4">
-                    <div class="grid gap-4 sm:grid-cols-4">
-                        <div class="rounded-lg border border-gray-200 p-4">
-                            <div class="text-xs font-medium uppercase tracking-wide text-gray-500">Processed</div>
-                            <div class="mt-2 text-2xl font-semibold text-gray-900">{{ $preview['summary']['processed_rows'] }}</div>
-                        </div>
-                        <div class="rounded-lg border border-green-200 bg-green-50 p-4">
-                            <div class="text-xs font-medium uppercase tracking-wide text-green-700">Valid</div>
-                            <div class="mt-2 text-2xl font-semibold text-green-800">{{ $preview['summary']['valid_rows'] }}</div>
-                        </div>
-                        <div class="rounded-lg border border-amber-200 bg-amber-50 p-4">
-                            <div class="text-xs font-medium uppercase tracking-wide text-amber-700">Needs Adjustment</div>
-                            <div class="mt-2 text-2xl font-semibold text-amber-800">{{ $preview['summary']['adjustment_rows'] }}</div>
-                        </div>
-                        <div class="rounded-lg border border-red-200 bg-red-50 p-4">
-                            <div class="text-xs font-medium uppercase tracking-wide text-red-700">Errors</div>
-                            <div class="mt-2 text-2xl font-semibold text-red-800">{{ $preview['summary']['error_rows'] }}</div>
-                        </div>
+                        SKU, Batch No, and Counted Qty are required. Item Code, Material, Expiry, Storage Location, Reference Number, and Notes are optional. Stock Take in v0.4.8 only reconciles existing matched batches and does not create new batches.
                     </div>
 
-                    @if(!empty($preview['errors']))
-                        <div class="rounded-lg border border-red-200 bg-red-50 p-4">
-                            <h3 class="text-sm font-semibold text-red-800">Validation Errors</h3>
-                            <ul class="mt-3 space-y-2 text-sm text-red-700">
-                                @foreach($preview['errors'] as $error)
-                                    <li>Row {{ $error['row'] }}: {{ $error['message'] }}</li>
-                                @endforeach
-                            </ul>
+                    <form action="{{ route('stock-take.preview') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+                        @csrf
+                        <div>
+                            <x-input-label for="file" :value="'Upload Stock Take File'" required />
+                            <input id="file" type="file" name="file" accept=".xlsx,.csv,.ods" class="mt-2 block w-full text-sm text-gray-900 border border-input rounded-md cursor-pointer bg-background focus:outline-none" required />
+                            <x-input-error :messages="$errors->get('file')" class="mt-2" />
                         </div>
-                    @endif
-
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200 text-sm">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-4 py-3 text-left">SKU</th>
-                                    <th class="px-4 py-3 text-left">Item Code</th>
-                                    <th class="px-4 py-3 text-left">Material</th>
-                                    <th class="px-4 py-3 text-left">Batch No</th>
-                                    <th class="px-4 py-3 text-left">Expiry</th>
-                                    <th class="px-4 py-3 text-left">Storage Location</th>
-                                    <th class="px-4 py-3 text-right">Current Qty</th>
-                                    <th class="px-4 py-3 text-right">Counted Qty</th>
-                                    <th class="px-4 py-3 text-right">Variance</th>
-                                    <th class="px-4 py-3 text-left">Reference Number</th>
-                                    <th class="px-4 py-3 text-left">Notes</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-200 bg-white">
-                                @forelse($preview['rows'] as $row)
-                                    <tr>
-                                        <td class="px-4 py-3">{{ $row['sku'] }}</td>
-                                        <td class="px-4 py-3">{{ $row['item_code'] ?: '-' }}</td>
-                                        <td class="px-4 py-3">{{ $row['material_name'] }}</td>
-                                        <td class="px-4 py-3">{{ $row['batch_number'] }}</td>
-                                        <td class="px-4 py-3">{{ $row['expiry_date'] ?? '-' }}</td>
-                                        <td class="px-4 py-3">{{ $row['storage_location'] }}</td>
-                                        <td class="px-4 py-3 text-right">{{ number_format($row['current_qty']) }}</td>
-                                        <td class="px-4 py-3 text-right">{{ number_format($row['counted_qty']) }}</td>
-                                        <td class="px-4 py-3 text-right {{ $row['variance'] < 0 ? 'text-red-600' : ($row['variance'] > 0 ? 'text-emerald-600' : 'text-gray-600') }}">{{ number_format($row['variance']) }}</td>
-                                        <td class="px-4 py-3">{{ $row['reference'] ?: '-' }}</td>
-                                        <td class="px-4 py-3">{{ $row['notes'] ?: '-' }}</td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="11" class="px-4 py-8 text-center text-gray-500">No preview rows available.</td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div class="flex justify-end">
-                        <form action="{{ route('stock-take.apply') }}" method="POST">
-                            @csrf
-                            <x-primary-button type="submit" :disabled="!empty($preview['errors'])">Apply Stock Take</x-primary-button>
-                        </form>
-                    </div>
+                        <div class="flex justify-end">
+                            <x-primary-button type="submit">Create Preview Session</x-primary-button>
+                        </div>
+                    </form>
                 </div>
             @endif
+
+            <div class="bg-white border border-border rounded-lg overflow-hidden">
+                <div class="border-b border-border px-6 py-4">
+                    <h3 class="text-base font-semibold text-foreground">Recent Stock Take Sessions</h3>
+                    <p class="text-sm text-muted-foreground mt-1">Review import evidence, recalculate variances when stock has changed, and post or close sessions from the detail page.</p>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200 text-sm">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left">Session Code</th>
+                                <th class="px-4 py-3 text-left">Imported At</th>
+                                <th class="px-4 py-3 text-left">Imported By</th>
+                                <th class="px-4 py-3 text-right">Rows</th>
+                                <th class="px-4 py-3 text-right">Errors</th>
+                                <th class="px-4 py-3 text-left">Status</th>
+                                <th class="px-4 py-3 text-left">Reference</th>
+                                <th class="px-4 py-3 text-left">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 bg-white">
+                            @forelse($sessions as $session)
+                                @php
+                                    $badgeClass = match ($session->status) {
+                                        'imported' => 'bg-blue-50 text-blue-700 border-blue-200',
+                                        'reviewed' => 'bg-amber-50 text-amber-700 border-amber-200',
+                                        'stale' => 'bg-red-50 text-red-700 border-red-200',
+                                        'posted' => 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                                        'closed' => 'bg-zinc-100 text-zinc-700 border-zinc-200',
+                                        default => 'bg-gray-100 text-gray-700 border-gray-200',
+                                    };
+                                @endphp
+                                <tr>
+                                    <td class="px-4 py-3 font-medium text-gray-900">{{ $session->session_code }}</td>
+                                    <td class="px-4 py-3 text-gray-700">{{ $session->imported_at?->format('Y-m-d H:i') ?? '-' }}</td>
+                                    <td class="px-4 py-3 text-gray-700">{{ $session->importedByUser?->name ?? 'System' }}</td>
+                                    <td class="px-4 py-3 text-right text-gray-700">{{ number_format($session->row_count) }}</td>
+                                    <td class="px-4 py-3 text-right {{ $session->error_count > 0 ? 'text-red-600 font-medium' : 'text-gray-700' }}">{{ number_format($session->error_count) }}</td>
+                                    <td class="px-4 py-3">
+                                        <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium {{ $badgeClass }}">
+                                            {{ Str::headline($session->status) }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 text-gray-700">{{ $session->reference ?: '-' }}</td>
+                                    <td class="px-4 py-3">
+                                        <a href="{{ route('stock-take.show', $session) }}" class="text-primary hover:underline">Open Session</a>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="8" class="px-4 py-10 text-center text-gray-500">No stock take sessions have been created yet.</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="border-t bg-gray-50 px-4 py-3">
+                    {{ $sessions->links() }}
+                </div>
+            </div>
         </div>
     </div>
 </x-app-layout>

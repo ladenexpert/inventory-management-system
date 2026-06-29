@@ -170,7 +170,7 @@
             <thead>
                 <tr>
                     <th style="width: 12%">SKU</th>
-                    <th style="width: 16%">Item Code IERP</th>
+                    <th style="width: 16%">Item Code</th>
                     <th style="width: 24%">{{ $isMaterialUsage ? 'Raw Material' : 'Product' }}</th>
                     <th style="width: 10%">Unit</th>
                     <th style="width: 10%" class="text-right">Qty</th>

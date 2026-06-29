@@ -163,18 +163,18 @@ Rules confirmed:
   - legacy purchase mark-paid
   - finance transaction create, update, delete, or void
 
-## Item Code IERP Rule
+## Item Code Rule
 
-- UI label: `Item Code IERP`
-- Export header: `Item Code IERP`
-- `Item Code IERP` is the nullable legacy IERP code stored in `products.item_code_ierp`.
+- UI label: `Item Code`
+- Export header: `Item Code`
+- `Item Code` is the nullable legacy IERP code stored in `products.item_code_ierp`.
 - `SKU` remains the internal RMP code and is displayed separately where the screen or export shows both identifiers.
 - If `item_code_ierp` is empty, show `-`.
 
 ## Compact Navigation Rule
 
 - The compact top navigation groups the app into `Dashboard`, `Operations`, `Master Data`, `Reports`, and `Administration`.
-- Finance remains accessible through the `Reports` dropdown when `module_finance_enabled` is on and the signed-in user can access finance.
+- Finance remains accessible through its own `Finance` dropdown/menu when `module_finance_enabled` is on and the signed-in user can access finance.
 - Legacy routes and role/module guards remain unchanged; only the menu grouping is compacted.
 
 ## View / Regression Coverage Added

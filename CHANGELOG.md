@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.4.8-stock-take-reconciliation-and-flexible-valuation-guardrail
+
+- replaced the session-only Stock Take preview/apply flow with a persistent Stock Take session and row evidence model while keeping the existing controller + Blade architecture
+- added durable Stock Take review data including imported rows, matched-batch evidence, unmatched/error rows, reference number retention, and row/session status tracking
+- added explicit Stock Take lifecycle controls for `imported`, `reviewed`, `posted`, and `closed`, plus row-level `error` and `stale` evidence
+- added a stale-data guard so posting compares current batch quantity against the reviewed `system_qty` snapshot and blocks posting until the session is recalculated when stock has changed
+- kept Stock Take posting atomic at the session level and protected it against duplicate posting and post-close mutation
+- continued to post Stock Take only through `inventory_adjustments` + `inventory_logs` with `STK` codes and without introducing purchase, usage, opening-stock, sales, or finance side effects
+- preserved the rule that Stock Take reconciles existing batches only and does not create new batches in v0.4.8
+- kept RNI non-valuated by default while exposing admin-only Stock Take valuation guardrails for reporting with existing batch unit cost, derived adjustment value, and derived average cost visibility
+- kept non-admin Stock Take export and view output free of unit cost, adjustment value, average cost, and other sensitive valuation fields
+- kept Material Receipt, Material Usage, FEFO/manual picking, Opening Stock, inventory monitoring, batch monitoring, expiry monitoring, movement history, and finance-disabled RNI behavior unchanged
+- updated project context, ledger rules, and RNI pilot guidance to document Stock Take reconciliation, stale-review guard, posting/closing behavior, and valuation guardrails
+- automation validation passed: `composer validate`, `composer install --dry-run`, `php artisan optimize:clear`, focused Stock Take/V047 suites, and `php artisan test` with `168 tests / 1146 assertions`
+- status: automation-validated and ready for owner browser-UAT, manual review, commit, push, and tag
+- release handling note: Codex did not commit, tag, or push
+
 ## v0.4.7-rni-access-management-master-data-and-traceability-hardening
 
 - preserved the existing role/module access architecture and extended it instead of introducing a parallel permission system

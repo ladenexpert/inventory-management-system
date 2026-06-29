@@ -31,11 +31,11 @@
                     </div>
                 @endif
 
-                <!-- Item Code IERP -->
+                <!-- Item Code -->
                 <div class="{{ !$isEditing ? 'md:col-span-2' : '' }}">
                     <x-form-input
                         name="item_code_ierp"
-                        label="Item Code IERP"
+                        label="Item Code"
                         placeholder="e.g. IERP-000123"
                         type="text"
                         wire:model="item_code_ierp"

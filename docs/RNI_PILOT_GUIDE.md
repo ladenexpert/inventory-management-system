@@ -92,6 +92,32 @@ Notes:
 - Existing inventory rules still validate categories, units, and batch uniqueness.
 - Zero-cost opening batches remain valid when operationally needed.
 
+## Stock Take
+
+Menu path:
+
+- `Operations` -> `Stock Take`
+
+Steps:
+
+1. Download the Stock Take template.
+2. Fill `SKU`, `Batch No`, and `Counted Qty`.
+3. Optionally fill `Item Code`, `Material`, `Expiry`, `Storage Location`, `Reference Number`, and `Notes` as cross-check fields.
+4. Upload the file to create a Stock Take session.
+5. Review row status, `System Qty`, `Counted Qty`, and `Variance Qty`.
+6. Recalculate the session if current stock changed after review.
+7. Post the session to apply stock take adjustments.
+8. Close the session after posting to lock the evidence.
+
+Notes:
+
+- Stock Take in v0.4.8 reconciles existing matched batches only.
+- Unmatched or invalid rows remain visible as `error` evidence and block posting.
+- If the current batch quantity changes after review, the session becomes stale and must be recalculated before posting.
+- Positive variance increases the existing batch, negative variance reduces the existing batch, and zero variance keeps evidence without creating movement.
+- Stock Take stays outside Material Receipt, Material Usage, Purchase, Sales, and Finance posting flows.
+- Valuation remains admin-only and reporting-only. RNI stays non-valuated by default.
+
 ## Master Data Import
 
 Menu paths:
@@ -150,12 +176,12 @@ Steps:
 
 1. Search and add the required raw materials.
 2. Set the quantity for each line.
-3. Leave allocation on `Auto FEFO` for automatic expiry-first issuing, or switch to manual batch selection when needed.
+3. Manual batch selection is the default. `Auto FEFO` remains available as an option for automatic expiry-first issuing.
 4. Fill:
    - usage date
    - purpose
    - formula
-   - project
+   - team
    - requested by
    - issued by
    - notes
@@ -165,7 +191,8 @@ Steps:
 Notes:
 
 - Material usage reuses the existing stock deduction engine.
-- FEFO behavior is preserved.
+- Manual batch selection remains the default workflow.
+- `Auto FEFO` remains available as an option for automatic expiry-first issuing.
 - Manual batch allocation is still validated against batch availability and expiry rules.
 - Material usage does not create sales revenue records.
 - Usage cost is now derived server-side from the reserved batch allocation. The browser no longer submits the authoritative cost snapshot.
@@ -228,7 +255,7 @@ Interactive behavior:
 
 Columns:
 
-- Item Code IERP
+- Item Code
 - SKU
 - Material / Product Name
 - Batch
@@ -262,7 +289,7 @@ Columns:
 - User
 - Transaction Type
 - Material / Product Name
-- Item Code IERP
+- Item Code
 - Lot Number
 - Expiry Date
 - Storage Location
@@ -298,7 +325,7 @@ Columns:
 
 - Date
 - SKU
-- Item Code IERP
+- Item Code
 - Material / Product Name
 - Batch
 - Expiry Date
@@ -307,7 +334,7 @@ Columns:
 - Unit
 - Purpose
 - Formula
-- Project
+- Team
 - User
 
 Usage detail and print views for `Formulator` and `RM Desk` remain operational, but cost/value fields are hidden unless the role has inventory value permission.
@@ -362,7 +389,7 @@ Classification rules:
 Detail fields:
 
 - Classification
-- Item Code IERP
+- Item Code
 - SKU
 - RM Name
 - Physical Form
@@ -423,13 +450,14 @@ Use `Dashboard` -> `RNI Operations` for operational monitoring and `Dashboard` -
 
 - After confirming a material receipt or legacy purchase receipt, inventory and movement views reflect the change immediately.
 - After issuing material usage, usage analysis and RNI dashboard usage metrics reflect the change immediately.
+- After posting a Stock Take session, current inventory, batch monitoring, and inventory movement history reflect the variance immediately.
 - After marking a legacy purchase as paid, Finance reflects the expense immediately.
 - After completing a legacy sale / POS transaction, Finance and Sales Analysis reflect the income immediately.
 
-## Item Code IERP
+## Item Code
 
-- `Item Code IERP` is shown across transaction lists, inventory lists, report screens, and exports.
-- `Item Code IERP` is the optional legacy IERP code, separate from the internal `SKU` / RMP code.
+- `Item Code` is shown across transaction lists, inventory lists, report screens, and exports.
+- `Item Code` is the optional legacy IERP code, separate from the internal `SKU` / RMP code.
 - If `item_code_ierp` is empty, the system shows `-`.
 
 ## Navigation

@@ -28,7 +28,7 @@
                                 'subtotal' => $item->subtotal,
                                 'key' => Str::random(10),
                                 'product_name' => $item->product->name ?? '',
-                                'product_code' => 'SKU: ' . $item->product->sku_display . ' | Item Code IERP: ' . $item->product->item_code_ierp_display
+                                'product_code' => 'SKU: ' . $item->product->sku_display . ' | Item Code: ' . $item->product->item_code_ierp_display
                             ];
                         }))) }},
                         supplier_id: {{ Js::from(old('supplier_id', $purchase->supplier_id)) }},

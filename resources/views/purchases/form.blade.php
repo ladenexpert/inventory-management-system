@@ -572,7 +572,7 @@
                     key: Math.random().toString(36).substr(2, 9),
                     product_id: product.value,
                     product_name: product.text,
-                    product_code: `SKU: ${product.sku || '-'} | Item Code IERP: ${product.item_code_ierp || '-'}`,
+                    product_code: `SKU: ${product.sku || '-'} | Item Code: ${product.item_code_ierp || '-'}`,
                     batch_number: '',
                     expiry_date: '',
                     storage_location: '',
