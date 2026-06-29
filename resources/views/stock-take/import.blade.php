@@ -14,6 +14,9 @@
             <div class="bg-white shadow-sm sm:rounded-lg border border-gray-200 p-6">
                 <form action="{{ route('stock-take.preview') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
                     @csrf
+                    <div class="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+                        SKU, Batch No, and Counted Qty are required. Item Code, Material, Expiry, Storage Location, Reference Number, and Notes are optional. If Expiry or Storage Location is provided, it must match the existing batch record during preview.
+                    </div>
                     <div>
                         <x-input-label for="file" :value="'Upload Stock Take File'" required />
                         <input id="file" type="file" name="file" accept=".xlsx,.csv,.ods" class="mt-2 block w-full text-sm text-gray-500 file:mr-4 file:rounded-md file:border-0 file:bg-indigo-50 file:px-4 file:py-2 file:font-semibold file:text-indigo-700 hover:file:bg-indigo-100" />
@@ -61,6 +64,7 @@
                         <table class="min-w-full divide-y divide-gray-200 text-sm">
                             <thead class="bg-gray-50">
                                 <tr>
+                                    <th class="px-4 py-3 text-left">SKU</th>
                                     <th class="px-4 py-3 text-left">Item Code</th>
                                     <th class="px-4 py-3 text-left">Material</th>
                                     <th class="px-4 py-3 text-left">Batch No</th>
@@ -76,7 +80,8 @@
                             <tbody class="divide-y divide-gray-200 bg-white">
                                 @forelse($preview['rows'] as $row)
                                     <tr>
-                                        <td class="px-4 py-3">{{ $row['item_code'] }}</td>
+                                        <td class="px-4 py-3">{{ $row['sku'] }}</td>
+                                        <td class="px-4 py-3">{{ $row['item_code'] ?: '-' }}</td>
                                         <td class="px-4 py-3">{{ $row['material_name'] }}</td>
                                         <td class="px-4 py-3">{{ $row['batch_number'] }}</td>
                                         <td class="px-4 py-3">{{ $row['expiry_date'] ?? '-' }}</td>
@@ -89,7 +94,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="10" class="px-4 py-8 text-center text-gray-500">No preview rows available.</td>
+                                        <td colspan="11" class="px-4 py-8 text-center text-gray-500">No preview rows available.</td>
                                     </tr>
                                 @endforelse
                             </tbody>

@@ -88,22 +88,35 @@ class StockTakeImportController extends Controller
         $writer = new Writer();
         $writer->openToFile($filePath);
         $writer->addRow(Row::fromValues([
+            RmpTerminology::SKU,
             RmpTerminology::ITEM_CODE,
+            'Material',
             RmpTerminology::BATCH_NO,
-            RmpTerminology::EXPIRY_DATE,
+            'Expiry',
             RmpTerminology::STORAGE_LOCATION,
             RmpTerminology::COUNTED_QTY,
-            RmpTerminology::UNIT,
             RmpTerminology::REFERENCE_NUMBER,
             RmpTerminology::NOTES,
         ]));
         $writer->addRow(Row::fromValues([
-            'IERP-RM-0001',
+            '# Required: SKU, Batch No, Counted Qty. Optional: Item Code, Material, Expiry, Storage Location, Reference Number, Notes.',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+        ]));
+        $writer->addRow(Row::fromValues([
+            'SKU-RM-0001',
+            '',
+            'Example Material',
             'RM-LOT-001',
             now()->addMonths(6)->format('Y-m-d'),
             'RACK-A1',
             '98',
-            'KG',
             'STOCKTAKE-JUN-01',
             'Cycle count adjustment',
         ]));

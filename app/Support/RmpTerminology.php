@@ -8,6 +8,7 @@ final class RmpTerminology
 {
     public const TRANSACTION_NUMBER = 'Transaction Number';
     public const REFERENCE_NUMBER = 'Reference Number';
+    public const SKU = 'SKU';
     public const ITEM_CODE = 'Item Code';
     public const MATERIAL_NAME = 'Material Name';
     public const BATCH_NO = 'Batch No';

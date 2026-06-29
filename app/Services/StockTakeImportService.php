@@ -15,25 +15,33 @@ use OpenSpout\Reader\Common\Creator\ReaderFactory;
 class StockTakeImportService
 {
     private const HEADER_LABELS = [
+        'sku' => RmpTerminology::SKU,
         'item_code' => RmpTerminology::ITEM_CODE,
+        'material' => 'Material',
         'batch_no' => RmpTerminology::BATCH_NO,
-        'expiry_date' => RmpTerminology::EXPIRY_DATE,
+        'expiry_date' => 'Expiry',
         'storage_location' => RmpTerminology::STORAGE_LOCATION,
         'counted_qty' => RmpTerminology::COUNTED_QTY,
-        'unit' => RmpTerminology::UNIT,
         'reference' => RmpTerminology::REFERENCE_NUMBER,
         'notes' => RmpTerminology::NOTES,
     ];
 
     private const HEADERS = [
+        'sku' => ['sku', RmpTerminology::SKU],
         'item_code' => ['item_code', 'item_code_ierp', RmpTerminology::ITEM_CODE, 'Item Code IERP'],
+        'material' => ['material', 'material_name', RmpTerminology::MATERIAL_NAME],
         'batch_no' => ['batch_no', 'batch_number', RmpTerminology::BATCH_NO],
-        'expiry_date' => ['expiry_date', 'exp_date', RmpTerminology::EXPIRY_DATE],
+        'expiry_date' => ['expiry', 'expiry_date', 'exp_date', RmpTerminology::EXPIRY_DATE],
         'storage_location' => ['storage_location', 'location', RmpTerminology::STORAGE_LOCATION],
         'counted_qty' => ['counted_qty', 'counted_quantity', 'qty', RmpTerminology::COUNTED_QTY],
-        'unit' => ['unit', 'uom', RmpTerminology::UNIT],
         'reference' => ['reference', 'reference_number', RmpTerminology::REFERENCE_NUMBER],
         'notes' => ['notes', RmpTerminology::NOTES],
+    ];
+
+    private const REQUIRED_HEADERS = [
+        'sku',
+        'batch_no',
+        'counted_qty',
     ];
 
     public function __construct(
@@ -175,7 +183,7 @@ class StockTakeImportService
 
         $missing = array_map(
             fn (string $header) => self::HEADER_LABELS[$header] ?? $header,
-            array_diff(array_keys(self::HEADERS), array_keys($headerMap))
+            array_diff(self::REQUIRED_HEADERS, array_keys($headerMap))
         );
 
         if ($missing !== []) {
@@ -190,7 +198,8 @@ class StockTakeImportService
         $row = [];
 
         foreach (array_keys(self::HEADERS) as $header) {
-            $row[$header] = $cells[$headerMap[$header]] ?? null;
+            $index = $headerMap[$header] ?? null;
+            $row[$header] = $index === null ? null : ($cells[$index] ?? null);
         }
 
         return $row;
@@ -198,50 +207,87 @@ class StockTakeImportService
 
     private function normalizePreviewRow(array $row, int $rowNumber): array
     {
-        $itemCode = $this->requireString($row['item_code'] ?? null, 'Unknown Item Code.');
-        $product = Product::query()->where('item_code_ierp', $itemCode)->first();
+        $sku = $this->requireString($row['sku'] ?? null, 'SKU is required.');
+        $product = Product::query()->with('unit')->where('sku', $sku)->first();
 
         if (!$product) {
-            throw new \RuntimeException("Unknown Item Code '{$itemCode}'.");
+            throw new \RuntimeException('Unknown SKU.');
+        }
+
+        $itemCode = $this->cleanString($row['item_code'] ?? null);
+        $storedItemCode = $product->item_code_ierp ? trim((string) $product->item_code_ierp) : null;
+
+        if ($itemCode !== null && $storedItemCode !== null && strcasecmp($itemCode, $storedItemCode) !== 0) {
+            throw new \RuntimeException("Item Code '{$itemCode}' does not match SKU '{$sku}'.");
         }
 
         $batchNumber = $this->requireString($row['batch_no'] ?? null, 'Batch No is required.');
-        $batch = Batch::query()->with('product.unit', 'storageLocationRecord')->where('batch_number', $batchNumber)->first();
+        $matchingBatches = Batch::query()
+            ->with('product.unit', 'storageLocationRecord')
+            ->where('product_id', $product->id)
+            ->where('batch_number', $batchNumber)
+            ->get();
 
-        if (!$batch) {
-            throw new \RuntimeException("Unknown Batch No '{$batchNumber}'.");
-        }
+        if ($matchingBatches->isEmpty()) {
+            $existingBatch = Batch::query()->where('batch_number', $batchNumber)->first();
 
-        if ((int) $batch->product_id !== (int) $product->id) {
-            throw new \RuntimeException("Batch No '{$batchNumber}' does not belong to Item Code '{$itemCode}'.");
+            if ($existingBatch) {
+                throw new \RuntimeException("Batch No '{$batchNumber}' does not belong to SKU '{$sku}'.");
+            }
+
+            throw new \RuntimeException('Unknown Batch No.');
         }
 
         $expiryDate = $this->parseDate($row['expiry_date'] ?? null, 'Invalid Expiry Date format.');
+        $locationValue = $this->cleanString($row['storage_location'] ?? null);
+
+        $candidateBatches = $matchingBatches;
+
+        if ($expiryDate !== null) {
+            $expiryMatchedBatches = $candidateBatches->filter(
+                fn (Batch $candidate) => $candidate->expiry_date?->format('Y-m-d') === $expiryDate
+            )->values();
+
+            if ($expiryMatchedBatches->isEmpty()) {
+                throw new \RuntimeException("Batch No '{$batchNumber}' expiry does not match the current batch record.");
+            }
+
+            $candidateBatches = $expiryMatchedBatches;
+        }
+
+        if ($locationValue !== null) {
+            $location = StorageLocation::query()
+                ->where('code', $locationValue)
+                ->orWhere('name', $locationValue)
+                ->orWhereRaw('LOWER(code) = ?', [Str::lower($locationValue)])
+                ->orWhereRaw('LOWER(name) = ?', [Str::lower($locationValue)])
+                ->first();
+
+            if (!$location) {
+                throw new \RuntimeException("Unknown Storage Location '{$locationValue}'.");
+            }
+
+            $locationMatchedBatches = $candidateBatches->filter(
+                fn (Batch $candidate) => $this->batchMatchesLocation($candidate, $locationValue, $location)
+            )->values();
+
+            if ($locationMatchedBatches->isEmpty()) {
+                throw new \RuntimeException("Batch No '{$batchNumber}' storage location does not match the current batch record.");
+            }
+
+            $candidateBatches = $locationMatchedBatches;
+        }
+
+        if ($candidateBatches->count() > 1) {
+            throw new \RuntimeException("Multiple batch records match SKU '{$sku}' and Batch No '{$batchNumber}'. Please provide Expiry and/or Storage Location to disambiguate.");
+        }
+
+        /** @var Batch $batch */
+        $batch = $candidateBatches->first();
         $currentExpiry = $batch->expiry_date?->format('Y-m-d');
 
-        if ($expiryDate !== $currentExpiry) {
-            throw new \RuntimeException("Batch No '{$batchNumber}' expiry does not match the current batch record.");
-        }
-
-        $locationValue = $this->requireString($row['storage_location'] ?? null, 'Unknown Storage Location.');
-        $location = StorageLocation::query()
-            ->where('code', $locationValue)
-            ->orWhere('name', $locationValue)
-            ->orWhereRaw('LOWER(code) = ?', [Str::lower($locationValue)])
-            ->orWhereRaw('LOWER(name) = ?', [Str::lower($locationValue)])
-            ->first();
-
-        if (!$location) {
-            throw new \RuntimeException("Unknown Storage Location '{$locationValue}'.");
-        }
-
-        $locationMatches = $batch->storage_location_id === $location->id
-            || strcasecmp((string) $batch->storage_location, $locationValue) === 0
-            || strcasecmp((string) $batch->resolved_storage_location, $locationValue) === 0
-            || strcasecmp((string) $location->display_label, (string) $batch->resolved_storage_location) === 0;
-
-        if (!$locationMatches) {
-            throw new \RuntimeException("Batch No '{$batchNumber}' storage location does not match the current batch record.");
+        if ($this->cleanString($row['counted_qty'] ?? null) === null) {
+            throw new \RuntimeException('Counted Qty is required.');
         }
 
         $countedQty = $this->parseInteger($row['counted_qty'] ?? null, 'Counted Qty is invalid.');
@@ -250,31 +296,32 @@ class StockTakeImportService
             throw new \RuntimeException('Counted Qty cannot be negative.');
         }
 
-        $unitValue = $this->requireString($row['unit'] ?? null, 'Unit is required.');
-        $expectedUnit = $product->unit?->symbol ?? $product->unit?->name;
-
-        if ($expectedUnit && strcasecmp($unitValue, $expectedUnit) !== 0) {
-            throw new \RuntimeException("Unit '{$unitValue}' does not match material unit '{$expectedUnit}'.");
-        }
-
         $currentQty = (int) $batch->available_quantity;
 
         return [
             'row_number' => $rowNumber,
             'product_id' => $product->id,
             'batch_id' => $batch->id,
-            'item_code' => $itemCode,
+            'sku' => $product->sku,
+            'item_code' => $storedItemCode,
             'material_name' => $product->name,
             'batch_number' => $batch->batch_number,
             'expiry_date' => $currentExpiry,
             'storage_location' => $batch->resolved_storage_location,
-            'unit' => $expectedUnit ?: $unitValue,
             'current_qty' => $currentQty,
             'counted_qty' => $countedQty,
             'variance' => $countedQty - $currentQty,
             'reference' => $this->cleanString($row['reference'] ?? null) ?? '',
             'notes' => $this->cleanString($row['notes'] ?? null) ?? '',
         ];
+    }
+
+    private function batchMatchesLocation(Batch $batch, string $locationValue, StorageLocation $location): bool
+    {
+        return $batch->storage_location_id === $location->id
+            || strcasecmp((string) $batch->storage_location, $locationValue) === 0
+            || strcasecmp((string) $batch->resolved_storage_location, $locationValue) === 0
+            || strcasecmp((string) $location->display_label, (string) $batch->resolved_storage_location) === 0;
     }
 
     private function parseInteger(mixed $value, string $message): int

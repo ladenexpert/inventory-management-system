@@ -202,8 +202,8 @@ class V047HardeningTest extends TestCase
         ]);
 
         $file = UploadedFile::fake()->createWithContent('stock-take.csv', implode("\n", [
-            'item_code,batch_no,expiry_date,storage_location,counted_qty,unit,reference,notes',
-            "IERP-STK-001,STK-BATCH-001,{$batch->expiry_date->format('Y-m-d')},RACK-A1,7,PCS,STK-JUN-01,Cycle count",
+            'sku,item_code,material,batch_no,expiry,storage_location,counted_qty,reference,notes',
+            "\"{$product->sku}\",,{$product->name},STK-BATCH-001,{$batch->expiry_date->format('Y-m-d')},RACK-A1,7,STK-JUN-01,Cycle count",
         ]));
 
         $this->actingAs($formulator)
@@ -242,15 +242,17 @@ class V047HardeningTest extends TestCase
         $rows = $this->downloadedSpreadsheetRows($response);
 
         $this->assertSame([
+            RmpTerminology::SKU,
             RmpTerminology::ITEM_CODE,
+            'Material',
             RmpTerminology::BATCH_NO,
-            RmpTerminology::EXPIRY_DATE,
+            'Expiry',
             RmpTerminology::STORAGE_LOCATION,
             RmpTerminology::COUNTED_QTY,
-            RmpTerminology::UNIT,
             RmpTerminology::REFERENCE_NUMBER,
             RmpTerminology::NOTES,
         ], $rows[0]);
+        $this->assertSame('# Required: SKU, Batch No, Counted Qty. Optional: Item Code, Material, Expiry, Storage Location, Reference Number, Notes.', $rows[1][0]);
     }
 
     public function test_stock_take_adjustment_stays_out_of_usage_purchase_and_finance_contexts_while_remaining_visible_in_history(): void
@@ -279,8 +281,8 @@ class V047HardeningTest extends TestCase
         ]);
 
         $file = UploadedFile::fake()->createWithContent('stock-take-context.csv', implode("\n", [
-            'item_code,batch_no,expiry_date,storage_location,counted_qty,unit,reference,notes',
-            "IERP-STK-CTX-001,STK-CTX-BATCH-001,{$batch->expiry_date->format('Y-m-d')},RACK-STK,9,PCS,STK-CTX-01,Context isolation",
+            'sku,item_code,material,batch_no,expiry,storage_location,counted_qty,reference,notes',
+            "\"{$product->sku}\",,{$product->name},STK-CTX-BATCH-001,{$batch->expiry_date->format('Y-m-d')},RACK-STK,9,STK-CTX-01,Context isolation",
         ]));
 
         $this->actingAs($admin)->post(route('stock-take.preview'), ['file' => $file])->assertRedirect();
