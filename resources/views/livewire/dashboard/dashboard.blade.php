@@ -6,16 +6,16 @@
                 {{ $view === 'business-insights' ? 'Business insights for the last 30 days.' : 'RNI operational visibility for current stock and batch risk.' }}
             </p>
         </div>
-        <div class="flex flex-wrap items-center gap-2">
-            <button wire:click="setView('rni-operations')" class="inline-flex items-center rounded-md px-4 py-2 text-sm font-medium {{ $view === 'rni-operations' ? 'bg-primary text-white' : 'border border-input bg-background hover:bg-accent hover:text-accent-foreground' }}">
+        <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+            <button wire:click="setView('rni-operations')" class="inline-flex w-full items-center justify-center rounded-md px-4 py-2 text-sm font-medium sm:w-auto {{ $view === 'rni-operations' ? 'bg-primary text-white' : 'border border-input bg-background hover:bg-accent hover:text-accent-foreground' }}">
                 RNI Operations
             </button>
             @if($canViewBusinessInsights)
-                <button wire:click="setView('business-insights')" class="inline-flex items-center rounded-md px-4 py-2 text-sm font-medium {{ $view === 'business-insights' ? 'bg-primary text-white' : 'border border-input bg-background hover:bg-accent hover:text-accent-foreground' }}">
+                <button wire:click="setView('business-insights')" class="inline-flex w-full items-center justify-center rounded-md px-4 py-2 text-sm font-medium sm:w-auto {{ $view === 'business-insights' ? 'bg-primary text-white' : 'border border-input bg-background hover:bg-accent hover:text-accent-foreground' }}">
                     Business Insights
                 </button>
             @endif
-            <button wire:click="loadStats" class="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground">
+            <button wire:click="loadStats" class="inline-flex w-full items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground sm:w-auto">
                 <x-heroicon-o-arrow-path wire:loading.class="animate-spin" class="mr-2 h-4 w-4" />
                 Refresh
             </button>
@@ -57,7 +57,7 @@
                     <p class="text-xs text-muted-foreground">Latest inbound documents across legacy purchases and material receipts.</p>
                 </div>
                 <div class="max-h-[320px] overflow-auto">
-                    <table class="w-full text-sm">
+                    <table class="min-w-[640px] w-full text-sm">
                         <thead class="sticky top-0 bg-card">
                             <tr class="border-b">
                                 <th class="px-4 py-3 text-left">Receipt</th>
@@ -72,10 +72,10 @@
                             @forelse($recentReceipts as $receipt)
                                 <tr class="border-b">
                                     <td class="px-4 py-3">
-                                        <div class="font-medium">{{ $receipt['receipt_number'] }}</div>
-                                        <div class="text-xs text-muted-foreground">{{ $receipt['purchase_date'] }} | {{ $receipt['context_label'] ?? str($receipt['entry_context'])->headline() }}</div>
+                                        <div class="font-medium break-words">{{ $receipt['receipt_number'] }}</div>
+                                        <div class="text-xs text-muted-foreground break-words">{{ $receipt['purchase_date'] }} | {{ $receipt['context_label'] ?? str($receipt['entry_context'])->headline() }}</div>
                                     </td>
-                                    <td class="px-4 py-3">{{ $receipt['supplier_name'] }}</td>
+                                    <td class="px-4 py-3 break-words">{{ $receipt['supplier_name'] }}</td>
                                     <td class="px-4 py-3 text-right">{{ $receipt['line_count'] }}</td>
                                     @if($canViewFinance || $canViewInventoryValue)
                                         <td class="px-4 py-3 text-right">{{ format_money($receipt['total'] ?? 0) }}</td>
@@ -98,10 +98,10 @@
                     @forelse($urgentBatches as $batch)
                         <div class="flex items-start justify-between gap-3">
                             <div>
-                                <p class="text-sm font-medium">{{ $batch['product_name'] }}</p>
+                                <p class="text-sm font-medium break-words">{{ $batch['product_name'] }}</p>
                                 <p class="text-xs text-muted-foreground">{{ $batch['item_code'] }}</p>
                                 <p class="text-xs text-muted-foreground">{{ $batch['batch_number'] }} | {{ $batch['expiry_date'] }}</p>
-                                <p class="text-xs text-muted-foreground">{{ $batch['storage_location'] }}</p>
+                                <p class="text-xs text-muted-foreground break-words">{{ $batch['storage_location'] }}</p>
                             </div>
                             <span class="rounded-md px-2 py-1 text-xs font-semibold {{ $batch['status'] === 'expired' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700' }}">
                                 {{ $batch['available_quantity'] }}
@@ -122,9 +122,9 @@
                 <div class="space-y-4 p-4">
                     @forelse($recentUsage as $usage)
                         <div>
-                            <p class="text-sm font-medium">{{ $usage['usage_number'] }}</p>
+                            <p class="text-sm font-medium break-words">{{ $usage['usage_number'] }}</p>
                             <p class="text-xs text-muted-foreground">{{ $usage['item_codes'] ?: '-' }}</p>
-                            <p class="text-xs text-muted-foreground">{{ $usage['purpose'] }} | {{ $usage['team'] ?? '-' }} | Qty {{ $usage['total_qty'] }}</p>
+                            <p class="text-xs text-muted-foreground break-words">{{ $usage['purpose'] }} | {{ $usage['team'] ?? '-' }} | Qty {{ $usage['total_qty'] }}</p>
                         </div>
                     @empty
                         <p class="text-sm text-muted-foreground">No usage history yet.</p>
@@ -140,7 +140,7 @@
                     @forelse($topUsedMaterials as $material)
                         <div class="flex items-center justify-between gap-3">
                             <div>
-                                <p class="text-sm font-medium">{{ $material['product_name'] }}</p>
+                                <p class="text-sm font-medium break-words">{{ $material['product_name'] }}</p>
                                 <p class="text-xs text-muted-foreground">{{ $material['item_code'] }}</p>
                             </div>
                             <span class="rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">{{ number_format($material['total_quantity']) }}</span>
@@ -159,7 +159,7 @@
                     @forelse($nearExpiryRisks as $risk)
                         <div class="flex items-center justify-between gap-3">
                             <div>
-                                <p class="text-sm font-medium">{{ $risk['product_name'] }}</p>
+                                <p class="text-sm font-medium break-words">{{ $risk['product_name'] }}</p>
                                 <p class="text-xs text-muted-foreground">{{ $risk['item_code'] }}</p>
                                 <p class="text-xs text-muted-foreground">{{ $risk['nearest_expiry_date'] }}</p>
                             </div>
@@ -179,7 +179,7 @@
                     @forelse($lowStockProducts as $product)
                         <div class="flex items-center justify-between gap-3">
                             <div>
-                                <p class="text-sm font-medium">{{ $product['name'] }}</p>
+                                <p class="text-sm font-medium break-words">{{ $product['name'] }}</p>
                                 <p class="text-xs text-muted-foreground">{{ $product['item_code'] ?? '-' }}</p>
                             </div>
                             <span class="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold">{{ $product['quantity'] }}/{{ $product['min_stock'] }}</span>
@@ -266,7 +266,7 @@
                             <span class="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold">{{ number_format($material['quantity']) }}</span>
                         </div>
                     @empty
-                        <p class="text-sm text-muted-foreground">No dead stock found under the current classification rules.</p>
+                        <p class="text-sm text-muted-foreground">No dead stock is flagged under the current material-usage classification rules.</p>
                     @endforelse
                 </div>
             </div>
@@ -279,7 +279,7 @@
                     @forelse($topSuppliers as $supplier)
                         <div class="flex items-center justify-between gap-3">
                             <div>
-                                <p class="text-sm font-medium">{{ $supplier['supplier_name'] }}</p>
+                                <p class="text-sm font-medium break-words">{{ $supplier['supplier_name'] }}</p>
                                 <p class="text-xs text-muted-foreground">{{ $supplier['phone'] }}</p>
                             </div>
                             <span class="text-sm font-semibold">{{ format_money($supplier['total_spend']) }}</span>
@@ -296,7 +296,7 @@
                     @forelse($topCustomers as $customer)
                         <div class="flex items-center justify-between gap-3">
                             <div>
-                                <p class="text-sm font-medium">{{ $customer['customer_name'] }}</p>
+                                <p class="text-sm font-medium break-words">{{ $customer['customer_name'] }}</p>
                                 <p class="text-xs text-muted-foreground">{{ $customer['phone'] }}</p>
                             </div>
                             <span class="text-sm font-semibold">{{ format_money($customer['total_spent']) }}</span>

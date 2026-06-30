@@ -3,7 +3,7 @@
         <div>
             <h2 class="font-semibold text-xl text-foreground leading-tight">Stock Movement Classification</h2>
             <p class="mt-1 text-sm text-muted-foreground">
-                Material-level fast, slow, and dead stock classification based on outbound material usage only.
+                Material-level fast, slow, and dead stock classification based on RNI Material Usage / internal outbound movement only.
             </p>
         </div>
     </x-slot>
@@ -37,6 +37,9 @@
                     <p class="text-xs text-muted-foreground">Materials with stock on hand grouped by outbound-usage age.</p>
                 </div>
                 <div class="p-4">
+                    <div class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+                        RNI pilot classification uses Material Usage / internal outbound movement only. Legacy sales remain part of Sales Analysis and are not mixed into this report.
+                    </div>
                     <x-report-chart :config="$classificationChart" height="20rem" />
                 </div>
             </div>

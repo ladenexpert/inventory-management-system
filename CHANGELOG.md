@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.5.2-rni-mobile-ux-and-final-operational-polish
+
+- treated this work as a new audit/polish milestone on top of stable `v0.5.1-rni-pilot-stabilization` without amending history, committing, tagging, pushing, or making release decisions
+- kept the milestone intentionally narrow: final CRUD/regression audit, tablet/mobile usability polish, user-message cleanup, export/permission recheck, and operational readiness hardening only
+- preserved the stable baselines from `v0.4.8`, `v0.4.8.1`, `v0.5.0`, and `v0.5.1` without rewriting Material Receipt, Material Usage, Opening Stock, Stock Take, finance semantics, or stock movement semantics
+- lightly improved dense operational pages for tablet/mobile usage with safer header wrapping, stacked action buttons, horizontal table handling, cleaner card stacking, and less cramped detail/action layouts across Material Receipt, Material Usage, Stock Take, Inventory Movement History, Dashboard, and role/permission screens
+- polished operational copy for permission-denied states, material delete blocking, stock-take stale/blocked/closed flows, unmatched batch import errors, and empty-state guidance without exposing unnecessary technical detail
+- clarified `Stock Movement Classification` scope in the UI/docs: the RNI pilot report remains based on `Material Usage` / internal outbound movement only, while legacy sales remain in `Sales Analysis`
+- revalidated export and visibility hardening: `Batch Monitoring` still requires `batches.export`, report exports still require `reports.export`, direct Livewire export calls remain blocked without permission, and non-admin value/cost privacy remains preserved
+- revalidated the default pilot-clean seed from `v0.5.1`: `php artisan migrate:fresh --seed` still keeps material stock/value empty by default while preserving admin login plus finance/master/reference seed data
+- updated `PROJECT_CONTEXT.md`, `docs/PROJECT_CONTEXT.md`, and `docs/RNI_PILOT_GUIDE.md` with the v0.5.2 audit result, final pilot/UAT checklists, real-data preparation guidance, and known exclusions
+- automation validation passed: `composer validate`, `composer install --dry-run`, `php artisan optimize:clear`, `php artisan migrate:fresh --seed`, focused RNI regression suites, and `php artisan test` with `182 tests / 1425 assertions`
+- frontend build note: `npm run build` was not required because only Blade/Tailwind markup and PHP/test/doc files changed; no frontend asset pipeline/config files were modified
+- status: automation-validated and pending owner browser-UAT, manual review, commit, push, and tag
+- release handling note: Codex did not commit, tag, or push
+
 ## v0.5.1-rni-pilot-stabilization
 
 - treated this work as a new stabilization milestone on top of stable `v0.5.0-rni-pilot-readiness` without amending, rewriting history, committing, tagging, pushing, or making release decisions

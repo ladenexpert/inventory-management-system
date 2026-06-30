@@ -280,7 +280,7 @@ final class PurchaseTable extends PowerGridComponent
             abort_unless(
                 auth()->user()?->hasPermission($purchase->isMaterialReceipt() ? 'material_receipt' : 'legacy_purchase', 'delete'),
                 403,
-                'You are not authorized to delete this record.',
+                'You do not have permission to delete this record.',
             );
 
             try {
@@ -308,14 +308,14 @@ final class PurchaseTable extends PowerGridComponent
 
     public function exportToXLS(bool $selected = false): \Symfony\Component\HttpFoundation\BinaryFileResponse|bool
     {
-        abort_unless($this->userCan('export'), 403, 'You are not authorized to export this table.');
+        abort_unless($this->userCan('export'), 403, 'You do not have permission to export this data.');
 
         return app(OperationLineExportService::class)->download($this, $this->tableContext(), 'xlsx', $selected);
     }
 
     public function exportToCsv(bool $selected = false): \Symfony\Component\HttpFoundation\BinaryFileResponse|bool
     {
-        abort_unless($this->userCan('export'), 403, 'You are not authorized to export this table.');
+        abort_unless($this->userCan('export'), 403, 'You do not have permission to export this data.');
 
         return app(OperationLineExportService::class)->download($this, $this->tableContext(), 'csv', $selected);
     }

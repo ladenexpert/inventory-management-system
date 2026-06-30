@@ -9,7 +9,7 @@
     <div class="py-4">
         <div class="max-w-7xl mx-auto space-y-4 sm:px-6 lg:px-8">
             <div class="rounded-xl border bg-card p-6 shadow-sm">
-                <p class="text-sm text-muted-foreground">Stored roles remain enum-based on users, while permissions are now managed per role and module for view, create, update, delete, import, export, confirm, cancel, and restore.</p>
+                <p class="text-sm text-muted-foreground">Stored roles remain enum-based on users, while permissions are managed per role and module for view, create, update, delete, import, export, confirm, cancel, and restore. Review this screen on tablet in landscape mode for the most comfortable editing width.</p>
             </div>
             <livewire:roles.role-permission-matrix />
         </div>

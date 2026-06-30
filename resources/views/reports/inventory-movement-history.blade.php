@@ -58,15 +58,15 @@
 
                 <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div class="flex flex-wrap gap-2">
-                        <x-primary-button type="submit">Apply Filters</x-primary-button>
-                        <x-secondary-button :href="route('reports.inventory-movement-history')">Reset</x-secondary-button>
+                        <x-primary-button type="submit" class="w-full justify-center sm:w-auto">Apply Filters</x-primary-button>
+                        <x-secondary-button :href="route('reports.inventory-movement-history')" class="w-full justify-center sm:w-auto">Reset</x-secondary-button>
                     </div>
 
                     <div class="flex flex-wrap gap-2">
-                        <x-secondary-button :href="route('reports.inventory-movement-history.export', array_merge(['format' => 'xlsx'], $filters))">
+                        <x-secondary-button :href="route('reports.inventory-movement-history.export', array_merge(['format' => 'xlsx'], $filters))" class="w-full justify-center sm:w-auto">
                             Export XLSX
                         </x-secondary-button>
-                        <x-secondary-button :href="route('reports.inventory-movement-history.export', array_merge(['format' => 'csv'], $filters))">
+                        <x-secondary-button :href="route('reports.inventory-movement-history.export', array_merge(['format' => 'csv'], $filters))" class="w-full justify-center sm:w-auto">
                             Export CSV
                         </x-secondary-button>
                     </div>
@@ -75,7 +75,7 @@
 
             <div class="overflow-hidden rounded-xl border bg-white shadow-sm">
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200 text-sm">
+                    <table class="min-w-[1180px] divide-y divide-gray-200 text-sm">
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500">Date & Time</th>
@@ -116,7 +116,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="15" class="px-4 py-10 text-center text-gray-500">No inventory movement history found for the selected filters.</td>
+                                    <td colspan="15" class="px-4 py-10 text-center text-gray-500">No inventory movement history matches the selected filters yet. Adjust the filters or complete a stock-affecting transaction first.</td>
                                 </tr>
                             @endforelse
                         </tbody>

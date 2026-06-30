@@ -30,7 +30,7 @@
                             <x-input-error :messages="$errors->get('file')" class="mt-2" />
                         </div>
                         <div class="flex justify-end">
-                            <x-primary-button type="submit">Create Preview Session</x-primary-button>
+                            <x-primary-button type="submit" class="w-full justify-center sm:w-auto">Create Preview Session</x-primary-button>
                         </div>
                     </form>
                 </div>
@@ -43,7 +43,7 @@
                 </div>
 
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200 text-sm">
+                    <table class="min-w-[860px] divide-y divide-gray-200 text-sm">
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="px-4 py-3 text-left">Session Code</th>
@@ -86,7 +86,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="8" class="px-4 py-10 text-center text-gray-500">No stock take sessions have been created yet.</td>
+                                    <td colspan="8" class="px-4 py-10 text-center text-gray-500">No stock take sessions have been created yet. Upload a count file to start the first review session.</td>
                                 </tr>
                             @endforelse
                         </tbody>

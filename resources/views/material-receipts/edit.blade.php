@@ -1,10 +1,10 @@
 <x-app-layout title="Edit Material Receipt">
     <x-slot name="header">
-        <div class="flex justify-between items-center">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 class="font-semibold text-xl text-foreground leading-tight">
                 {{ __('Edit Material Receipt') }}
             </h2>
-            <x-secondary-button href="{{ route('material-receipts.show', $purchase) }}">
+            <x-secondary-button href="{{ route('material-receipts.show', $purchase) }}" class="w-full justify-center sm:w-auto">
                 &larr; {{ __('Back to Detail') }}
             </x-secondary-button>
         </div>

@@ -17,11 +17,65 @@ RMP is therefore not positioned as a one-off RNI inventory UAT system. The curre
 
 ## Current Milestone
 
-- Milestone: `v0.5.1-rni-pilot-stabilization`
+- Milestone: `v0.5.2-rni-mobile-ux-and-final-operational-polish`
 - Status: implemented and automation-validated
 - Owner state: pending owner browser-UAT, manual review, commit, push, and tag
 - Release handling note: release decisions remain owner-managed, and Codex did not commit, tag, or push
-- Baseline: builds on stable `v0.5.0-rni-pilot-readiness`
+- Baseline: builds on stable `v0.5.1-rni-pilot-stabilization`
+
+## v0.5.2 Final Operational Polish Scope
+
+### 1. Discovery Result
+
+- The v0.5.1 baseline remained stable under the existing automated regression suite and no major workflow rewrite was required.
+- The remaining v0.5.2 opportunities were operational polish items only: denser tablet/mobile layouts, clearer blocked/empty-state copy, final CRUD/access/export rechecks, and documentation needed to close pilot UAT confidently.
+- No schema change, no new package, no Filament adoption, and no UI framework migration were required.
+
+### 2. v0.5.2 Implementation
+
+- Performed a final audit of the RNI CRUD/operational surfaces and kept the milestone limited to small safe fixes only.
+- Lightly polished tablet/mobile usability on the key operator pages by improving header wrapping, table overflow handling, button stacking, sticky action visibility, and long-name readability.
+- Standardized user-facing copy for permission-denied states, stock-take blocked/stale/closed flows, material delete blocking, unmatched stock-take batch guidance, and empty inventory movement history guidance.
+- Clarified in the UI and docs that `Stock Movement Classification` remains based on `Material Usage` / internal outbound movement only, while legacy sales remain part of `Sales Analysis`.
+- Revalidated that export permission boundaries, non-admin valuation privacy, finance menu visibility, and pilot-clean default seed behavior remained unchanged from the preserved baselines.
+
+### 3. CRUD / Regression Audit Summary
+
+- `Materials/Product master`: minor fix applied
+- `Categories`: OK / no change
+- `Units`: OK / no change
+- `Physical Forms`: OK / no change
+- `Storage Locations`: OK / no change
+- `Suppliers`: OK / no change
+- `Customers`: OK / no change
+- `Teams`: OK / no change
+- `Opening Stock import`: OK / no change
+- `Material Receipt`: minor fix applied
+- `Material Usage`: minor fix applied
+- `Stock Take`: minor fix applied
+- `Batch Monitoring`: OK / no change
+- `Inventory & Expiry Monitoring`: OK / no change
+- `Inventory Movement History`: minor fix applied
+- `Usage Report`: OK / no change
+- `Inbound & Purchase Analysis`: OK / no change
+- `Sales Analysis`: OK / no change
+- `Stock Movement Classification`: minor fix applied
+- `Dashboard RNI Operations`: minor fix applied
+- `Business Insights`: minor fix applied
+- `Finance menu visibility`: OK / no change
+- `Role / Permission matrix`: minor fix applied
+- `User access / direct URL protection`: OK / no change
+- `Export actions / direct Livewire export calls`: OK / no change
+- `Print usage slip`: OK / no change
+
+### 4. Preserved Baseline
+
+- v0.4.8 Stock Take review, stale guard, atomic posting, duplicate posting prevention, close lifecycle, valuation privacy, and finance exclusion remain preserved.
+- v0.4.8.1 delete guard remains preserved: material delete still requires both zero active batch stock and zero cached quantity, still refreshes dashboard/report state, and still creates no delete movement or finance side effect.
+- v0.5.0 export hardening remains preserved: `Batch Monitoring` still requires `batches.export`, report exports still require `reports.export`, and direct export calls remain permission-blocked.
+- v0.5.1 pilot-clean default seed remains preserved: admin login plus finance/master/reference seed data remain available while material stock/value stay zero by default.
+- No migration, no new package, no Filament, and no UI framework change were introduced.
+- PHP `8.2` compatibility remains preserved.
 
 ## v0.5.1 Pilot Stabilization Scope
 
@@ -187,6 +241,34 @@ The v0.4.8 implementation intentionally preserves:
 
 ## Validation Evidence
 
+Automation validation completed for v0.5.2:
+
+- `composer validate`: passed
+- `composer install --dry-run`: passed
+- `php artisan optimize:clear`: passed
+- `php artisan migrate:fresh --seed`: passed
+- focused regression coverage passed:
+  - `php artisan test tests/Feature/StockTakeImportTest.php`
+  - `php artisan test tests/Feature/StockMovementClassificationFeatureTest.php tests/Feature/TransactionViewRenderTest.php`
+  - `php artisan test tests/Feature/MasterDataDeletionTest.php tests/Feature/RniExportPermissionHardeningTest.php`
+- `php artisan test`: passed, `182` tests / `1425` assertions
+
+Focused v0.5.2 readiness coverage includes:
+
+- default seed pilot-clean baseline
+- Material Receipt workflow and route rendering
+- Material Usage workflow and route rendering
+- Opening Stock import
+- Stock Take import / stale guard / post / close / export privacy
+- material delete guard including batch authority and quantity-cache fail-safe
+- dashboard/report refresh consistency
+- Batch Monitoring export permission
+- report export permission hardening
+- finance and inventory-value visibility privacy
+- RNI role access and direct route protection
+- Stock Movement Classification regression and wording scope
+- transaction/detail/print view rendering on the audited pilot pages
+
 Automation validation completed for v0.5.1:
 
 - `composer validate`: passed
@@ -282,6 +364,19 @@ Focused v0.4.8 baseline coverage still includes:
 
 Owner browser-UAT is still required before any release action.
 
+Recommended owner checks for v0.5.2:
+
+- confirm the milestone remains a final RNI audit/polish pass only and not a new feature expansion milestone
+- confirm `Material Receipt`, `Material Usage`, `Opening Stock`, and `Stock Take` still behave exactly as expected under the v0.4.8 / v0.5.0 / v0.5.1 baselines
+- confirm `Stock Movement Classification` now clearly states it is based on `Material Usage` / internal outbound movement only
+- confirm legacy sales remain visible in `Sales Analysis` and are not mixed into `Stock Movement Classification`
+- confirm `Batch Monitoring` export still requires `batches.export`
+- confirm report exports still require `reports.export`
+- confirm non-admin roles still do not see valuation/cost fields in views or exports
+- confirm Finance remains its own authorized menu and finance master/reference data remains available
+- confirm `php artisan migrate:fresh --seed` still creates a pilot-clean default database with no sample material stock/value drift
+- confirm the tablet/mobile layouts of the key pilot pages remain usable in real browser UAT before commit/tag/push
+
 Recommended owner checks for v0.5.1:
 
 - run `php artisan migrate:fresh --seed` and confirm admin login still works with the default credentials
@@ -325,7 +420,23 @@ Recommended owner checks for the preserved v0.4.8 baseline:
 - verify closed session no longer allows stock-impacting actions
 - verify non-admin users do not see valuation columns in Stock Take export/view
 
-## Guardrails Preserved In v0.5.1
+## Guardrails Preserved In v0.5.2
+
+- no major redesign
+- no new module
+- no migration
+- no new composer or npm package
+- no Material Receipt rewrite
+- no Material Usage rewrite
+- no Opening Stock rewrite
+- no Stock Take rewrite
+- no stock engine rewrite
+- no finance posting change
+- no finance master/reference data removal
+- no legacy sales mixed into RNI Stock Movement Classification
+- no Barcode / PDA / PWA addition
+- no Filament introduction
+- no UI framework migration
 
 - only default seeded material qty/value was cleaned
 - no stock engine rewrite

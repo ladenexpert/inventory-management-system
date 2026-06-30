@@ -192,8 +192,12 @@ class ProductService
         $cachedQuantity = (int) $product->quantity;
 
         if ($batchActiveStock > 0 || $cachedQuantity > 0) {
+            $message = $batchActiveStock > 0
+                ? 'Material cannot be deleted because active stock still exists. Reduce the stock to zero through Stock Take, Adjustment, or Usage before deleting this material.'
+                : 'Material cannot be deleted because the material stock summary still shows quantity on hand. Review the stock balance first, then try deleting this material again.';
+
             throw ProductException::deletionFailed(
-                'Material cannot be deleted because active stock still exists. Please reduce stock to zero through Stock Take, Adjustment, or Usage before deleting this material.',
+                $message,
                 [
                     'id' => $product->id,
                     'batch_active_stock' => $batchActiveStock,

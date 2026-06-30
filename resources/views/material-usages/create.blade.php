@@ -1,13 +1,13 @@
 <x-app-layout title="Create Material Usage">
-    <div class="mx-auto sm:px-6 lg:px-8 py-4"
+    <div class="mx-auto px-4 py-4 sm:px-6 lg:px-8"
         x-data="usageForm()"
         x-init="init()"
         @keydown.window.f1.prevent="productTs && productTs.focus()"
         @keydown.window.f2.prevent="issuerTs && issuerTs.focus()"
         @keydown.window.f3.prevent="openConfirmation()"
     >
-        <div class="flex flex-col lg:flex-row h-[calc(100vh-100px)] space-y-4 lg:space-y-0 lg:space-x-4 relative">
-            <div class="w-full lg:w-[68%] flex flex-col space-y-4 h-full">
+        <div class="relative flex flex-col gap-4 lg:h-[calc(100vh-100px)] lg:flex-row">
+            <div class="flex min-w-0 w-full flex-col gap-4 lg:w-[68%] lg:h-full">
                 <div class="relative z-20 mb-2">
                     <select
                         x-ref="productSelect"
@@ -18,7 +18,7 @@
 
                 <div class="flex-1 bg-white rounded-lg shadow border border-gray-200 overflow-hidden flex flex-col">
                     <div class="overflow-x-auto flex-1">
-                        <table class="min-w-full divide-y divide-gray-200">
+                        <table class="min-w-[760px] divide-y divide-gray-200">
                             <thead class="bg-gray-50 sticky top-0 z-10">
                                 <tr>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">RM</th>
@@ -32,8 +32,8 @@
                             <tbody class="bg-white divide-y divide-gray-200">
                                 <template x-for="(item, index) in cart" :key="item.id + '-' + index">
                                     <tr :class="index % 2 === 0 ? 'bg-white' : 'bg-gray-50'" class="hover:bg-indigo-50 transition-colors">
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            <div class="text-sm font-medium text-gray-900" x-text="item.name"></div>
+                                        <td class="px-6 py-4 align-top">
+                                            <div class="text-sm font-medium break-words text-gray-900" x-text="item.name"></div>
                                             <div class="text-xs text-gray-500">
                                                 <span x-text="item.item_code_ierp || '-'"></span>
                                                 <span class="mx-1">|</span>
@@ -70,7 +70,7 @@
                                                 <div x-show="item.is_loading_batches" class="text-xs text-gray-500 mb-2">Loading available batches...</div>
                                                 <div x-show="item.batch_load_error" x-text="item.batch_load_error" class="text-xs text-red-600 mb-2"></div>
                                                 <div x-show="!item.is_loading_batches && !item.batch_load_error && item.available_batches.length === 0" class="text-xs text-amber-600 mb-2">
-                                                    No available batches found for this raw material.
+                                                    No usable batch is available for this raw material yet. Receive or adjust stock first.
                                                 </div>
                                                 <template x-for="(batch, batchIndex) in item.available_batches" :key="batch.id">
                                                     <div class="flex items-center justify-between text-xs p-2 rounded mb-1"
@@ -130,12 +130,12 @@
                 </div>
             </div>
 
-            <div class="w-full lg:w-[32%] flex flex-col bg-white rounded-lg shadow border border-gray-200 h-full">
+            <div class="flex w-full flex-col rounded-lg border border-gray-200 bg-white shadow lg:h-full lg:w-[32%]">
                 <div class="p-4 border-b border-gray-200 bg-gray-50 rounded-t-lg">
                     <h2 class="text-xs font-bold text-gray-500 uppercase tracking-wide">Usage Details</h2>
                 </div>
 
-                <div class="p-4 space-y-4 flex-1 overflow-y-auto">
+                <div class="flex-1 space-y-4 overflow-y-auto p-4">
                     <div x-show="errorSummary.length" x-cloak class="rounded-lg border border-red-200 bg-red-50 p-3">
                         <div class="text-sm font-semibold text-red-700">Please review the highlighted fields.</div>
                         <template x-for="(message, index) in errorSummary" :key="`error-${index}`">
@@ -218,10 +218,10 @@
                     </div>
                 </div>
 
-                <div class="p-4 border-t border-gray-200 bg-gray-50 flex gap-3">
+                <div class="sticky bottom-0 flex gap-3 border-t border-gray-200 bg-gray-50 p-4">
                     <button
                         @click="resetForm()"
-                        class="w-1/3 py-3 text-sm font-bold text-red-600 hover:text-white bg-white border border-red-200 hover:bg-red-600 rounded-lg flex items-center justify-center transition-colors shadow-sm"
+                        class="flex w-1/3 items-center justify-center rounded-lg border border-red-200 bg-white py-3 text-sm font-bold text-red-600 shadow-sm transition-colors hover:bg-red-600 hover:text-white"
                     >
                         Reset
                     </button>
@@ -441,12 +441,12 @@
                             item.batch_allocations = this.buildBatchAllocations(item.available_batches, item.batch_allocations);
 
                             if (item.available_batches.length === 0) {
-                                item.batch_load_error = 'No available batches found for this raw material.';
+                                item.batch_load_error = 'No usable batch is available for this raw material yet. Receive or adjust stock first.';
                             }
                         } catch (error) {
                             item.available_batches = [];
                             item.batch_allocations = [];
-                            item.batch_load_error = error?.message || 'Unable to load available batches.';
+                            item.batch_load_error = error?.message || 'Unable to load available batches. Please try again.';
                             this.$dispatch('toast', { message: item.batch_load_error, type: 'error' });
                         } finally {
                             item.is_loading_batches = false;
@@ -597,10 +597,10 @@
                                 return;
                             }
 
-                            this.$dispatch('toast', { message: data?.message || 'Failed to create material usage.', type: 'error' });
+                            this.$dispatch('toast', { message: data?.message || 'Material usage could not be created. Please review the slip and try again.', type: 'error' });
                         } catch (error) {
                             console.error(error);
-                            this.$dispatch('toast', { message: 'Network error occurred.', type: 'error' });
+                            this.$dispatch('toast', { message: 'Network error. Please retry the material usage submission.', type: 'error' });
                         } finally {
                             this.isSubmitting = false;
                         }
@@ -644,35 +644,35 @@
                 </div>
 
                 <div class="grid gap-4 py-4">
-                    <div class="flex items-center justify-between">
+                    <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span class="text-sm font-medium text-gray-500">Usage Date</span>
-                        <span class="font-semibold" x-text="form.usage_date"></span>
+                        <span class="font-semibold sm:text-right" x-text="form.usage_date"></span>
                     </div>
-                    <div class="flex items-center justify-between">
+                    <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span class="text-sm font-medium text-gray-500">Purpose</span>
-                        <span class="font-semibold text-right" x-text="form.purpose"></span>
+                        <span class="font-semibold break-words sm:text-right" x-text="form.purpose"></span>
                     </div>
-                    <div class="flex items-center justify-between">
+                    <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span class="text-sm font-medium text-gray-500">Formula</span>
-                        <span class="font-semibold text-right" x-text="form.formula || '-'"></span>
+                        <span class="font-semibold break-words sm:text-right" x-text="form.formula || '-'"></span>
                     </div>
-                    <div class="flex items-center justify-between">
+                    <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span class="text-sm font-medium text-gray-500">Team</span>
-                        <span class="font-semibold text-right">
+                        <span class="font-semibold break-words sm:text-right">
                             <span x-text="selectedTeamLabel()"></span>
                         </span>
                     </div>
-                    <div class="flex items-center justify-between">
+                    <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span class="text-sm font-medium text-gray-500">Requested By</span>
-                        <span class="font-semibold text-right" x-text="form.requested_by || '-'"></span>
+                        <span class="font-semibold break-words sm:text-right" x-text="form.requested_by || '-'"></span>
                     </div>
-                    <div class="flex items-center justify-between border-t border-gray-100 pt-2 mt-2">
+                    <div class="mt-2 flex flex-col gap-1 border-t border-gray-100 pt-2 sm:flex-row sm:items-center sm:justify-between">
                         <span class="text-sm font-medium text-gray-500">Lines</span>
-                        <span class="font-semibold" x-text="cart.length"></span>
+                        <span class="font-semibold sm:text-right" x-text="cart.length"></span>
                     </div>
-                    <div class="flex items-center justify-between">
+                    <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span class="text-sm font-medium text-gray-500">Total Qty</span>
-                        <span class="font-semibold" x-text="totalQuantity"></span>
+                        <span class="font-semibold sm:text-right" x-text="totalQuantity"></span>
                     </div>
                 </div>
 

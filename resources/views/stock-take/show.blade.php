@@ -44,10 +44,10 @@
                 </div>
             </div>
 
-            <div class="rounded-lg border border-border bg-white p-6 space-y-4">
-                <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                    <div>
-                        <h3 class="text-base font-semibold text-foreground">Session Evidence</h3>
+                <div class="rounded-lg border border-border bg-white p-6 space-y-4">
+                    <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                            <h3 class="text-base font-semibold text-foreground">Session Evidence</h3>
                         <div class="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4 text-sm text-gray-700">
                             <div><span class="font-medium">Status:</span> {{ Str::headline($session->status) }}</div>
                             <div><span class="font-medium">Reference:</span> {{ $session->reference ?: '-' }}</div>
@@ -62,25 +62,25 @@
                         </div>
                     </div>
 
-                    <div class="flex flex-wrap gap-2">
+                    <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                         @if(in_array($session->status, ['imported', 'reviewed'], true) && auth()->user()?->hasPermission('stock_take', 'update'))
                             <form action="{{ route('stock-take.recalculate', $session) }}" method="POST">
                                 @csrf
-                                <x-secondary-button type="submit">Recalculate Variance</x-secondary-button>
+                                <x-secondary-button type="submit" class="w-full justify-center sm:w-auto">Recalculate Variance</x-secondary-button>
                             </form>
                         @endif
 
                         @if(in_array($session->status, ['imported', 'reviewed'], true) && auth()->user()?->hasPermission('stock_take', 'confirm'))
                             <form action="{{ route('stock-take.apply', $session) }}" method="POST">
                                 @csrf
-                                <x-primary-button type="submit" :disabled="$summary['error_rows'] > 0">Post Adjustment</x-primary-button>
+                                <x-primary-button type="submit" class="w-full justify-center sm:w-auto" :disabled="$summary['error_rows'] > 0">Post Adjustment</x-primary-button>
                             </form>
                         @endif
 
                         @if($session->status === 'posted' && auth()->user()?->hasPermission('stock_take', 'confirm'))
                             <form action="{{ route('stock-take.close', $session) }}" method="POST">
                                 @csrf
-                                <x-primary-button type="submit">Close Session</x-primary-button>
+                                <x-primary-button type="submit" class="w-full justify-center sm:w-auto">Close Session</x-primary-button>
                             </form>
                         @endif
                     </div>
@@ -92,20 +92,20 @@
 
                 @if($summary['error_rows'] > 0)
                     <div class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-                        This session contains unmatched or invalid rows. Posting is blocked until the file is corrected and re-imported.
+                        This session contains unmatched or invalid rows. Posting stays blocked until the file is corrected and the session is reviewed again.
                     </div>
                 @endif
 
                 @if($summary['stale_rows'] > 0)
                     <div class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-                        One or more batch quantities changed after review. Recalculate the session before posting so the variance uses the latest system quantity.
+                        One or more batch quantities changed after review. Recalculate the session before posting so the variance uses the latest batch quantity.
                     </div>
                 @endif
             </div>
 
             <div class="overflow-hidden rounded-xl border bg-white shadow-sm">
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200 text-sm">
+                    <table class="min-w-[1040px] divide-y divide-gray-200 text-sm">
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="px-4 py-3 text-left">Row</th>
@@ -175,7 +175,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="{{ $canViewValuation ? 18 : 14 }}" class="px-4 py-10 text-center text-gray-500">No stock take rows available.</td>
+                                    <td colspan="{{ $canViewValuation ? 18 : 14 }}" class="px-4 py-10 text-center text-gray-500">No stock take rows are available in this session yet.</td>
                                 </tr>
                             @endforelse
                         </tbody>

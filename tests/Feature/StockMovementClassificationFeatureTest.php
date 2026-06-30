@@ -56,6 +56,8 @@ class StockMovementClassificationFeatureTest extends TestCase
             ->get(route('reports.stock-movement-classification'))
             ->assertOk()
             ->assertSee('Stock Movement Classification')
+            ->assertSee('RNI Material Usage / internal outbound movement only')
+            ->assertSee('Legacy sales remain part of Sales Analysis')
             ->assertSee('Rendered Material');
     }
 

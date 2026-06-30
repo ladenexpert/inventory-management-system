@@ -14,7 +14,7 @@
 @endphp
 <div class="space-y-6">
     <!-- Header Input Section -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
+    <div class="grid grid-cols-1 gap-6 rounded-lg border border-gray-200 bg-gray-50 p-4 md:grid-cols-2">
         <!-- Supplier -->
         <div class="space-y-2">
             <x-input-label for="supplier_id" :value="$isMaterialReceipt ? __('Supplier (Optional)') : __('Supplier')" :required="!$isMaterialReceipt" />
@@ -81,7 +81,7 @@
         </div>
 
         <!-- Dates -->
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div class="space-y-2">
                 <x-input-label for="purchase_date" :value="$isMaterialReceipt ? __('Receipt Date') : __('Purchase Date')" required />
                 <x-text-input
@@ -141,13 +141,13 @@
         </div>
 
         <p class="text-xs text-gray-500">
-            {{ $isMaterialReceipt ? 'Tambahkan RM yang sama lebih dari sekali jika datang dalam batch atau tanggal kedaluwarsa yang berbeda.' : 'Tambahkan produk yang sama lebih dari sekali jika datang dalam batch atau tanggal kedaluwarsa yang berbeda.' }}
+            {{ $isMaterialReceipt ? 'Add the same raw material again when it arrives in a different batch, expiry date, or storage location.' : 'Add the same product again when it arrives in a different batch, expiry date, or storage location.' }}
         </p>
 
         <!-- Cart Table -->
         <div class="bg-white rounded-lg shadow border border-gray-200 overflow-hidden flex flex-col">
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
+                <table class="min-w-[1100px] divide-y divide-gray-200">
                     <thead class="bg-gray-50 sticky top-0 z-10">
                         <tr>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ $isMaterialReceipt ? 'Raw Material' : 'Product' }}</th>
@@ -165,9 +165,9 @@
                         <template x-for="(item, index) in items" :key="item.key">
                             <tr :class="index % 2 === 0 ? 'bg-white' : 'bg-gray-50'" class="hover:bg-indigo-50 transition-colors group">
                                 <!-- Product Name -->
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm font-medium text-gray-900" x-text="item.product_name"></div>
-                                    <div class="text-xs text-gray-500" x-text="item.product_code || 'ID: ' + item.product_id"></div>
+                                <td class="px-6 py-4 align-top">
+                                    <div class="text-sm font-medium break-words text-gray-900" x-text="item.product_name"></div>
+                                    <div class="text-xs break-words text-gray-500" x-text="item.product_code || 'ID: ' + item.product_id"></div>
                                     <input type="hidden" :name="`items[${index}][product_name]`" :value="item.product_name">
                                     <input type="hidden" :name="`items[${index}][product_id]`" :value="item.product_id">
                                     <input type="hidden" :name="`items[${index}][product_code]`" :value="item.product_code">
@@ -398,12 +398,12 @@
     </div>
 
     <!-- Actions -->
-    <div class="flex items-center justify-end gap-x-4 pt-6 border-t border-gray-200">
+    <div class="flex flex-col-reverse gap-3 border-t border-gray-200 pt-6 sm:flex-row sm:items-center sm:justify-end sm:gap-x-4">
         <a href="{{ $isMaterialReceipt ? route('material-receipts.index') : route('purchases.index') }}" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
             {{ __('Cancel') }}
         </a>
 
-        <x-primary-button class="flex items-center gap-2" ::disabled="loading">
+        <x-primary-button class="flex w-full items-center justify-center gap-2 sm:w-auto" ::disabled="loading">
             <svg x-show="loading" class="animate-spin -ml-1 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>

@@ -6,13 +6,13 @@
                     <h3 class="text-lg font-semibold text-foreground">{{ $roleLabel }}</h3>
                     <p class="text-sm text-muted-foreground">Module and action permissions used by menus, routes, buttons, and backend checks.</p>
                 </div>
-                <x-primary-button type="button" wire:click="saveRole('{{ $roleValue }}')">
+                <x-primary-button type="button" wire:click="saveRole('{{ $roleValue }}')" class="w-full justify-center sm:w-auto">
                     Save {{ $roleLabel }}
                 </x-primary-button>
             </div>
 
             <div class="mt-4 overflow-x-auto">
-                <table class="min-w-full divide-y divide-border text-sm">
+                <table class="min-w-[980px] divide-y divide-border text-sm">
                     <thead class="bg-muted/40">
                         <tr>
                             <th class="px-3 py-3 text-left font-semibold text-foreground">Module</th>

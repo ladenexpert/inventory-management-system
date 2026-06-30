@@ -61,14 +61,14 @@ class StockTakeImportController extends Controller
 
             $summary = $this->stockTakeImportService->summarizeSessionRows($session->rows);
             $message = $summary['error_rows'] === 0
-                ? 'Stock take import preview created successfully.'
-                : 'Stock take import created with row errors. Review the session before posting.';
+                ? 'Stock take preview created successfully. Review the session before posting.'
+                : 'Stock take preview created with row issues. Review the session, fix the file if needed, then continue.';
 
             return redirect()
                 ->route('stock-take.show', $session)
                 ->with($summary['error_rows'] === 0 ? 'success' : 'warning', $message);
         } catch (\Throwable $e) {
-            return back()->with('error', 'Failed to generate stock take preview: ' . $e->getMessage());
+            return back()->with('error', 'Failed to create the stock take preview. Please review the file and try again. ' . $e->getMessage());
         }
     }
 
@@ -82,9 +82,9 @@ class StockTakeImportController extends Controller
 
             return redirect()
                 ->route('stock-take.show', $session)
-                ->with('success', 'System quantities and variances were recalculated from current batch stock.');
+                ->with('success', 'System quantities and variances were recalculated from the latest batch stock.');
         } catch (\Throwable $e) {
-            return back()->with('error', 'Failed to recalculate stock take session: ' . $e->getMessage());
+            return back()->with('error', 'Failed to recalculate the stock take session. ' . $e->getMessage());
         }
     }
 
@@ -106,7 +106,7 @@ class StockTakeImportController extends Controller
                 ->route('stock-take.show', $result['session'])
                 ->with($flash, $result['message']);
         } catch (\Throwable $e) {
-            return back()->with('error', 'Failed to apply stock take adjustments: ' . $e->getMessage());
+            return back()->with('error', 'Failed to post the stock take session. ' . $e->getMessage());
         }
     }
 
@@ -122,7 +122,7 @@ class StockTakeImportController extends Controller
                 ->route('stock-take.show', $session)
                 ->with('success', 'Stock take session closed successfully.');
         } catch (\Throwable $e) {
-            return back()->with('error', 'Failed to close stock take session: ' . $e->getMessage());
+            return back()->with('error', 'Failed to close the stock take session. ' . $e->getMessage());
         }
     }
 

@@ -27,11 +27,11 @@
 
 <x-app-layout :title="$pageTitle">
     <x-slot name="header">
-        <div class="flex justify-between items-center">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 class="font-semibold text-xl text-foreground leading-tight">
                 {{ __($pageTitle) }} #{{ $purchase->display_transaction_number }}
             </h2>
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2">
                 <x-secondary-button href="{{ route($backRoute) }}">
                     &larr; {{ __('Back to List') }}
                 </x-secondary-button>
@@ -55,7 +55,7 @@
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
             <div class="bg-white shadow-sm sm:rounded-lg overflow-hidden border border-gray-200">
                 <div class="p-6">
-                    <div class="flex items-start justify-between border-b border-gray-100 pb-4 mb-6">
+                    <div class="mb-6 flex flex-col gap-3 border-b border-gray-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                             <h3 class="text-lg font-medium text-gray-900">{{ __($infoTitle) }}</h3>
                             <p class="text-sm text-gray-500">{{ __($infoDescription) }}</p>
@@ -127,8 +127,8 @@
                         </div>
                     </div>
 
-                    <div class="mt-6 border-t overflow-x-auto">
-                        <table class="w-full text-sm text-left">
+                    <div class="mt-6 overflow-x-auto border-t">
+                        <table class="min-w-[1040px] w-full text-left text-sm">
                             <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                                 <tr>
                                     <th class="px-6 py-3">SKU</th>
@@ -212,7 +212,7 @@
                         $dispatch('open-modal', { name: 'confirmation-modal' });
                     }
                 }"
-                class="flex flex-col sm:flex-row justify-end gap-4"
+                class="flex flex-col justify-end gap-4 sm:flex-row"
             >
                 @if($purchase->status === \App\Enums\PurchaseStatus::DRAFT)
                     @if($canDeletePurchase)

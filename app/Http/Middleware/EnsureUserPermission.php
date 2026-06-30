@@ -20,7 +20,7 @@ class EnsureUserPermission
             return $next($request);
         }
 
-        $message = 'You are not authorized to access this feature.';
+        $message = 'You do not have permission to access this page or action.';
 
         if ($request->expectsJson()) {
             return response()->json([

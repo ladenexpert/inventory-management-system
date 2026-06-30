@@ -16,7 +16,7 @@ trait AuthorizesComponentPermissions
         abort_unless(
             $this->hasPermission($module, $action),
             Response::HTTP_FORBIDDEN,
-            'You are not authorized to access this feature.'
+            'You do not have permission to access this page or action.'
         );
     }
 }

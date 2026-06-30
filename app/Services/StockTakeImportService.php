@@ -159,7 +159,7 @@ class StockTakeImportService
                 ->findOrFail($session->id);
 
             if (in_array($lockedSession->status, ['posted', 'closed'], true)) {
-                throw new \RuntimeException('Posted or closed stock take sessions cannot be recalculated.');
+                throw new \RuntimeException('Posted or closed stock take sessions cannot be recalculated. Open a new session if another count is required.');
             }
 
             $rows = StockTakeRow::query()
@@ -230,7 +230,7 @@ class StockTakeImportService
             if ($lockedSession->status === 'closed') {
                 return [
                     'status' => 'blocked',
-                    'message' => 'Closed stock take sessions cannot be posted again.',
+                    'message' => 'This stock take session is already closed and cannot be posted again.',
                     'session' => $this->loadSession($lockedSession),
                 ];
             }
@@ -252,7 +252,7 @@ class StockTakeImportService
             if ($rows->isEmpty()) {
                 return [
                     'status' => 'blocked',
-                    'message' => 'No stock take rows are available to post.',
+                    'message' => 'This stock take session has no rows available to post.',
                     'session' => $this->loadSession($lockedSession),
                 ];
             }
@@ -260,7 +260,7 @@ class StockTakeImportService
             if ($rows->contains(fn (StockTakeRow $row) => $row->status === 'error')) {
                 return [
                     'status' => 'blocked',
-                    'message' => 'Resolve or re-import rows with errors before posting stock take.',
+                    'message' => 'Posting is blocked because some rows still have errors. Correct the file or re-import the session before posting.',
                     'session' => $this->loadSession($lockedSession),
                 ];
             }
@@ -301,7 +301,7 @@ class StockTakeImportService
                     ->whereIn('id', $staleIds)
                     ->update([
                         'status' => 'stale',
-                        'error_message' => 'Current batch quantity changed since review. Recalculate variance before posting.',
+                        'error_message' => 'Current batch quantity changed after review. Recalculate the session before posting.',
                     ]);
 
                 StockTakeRow::query()
@@ -324,7 +324,7 @@ class StockTakeImportService
 
                 return [
                     'status' => 'stale',
-                    'message' => 'Posting blocked because one or more current batch quantities changed since review.',
+                    'message' => 'Posting is blocked because one or more batch quantities changed after review. Recalculate the session, review it again, then post.',
                     'stale_rows' => collect($staleRows)->map(fn (StockTakeRow $row) => $row->row_number)->all(),
                     'session' => $this->loadSession($lockedSession),
                 ];
@@ -413,7 +413,7 @@ class StockTakeImportService
 
             return [
                 'status' => 'posted',
-                'message' => "Stock take posted successfully. Adjusted rows: {$appliedRows}, zero-variance rows: {$skippedRows}.",
+                'message' => "Stock take posted successfully. Adjusted rows: {$appliedRows}; zero-variance rows kept as evidence: {$skippedRows}.",
                 'applied_rows' => $appliedRows,
                 'skipped_rows' => $skippedRows,
                 'session' => $this->loadSession($lockedSession),
@@ -433,7 +433,7 @@ class StockTakeImportService
             }
 
             if ($lockedSession->status !== 'posted') {
-                throw new \RuntimeException('Only posted stock take sessions can be closed.');
+                throw new \RuntimeException('Only posted stock take sessions can be closed. Review and post the session first.');
             }
 
             StockTakeRow::query()
@@ -598,7 +598,7 @@ class StockTakeImportService
         $product = Product::query()->with('unit')->where('sku', $sku)->first();
 
         if (!$product) {
-            throw new \RuntimeException('Unknown SKU.');
+            throw new \RuntimeException("SKU '{$sku}' was not found in the current material master.");
         }
 
         $itemCode = $this->cleanString($row['item_code'] ?? null);
@@ -622,7 +622,7 @@ class StockTakeImportService
                 throw new \RuntimeException("Batch No '{$batchNumber}' does not belong to SKU '{$sku}'.");
             }
 
-            throw new \RuntimeException('Unknown Batch No.');
+            throw new \RuntimeException("Batch No '{$batchNumber}' was not found for the current stock records.");
         }
 
         $expiryDate = $this->parseDate($row['expiry_date'] ?? null, 'Invalid Expiry Date format.');

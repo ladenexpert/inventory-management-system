@@ -32,7 +32,7 @@ class BatchController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Validation error',
+                'message' => 'Select a material or product first, then load available batches again.',
                 'errors' => $validator->errors(),
             ], 422);
         }

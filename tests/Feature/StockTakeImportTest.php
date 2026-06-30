@@ -116,7 +116,7 @@ class StockTakeImportTest extends TestCase
         $row = $session->rows()->firstOrFail();
 
         $this->assertSame('error', $row->status);
-        $this->assertSame('Unknown Batch No.', $row->error_message);
+        $this->assertSame("Batch No 'UNKNOWN-BATCH' was not found for the current stock records.", $row->error_message);
 
         $this->actingAs($admin)
             ->post(route('stock-take.apply', $session))

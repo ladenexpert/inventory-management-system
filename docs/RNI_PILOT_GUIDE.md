@@ -70,6 +70,115 @@ Owner browser-UAT quick pass:
 5. confirm a default seeded material is no longer blocked from delete due only to seeded `products.quantity`
 6. run `php artisan db:seed --class=DemoSeeder` only when demo stock is needed and confirm the seeded stock appears through valid batches
 
+## v0.5.2 Final Operational Polish
+
+Status:
+
+- milestone: `v0.5.2-rni-mobile-ux-and-final-operational-polish`
+- state: implemented and automation-validated
+- baseline: built on stable `v0.5.1-rni-pilot-stabilization`
+- owner state: pending owner browser-UAT, manual review, commit, push, and tag
+- release note: Codex did not commit, tag, or push
+
+Operational close-out checklist:
+
+- CRUD and access flows for the RNI pilot surfaces were re-audited
+- tablet/mobile usability was lightly polished on the key operator pages
+- `Stock Movement Classification` remains based on `Material Usage` / internal outbound movement only
+- legacy sales remain in `Sales Analysis`
+- `Batch Monitoring` export still requires `batches.export`
+- report exports still require `reports.export`
+- non-admin value/cost privacy remains preserved in views and exports
+- default `php artisan migrate:fresh --seed` remains pilot-clean for material stock/value
+- finance categories/settings and other reference seed data remain available
+- no stock semantics changed
+- no finance semantics changed
+- no migration introduced
+- no new package introduced
+- no Filament introduced
+- PHP `8.2` compatibility preserved
+
+Final pilot setup checklist:
+
+1. run `php artisan migrate:fresh --seed`
+2. log in as `admin` / `password`
+3. confirm `Finance`, `Roles`, `Materials`, `Storage Locations`, `Stock Take`, and report pages load
+4. confirm default materials remain zero-stock / zero-value
+5. confirm `Batch Monitoring` and current inventory start without seeded batch stock
+6. confirm role permissions still match the intended pilot users
+
+Real-data preparation checklist:
+
+1. review and clean the real material master before import
+2. confirm units, categories, physical forms, storage locations, suppliers, customers, and teams are ready
+3. decide whether demo seed data is not needed and keep `DemoSeeder` unused for real pilot preparation
+4. import or maintain only real master/reference data needed for pilot operations
+5. prepare opening stock files from real counted batches only
+
+Opening stock checklist:
+
+1. verify every counted material has the correct `SKU` and optional `Item Code`
+2. include opening batch number whenever quantity is greater than zero
+3. include expiry and storage location whenever known
+4. review the import summary and correct failed rows before proceeding
+5. confirm current inventory and batch monitoring reflect the imported opening stock correctly
+
+Material Receipt UAT checklist:
+
+1. create a draft receipt on tablet and desktop
+2. confirm long material names, batch fields, and storage-location fields remain readable
+3. confirm receipt posting still updates stock and batch evidence correctly
+4. confirm receipt export/visibility still respects permissions
+
+Material Usage UAT checklist:
+
+1. create a usage slip on tablet and desktop
+2. confirm manual pick and FEFO behavior remain unchanged
+3. confirm the slip detail and print page still render correctly
+4. confirm non-admin roles still do not see restricted cost/value data
+
+Stock Take UAT checklist:
+
+1. import a valid stock-take file for existing matched batches only
+2. verify unmatched rows remain blocked with clear guidance
+3. verify recalculation still handles stale quantities before posting
+4. verify posting still creates only `STK` evidence and no finance side effect
+5. verify closing the session still locks the result
+
+Report and export checklist:
+
+1. verify `Inventory & Expiry Monitoring`, `Inventory Movement History`, `Usage Report`, `Inbound & Purchase Analysis`, `Sales Analysis`, and `Stock Movement Classification`
+2. verify report exports still require `reports.export`
+3. verify `Batch Monitoring` export still requires `batches.export`
+4. verify empty states remain clear when no data matches filters
+
+Role and permission checklist:
+
+1. confirm `Admin RNI`, `RM Desk`, and `Formulator` still see only their allowed pages/actions
+2. confirm direct URLs remain blocked when the role lacks permission
+3. confirm Finance remains visible only to authorized users
+4. confirm role matrix remains usable on tablet in landscape mode
+
+Tablet / mobile quick check:
+
+1. `Dashboard` -> `RNI Operations`
+2. `Material Usage` create/detail/print
+3. `Material Receipt` create/detail
+4. `Stock Take` import/detail
+5. `Batch Monitoring`
+6. `Inventory & Expiry Monitoring`
+7. `Inventory Movement History`
+8. `Role` matrix in tablet landscape
+
+Known exclusions:
+
+- no Barcode / PDA yet
+- no PWA yet
+- no ERP Lite expansion yet
+- no Plant Maintenance / Asset module yet
+- `Stock Movement Classification` remains `Material Usage` based
+- legacy sales remain in `Sales Analysis`
+
 ## v0.5.0 Pilot Readiness
 
 Status:
@@ -471,6 +580,11 @@ Permission notes:
 ### Stock Movement Classification
 
 This report provides summary cards, a classification chart, and an exportable detail table for mutually exclusive stock movement buckets.
+
+Scope note:
+
+- for the RNI pilot, this report remains based on `Material Usage` / internal outbound movement only
+- legacy sales remain part of `Sales Analysis` and are not mixed into this classification report
 
 Classification precedence:
 
