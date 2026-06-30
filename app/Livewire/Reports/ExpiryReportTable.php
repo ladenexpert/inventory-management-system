@@ -22,6 +22,8 @@ final class ExpiryReportTable extends PowerGridComponent
     use BuildsBatchPowerGridSql;
     use HandlesPowerGridExportSorting;
     use WithExport {
+        exportToCsv as protected powerGridExportToCsv;
+        exportToXLS as protected powerGridExportToXLS;
         HandlesPowerGridExportSorting::prepareToExport insteadof WithExport;
         WithExport::prepareToExport as protected powerGridPrepareToExport;
     }
@@ -37,14 +39,22 @@ final class ExpiryReportTable extends PowerGridComponent
 
     public function setUp(): array
     {
-        return [
-            PowerGrid::exportable('expiry_report_' . now()->format('Y_m_d'))
-                ->type(Exportable::TYPE_XLS, Exportable::TYPE_CSV),
+        $setUp = [
             PowerGrid::header()->showSearchInput(),
             PowerGrid::footer()
                 ->showPerPage(perPage: 10, perPageValues: [10, 25, 50, 100])
                 ->showRecordCount(),
         ];
+
+        if ($this->canExportReport()) {
+            array_unshift(
+                $setUp,
+                PowerGrid::exportable('expiry_report_' . now()->format('Y_m_d'))
+                    ->type(Exportable::TYPE_XLS, Exportable::TYPE_CSV)
+            );
+        }
+
+        return $setUp;
     }
 
     public function datasource(): Builder
@@ -130,6 +140,25 @@ final class ExpiryReportTable extends PowerGridComponent
     public function beforeSearch(): void
     {
         //
+    }
+
+    public function exportToXLS(bool $selected = false): \Symfony\Component\HttpFoundation\BinaryFileResponse|bool
+    {
+        abort_unless($this->canExportReport(), 403);
+
+        return $this->powerGridExportToXLS($selected);
+    }
+
+    public function exportToCsv(bool $selected = false): \Symfony\Component\HttpFoundation\BinaryFileResponse|bool
+    {
+        abort_unless($this->canExportReport(), 403);
+
+        return $this->powerGridExportToCsv($selected);
+    }
+
+    private function canExportReport(): bool
+    {
+        return auth()->user()?->hasPermission('reports', 'export') ?? false;
     }
 
     protected function legacyPowerGridSortFieldMap(): array

@@ -25,6 +25,62 @@ Inventory ledger, batch allocation, FEFO behavior, and zero-cost batch handling 
 - `docs/INVENTORY_LEDGER_RULES.md`
 - `docs/BATCH_POLICY.md`
 
+## v0.5.0 Pilot Readiness
+
+Status:
+
+- milestone: `v0.5.0-rni-pilot-readiness`
+- state: implemented and automation-validated
+- baseline: built on stable `v0.4.8.1-delete-refresh-and-aggregate-consistency-hotfix`
+- owner state: pending owner browser-UAT, manual review, commit, push, and tag
+- release note: Codex did not commit, tag, or push
+
+Readiness checklist:
+
+- `Opening Stock` available
+- `Material Receipt` available
+- `Material Usage` available
+- manual batch picking remains default
+- `Auto FEFO` remains optional
+- `Inventory Monitoring` available through `Inventory & Expiry Monitoring`
+- `Batch Monitoring` available
+- `Inventory & Expiry Monitoring` available
+- `Inventory Movement History` available
+- `Usage Report` available
+- `Inbound & Purchase Analysis` available
+- `Sales Analysis` available
+- `Stock Movement Classification` available
+- `Dashboard` -> `RNI Operations` available
+- `Stock Take` available
+- `Stock Take` review / post / close available
+- Stock Take stale guard preserved
+- Stock Take finance exclusion preserved
+- material delete guard available
+- material with active stock cannot be deleted
+- zero-stock material soft delete remains allowed
+- material delete does not create inventory movement
+- historical movement evidence remains available after soft delete
+- dashboard/report refresh after delete/cancel/restore remains available
+- admin-only value visibility preserved
+- `RM Desk` and `Formulator` visibility remains permission-safe
+- RNI finance side effects remain excluded
+- Finance remains its own authorized dropdown/menu, not inside `Reports`
+- `Batch Monitoring` export now requires `batches.export`
+- report exports require `reports.export`
+- non-admin exports remain free of valuation/cost fields
+- PHP `8.2` compatibility preserved
+- no migration introduced
+- no new package introduced
+- no Filament introduced
+
+Owner browser-UAT quick pass:
+
+1. verify the RNI navigation labels and menu grouping match the pilot terminology
+2. verify `Admin RNI`, `RM Desk`, and `Formulator` each see only the allowed operational and export surfaces
+3. verify `Batch Monitoring` export and report exports are blocked when the role lacks export permission
+4. verify `Stock Take` still posts only `STK` movement evidence and never creates finance entries
+5. verify zero-stock material delete refreshes current-state dashboards/reports immediately without creating a delete movement row
+
 ## Roles
 
 ### Admin RNI
@@ -465,3 +521,4 @@ Use `Dashboard` -> `RNI Operations` for operational monitoring and `Dashboard` -
 - The compact top navigation uses `Dashboard`, `Operations`, `Master Data`, `Reports`, `Finance`, and `Administration` when the related modules and permissions are enabled.
 - Finance is separated from `Reports` again for finance-enabled users such as `admin_rni`.
 - Menu visibility now follows the seeded role-permission matrix, but the underlying routes remain in place and are blocked server-side when the role lacks permission.
+- Export visibility now follows the same permission model: `Batch Monitoring` requires `batches.export`, while report exports require `reports.export`.

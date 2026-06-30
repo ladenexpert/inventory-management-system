@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.5.0-rni-pilot-readiness
+
+- treated this work as a new milestone on top of stable `v0.4.8.1` without amending, rewriting history, tagging, pushing, or making release decisions
+- kept the stable RNI stock engine unchanged while finishing a docs-first pilot readiness pass for navigation, terminology, evidence surfaces, and owner UAT guidance
+- confirmed the live user-facing terminology remains `Item Code`, `Team`, `Material Receipt`, `Material Usage`, `Stock Take`, `Inventory & Expiry Monitoring`, `Inventory Movement History`, `Usage Report`, `Batch Monitoring`, and `Finance` as its own authorized menu
+- hardened `Batch Monitoring` export so it now requires `batches.export` instead of exposing export through page access alone
+- hardened direct Livewire export calls for `Inventory & Expiry Monitoring`, the legacy expiry preset, `Usage Report`, and `Stock Movement Classification` so they now require `reports.export`
+- preserved non-admin valuation privacy: value and cost columns remain hidden from non-admin/non-finance roles in both views and exports
+- preserved the v0.4.8 Stock Take reconciliation/stale/post/close behavior and the v0.4.8.1 delete-refresh/material stock guard behavior without changing stock movement or finance semantics
+- updated `PROJECT_CONTEXT.md`, `docs/PROJECT_CONTEXT.md`, and `docs/RNI_PILOT_GUIDE.md` with the v0.5.0 pilot-readiness status, checklist, preserved guardrails, and owner browser-UAT checkpoints
+- automation validation passed: `composer validate`, `composer install --dry-run`, `php artisan optimize:clear`, focused export/readiness suites, and `php artisan test` with `180 tests / 1208 assertions`
+- status: automation-validated and pending owner browser-UAT, manual review, commit, push, and tag
+- release handling note: Codex did not commit, tag, or push
+
 ## v0.4.8.1-delete-refresh-and-aggregate-consistency-hotfix
 
 - treated this work as a new hotfix milestone on top of committed `v0.4.8` without amending, tagging, pushing, or making release decisions

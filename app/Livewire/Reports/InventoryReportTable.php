@@ -23,6 +23,8 @@ final class InventoryReportTable extends PowerGridComponent
     use BuildsBatchPowerGridSql;
     use HandlesPowerGridExportSorting;
     use WithExport {
+        exportToCsv as protected powerGridExportToCsv;
+        exportToXLS as protected powerGridExportToXLS;
         HandlesPowerGridExportSorting::prepareToExport insteadof WithExport;
         WithExport::prepareToExport as protected powerGridPrepareToExport;
     }
@@ -248,6 +250,20 @@ final class InventoryReportTable extends PowerGridComponent
 
         return ($user?->canViewInventoryValue() ?? false)
             || ($user?->canAccessFinance() ?? false);
+    }
+
+    public function exportToXLS(bool $selected = false): \Symfony\Component\HttpFoundation\BinaryFileResponse|bool
+    {
+        abort_unless($this->canExportReport(), 403);
+
+        return $this->powerGridExportToXLS($selected);
+    }
+
+    public function exportToCsv(bool $selected = false): \Symfony\Component\HttpFoundation\BinaryFileResponse|bool
+    {
+        abort_unless($this->canExportReport(), 403);
+
+        return $this->powerGridExportToCsv($selected);
     }
 
     private function canExportReport(): bool

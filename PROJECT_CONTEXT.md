@@ -17,10 +17,41 @@ RMP is therefore not positioned as a one-off RNI inventory UAT system. The curre
 
 ## Current Milestone
 
-- Milestone: `v0.4.8.1-delete-refresh-and-aggregate-consistency-hotfix`
+- Milestone: `v0.5.0-rni-pilot-readiness`
 - Status: implemented and automation-validated
 - Owner state: pending owner browser-UAT, manual review, commit, push, and tag
 - Release handling note: release decisions remain owner-managed, and Codex did not commit, tag, or push
+- Baseline: builds on stable `v0.4.8.1-delete-refresh-and-aggregate-consistency-hotfix`
+
+## v0.5.0 Pilot Readiness Scope
+
+### 1. Discovery Result
+
+- RNI navigation already uses the target user-facing terminology: `Material Receipt`, `Material Usage`, `Stock Take`, `Inventory & Expiry Monitoring`, `Inventory Movement History`, `Usage Report`, `Batch Monitoring`, `RNI Operations`, and `Business Insights`.
+- `Item Code` is already the active user-facing label, while `item_code_ierp` remains preserved as the compatibility field behind that label.
+- `Team` is already the live RNI usage label, while historical `project` data remains preserved as a fallback for older records.
+- Finance already remains its own authorized `Finance` dropdown/menu and is not nested inside `Reports`.
+- Material Receipt, Material Usage, Opening Stock, Stock Take, delete guard, cache refresh consistency, historical movement retention, and finance exclusion semantics were already stable from `v0.4.8` and `v0.4.8.1`.
+
+### 2. v0.5.0 Implementation
+
+- v0.5.0 keeps the stock engine unchanged and focuses on RNI pilot readiness evidence, permission safety, and documentation.
+- Batch Monitoring export is now permission-gated by `batches.export`, matching the existing role/module/action model instead of relying only on page visibility.
+- Report-table exports for `Inventory & Expiry Monitoring`, the legacy expiry preset, `Usage Report`, and `Stock Movement Classification` now reject direct Livewire export calls unless the signed-in user has `reports.export`.
+- Non-admin value visibility remains unchanged: valuation and cost fields stay hidden from non-admin/non-finance roles in views and exports.
+- Existing documentation now includes a lightweight v0.5.0 RNI pilot readiness checklist and explicit owner browser-UAT checkpoints.
+
+### 3. Preserved Baseline
+
+- v0.4.8 Stock Take reconciliation, stale guard, posting lifecycle, and admin-only valuation guardrail remain preserved.
+- v0.4.8.1 delete-refresh consistency and material stock delete guard remain preserved.
+- Material/product delete remains a master-data lifecycle action only and is not inventory movement.
+- Material/product delete still requires both `SUM(batches.available_quantity) = 0` and `products.quantity = 0` before soft delete is allowed.
+- Zero-stock material soft delete remains allowed and still refreshes dashboard/report aggregates.
+- Historical movement evidence remains available even after soft delete.
+- RNI remains Non-Valuated / Operational Only by default.
+- No migration, no new package, no Filament, and no UI framework change were introduced.
+- PHP `8.2` compatibility remains preserved.
 
 ## v0.4.8.1 Hotfix Scope
 
@@ -129,7 +160,39 @@ The v0.4.8 implementation intentionally preserves:
 
 ## Validation Evidence
 
-Automation validation completed for v0.4.8.1:
+Automation validation completed for v0.5.0:
+
+- `composer validate`: passed
+- `composer install --dry-run`: passed
+- `php artisan optimize:clear`: passed
+- focused export hardening coverage passed: `php artisan test tests/Feature/RniExportPermissionHardeningTest.php`
+- focused export regression coverage passed: `php artisan test tests/Feature/ReportExportRegressionTest.php`
+- focused role/receipt/usage/view suites passed
+- focused Stock Take / opening stock / delete guard / visibility suites passed
+- focused batch/report/financial visibility suites passed
+- `php artisan test`: passed, `180` tests / `1208` assertions
+
+Focused v0.5.0 readiness coverage includes:
+
+- RNI role access
+- Material Receipt permission visibility
+- Material Usage workflow
+- Opening Stock import
+- Stock Take import / post / close regression
+- material delete guard regression including row/bulk delete path protection
+- dashboard/report refresh after delete/cancel/restore
+- Batch Monitoring regression
+- Inventory & Expiry Monitoring regression
+- Inventory Movement History regression
+- Usage Report regression
+- Inbound & Purchase Analysis regression
+- Sales Analysis regression
+- Stock Movement Classification regression
+- export permission hardening for Batch Monitoring and report Livewire exports
+- transaction view rendering
+- finance menu visibility
+
+Automation validation completed previously for v0.4.8.1:
 
 - `composer validate`: passed
 - `composer install --dry-run`: passed
@@ -170,6 +233,18 @@ Focused v0.4.8 baseline coverage still includes:
 
 Owner browser-UAT is still required before any release action.
 
+Recommended owner checks for v0.5.0:
+
+- confirm `Opening Stock`, `Material Receipt`, `Material Usage`, `Stock Take`, `Inventory & Expiry Monitoring`, `Inventory Movement History`, `Usage Report`, `Batch Monitoring`, `Inbound & Purchase Analysis`, `Sales Analysis`, and `Stock Movement Classification` are available for the intended pilot roles
+- confirm `Finance` appears only as its own authorized dropdown/menu and remains hidden for non-finance roles
+- confirm `Admin RNI` can access valuation-sensitive areas while `RM Desk` and `Formulator` still do not see cost/value fields
+- confirm `Batch Monitoring` export is available only for roles granted export permission
+- confirm report exports remain available only for roles granted `reports.export`
+- confirm Material Receipt, Material Usage, Opening Stock, and Stock Take still create no finance entries
+- confirm Stock Take still supports review, post, close, stale guard, and historical evidence
+- confirm deleting a zero-stock material refreshes current-state dashboards/reports immediately without creating a movement row
+- confirm deleting a material with either active batch stock or positive `products.quantity` remains blocked
+
 Recommended owner checks for v0.4.8.1:
 
 - attempt to delete a material with active stock and verify delete is blocked with guidance to reduce stock to zero first
@@ -190,7 +265,7 @@ Recommended owner checks for the preserved v0.4.8 baseline:
 - verify closed session no longer allows stock-impacting actions
 - verify non-admin users do not see valuation columns in Stock Take export/view
 
-## Guardrails Preserved In v0.4.8.1
+## Guardrails Preserved In v0.5.0
 
 - no Material Receipt rewrite
 - no Material Usage rewrite

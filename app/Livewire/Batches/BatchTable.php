@@ -24,6 +24,8 @@ final class BatchTable extends PowerGridComponent
     use BuildsBatchPowerGridSql;
     use HandlesPowerGridExportSorting;
     use WithExport {
+        exportToCsv as protected powerGridExportToCsv;
+        exportToXLS as protected powerGridExportToXLS;
         HandlesPowerGridExportSorting::prepareToExport insteadof WithExport;
         WithExport::prepareToExport as protected powerGridPrepareToExport;
     }
@@ -39,10 +41,7 @@ final class BatchTable extends PowerGridComponent
 
     public function setUp(): array
     {
-        return [
-            PowerGrid::exportable('batch_export_' . now()->format('Y_m_d'))
-                ->type(Exportable::TYPE_XLS, Exportable::TYPE_CSV),
-
+        $setUp = [
             PowerGrid::header()
                 ->showSearchInput(),
 
@@ -50,6 +49,16 @@ final class BatchTable extends PowerGridComponent
                 ->showPerPage(perPage: 10, perPageValues: [10, 25, 50, 100])
                 ->showRecordCount(),
         ];
+
+        if ($this->canExportBatches()) {
+            array_unshift(
+                $setUp,
+                PowerGrid::exportable('batch_export_' . now()->format('Y_m_d'))
+                    ->type(Exportable::TYPE_XLS, Exportable::TYPE_CSV)
+            );
+        }
+
+        return $setUp;
     }
 
     public function datasource(): Builder
@@ -341,6 +350,25 @@ final class BatchTable extends PowerGridComponent
 
         return ($user?->canViewInventoryValue() ?? false)
             || ($user?->canAccessFinance() ?? false);
+    }
+
+    public function exportToXLS(bool $selected = false): \Symfony\Component\HttpFoundation\BinaryFileResponse|bool
+    {
+        abort_unless($this->canExportBatches(), 403);
+
+        return $this->powerGridExportToXLS($selected);
+    }
+
+    public function exportToCsv(bool $selected = false): \Symfony\Component\HttpFoundation\BinaryFileResponse|bool
+    {
+        abort_unless($this->canExportBatches(), 403);
+
+        return $this->powerGridExportToCsv($selected);
+    }
+
+    private function canExportBatches(): bool
+    {
+        return auth()->user()?->hasPermission('batches', 'export') ?? false;
     }
 
     protected function legacyPowerGridSortFieldMap(): array
