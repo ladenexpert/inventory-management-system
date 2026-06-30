@@ -144,10 +144,10 @@ class ProductSeeder extends Seeder
                 'unit_id' => $getUnit($item['u']),
                 'sku' => 'P.' . date('ymd') . '.' . strtoupper(Str::random(4)),
                 'name' => $item['n'],
-                'description' => 'Stok tersedia untuk ' . $item['n'],
+                'description' => 'Default pilot-ready material master for ' . $item['n'],
                 'purchase_price' => $item['p'] * 0.85, // Margin 15%
                 'selling_price' => $item['p'],
-                'quantity' => rand(10, 100),
+                'quantity' => 0,
                 'min_stock' => 5,
                 'is_active' => true,
             ]);

@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             UnitSeeder::class,
             CategorySeeder::class,
             PhysicalFormSeeder::class,
+            StorageLocationSeeder::class,
             TeamSeeder::class,
             ProductSeeder::class,
             FinanceCategorySeeder::class,

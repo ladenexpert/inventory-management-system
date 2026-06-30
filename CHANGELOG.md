@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.5.1-rni-pilot-stabilization
+
+- treated this work as a new stabilization milestone on top of stable `v0.5.0-rni-pilot-readiness` without amending, rewriting history, committing, tagging, pushing, or making release decisions
+- traced the default seed drift to `ProductSeeder`, which was creating material master sample stock directly in `products.quantity` without matching batch rows
+- cleaned the default seed so `php artisan migrate:fresh --seed` now keeps the material catalog pilot-ready but zero-stock and zero-value by default
+- preserved base/reference seed data for admin login, role permission matrix, module settings, units, categories, physical forms, storage locations, suppliers, customers, and finance categories/settings
+- added base storage-location seeding to keep the current storage-location module usable from the default pilot seed
+- added explicit `DemoSeeder` and `DemoMaterialStockSeeder` so stocked demo material data is opt-in only and now creates valid batch-backed opening stock instead of aggregate-only quantity drift
+- added regression coverage proving the default seed creates no seeded material stock, no seeded batches, no seeded inventory movement history, no seeded finance transactions, and no `products.quantity > 0` material drift without batches
+- preserved the v0.4.8 Stock Take baseline, the v0.4.8.1 material delete guard, the v0.5.0 export/visibility baselines, finance semantics, and PHP `8.2` compatibility without adding migrations, packages, Filament, or UI framework changes
+- automation validation passed: `composer validate`, `composer install --dry-run`, `php artisan optimize:clear`, `php artisan migrate:fresh --seed`, focused pilot-clean and RNI regression suites, and `php artisan test` with `182 tests / 1423 assertions`
+- status: automation-validated and pending owner browser-UAT, manual review, commit, push, and tag
+- release handling note: Codex did not commit, tag, or push
+
 ## v0.5.0-rni-pilot-readiness
 
 - treated this work as a new milestone on top of stable `v0.4.8.1` without amending, rewriting history, tagging, pushing, or making release decisions

@@ -95,9 +95,29 @@ Follow these steps to set up the project locally for development or testing.
     ```
 
 7. **Run database migrations and seeders:**
-    This command will migrate all tables and inject default users, settings, products, and categories.
+    This command will migrate all tables and inject the pilot-safe default base/reference seed.
     ```bash
     php artisan migrate:fresh --seed
+    ```
+
+    Default seed now includes:
+    - admin login
+    - role permission matrix
+    - module settings
+    - units, categories, physical forms, and storage locations
+    - suppliers, customers, and finance categories
+    - zero-stock material master data
+
+    Default seed does **not** create:
+    - sample material stock in `products.quantity`
+    - sample batch stock
+    - sample opening stock
+    - sample inventory movement history
+    - sample purchase, sales, or finance transactions
+
+    When you explicitly want stocked demo material data for development, run:
+    ```bash
+    php artisan db:seed --class=DemoSeeder
     ```
 
     Database-backed framework infrastructure is part of the default setup:

@@ -8,6 +8,8 @@ Environment note:
 
 - The default application setup uses database-backed cache, sessions, and queue storage.
 - Run `php artisan migrate --seed` or `php artisan migrate:fresh --seed` before commands such as `php artisan optimize:clear` on local, UAT, or production environments.
+- Default `php artisan migrate:fresh --seed` is now pilot-clean for materials: base/reference data is seeded, while material sample stock/value is not.
+- When stocked demo data is needed explicitly, run `php artisan db:seed --class=DemoSeeder`.
 
 Core pilot flow:
 
@@ -24,6 +26,49 @@ Inventory ledger, batch allocation, FEFO behavior, and zero-cost batch handling 
 
 - `docs/INVENTORY_LEDGER_RULES.md`
 - `docs/BATCH_POLICY.md`
+
+## v0.5.1 Pilot Stabilization
+
+Status:
+
+- milestone: `v0.5.1-rni-pilot-stabilization`
+- state: implemented and automation-validated
+- baseline: built on stable `v0.5.0-rni-pilot-readiness`
+- owner state: pending owner browser-UAT, manual review, commit, push, and tag
+- release note: Codex did not commit, tag, or push
+
+Stabilization checklist:
+
+- default `php artisan migrate:fresh --seed` remains admin-login-ready
+- default seed keeps the role permission matrix available
+- default seed keeps finance categories/settings available
+- default seed keeps units, categories, physical forms, storage locations, suppliers, and customers available
+- default seeded materials, if present, are zero-stock and zero-value only
+- default seed creates no material sample `products.quantity > 0`
+- default seed creates no sample batch stock
+- default seed creates no sample opening stock
+- default seed creates no sample inventory movement history
+- default seed creates no sample purchase, sales, or finance transactions
+- default seed creates no material delete blockers caused only by seeded aggregate quantity drift
+- optional stocked demo material data is explicit through `php artisan db:seed --class=DemoSeeder`
+- explicit demo stock now creates valid batch-backed opening stock instead of orphan aggregate quantity
+- Stock Take remains existing-batch-only
+- material delete guard remains preserved
+- no stock semantics changed
+- no finance semantics changed
+- no migration introduced
+- no new package introduced
+- no Filament introduced
+- PHP `8.2` compatibility preserved
+
+Owner browser-UAT quick pass:
+
+1. run `php artisan migrate:fresh --seed` and log in as `admin` / `password`
+2. confirm `Finance`, `Roles`, `Materials`, `Storage Locations`, and other reference-data pages load successfully
+3. confirm default materials, if present, start with zero stock and no batch-backed inventory value
+4. confirm deleting a zero-stock default material remains allowed without creating a movement row
+5. confirm a default seeded material is no longer blocked from delete due only to seeded `products.quantity`
+6. run `php artisan db:seed --class=DemoSeeder` only when demo stock is needed and confirm the seeded stock appears through valid batches
 
 ## v0.5.0 Pilot Readiness
 

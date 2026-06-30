@@ -10,7 +10,7 @@ class TeamSeeder extends Seeder
     public function run(): void
     {
         foreach ([
-            ['code' => 'RND', 'name' => 'R&D'],
+            ['code' => 'RNI', 'name' => 'Research & Innovation'],
             ['code' => 'RM-DESK', 'name' => 'RM Desk'],
             ['code' => 'PROD', 'name' => 'Production'],
         ] as $record) {

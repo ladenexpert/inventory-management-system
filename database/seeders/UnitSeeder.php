@@ -13,6 +13,7 @@ class UnitSeeder extends Seeder
         $units = [
             ['name' => 'Pcs', 'symbol' => 'pcs'],       // Satuan umum (Alat, Sambungan Pipa, Kuas)
             ['name' => 'Kilogram', 'symbol' => 'kg'],  // Paku, Kawat, Cat Kiloan
+            ['name' => 'gram', 'symbol' => 'g'],        // new Raw
             ['name' => 'Meter', 'symbol' => 'm'],      // Kabel, Talang, Plastik Cor
             ['name' => 'Batang', 'symbol' => 'btg'],  // Pipa, Besi Beton, Baja Ringan, Lis
             ['name' => 'Lembar', 'symbol' => 'lbr'],   // Triplek, Seng, Asbes, GRC

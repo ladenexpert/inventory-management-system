@@ -17,11 +17,38 @@ RMP is therefore not positioned as a one-off RNI inventory UAT system. The curre
 
 ## Current Milestone
 
-- Milestone: `v0.5.0-rni-pilot-readiness`
+- Milestone: `v0.5.1-rni-pilot-stabilization`
 - Status: implemented and automation-validated
 - Owner state: pending owner browser-UAT, manual review, commit, push, and tag
 - Release handling note: release decisions remain owner-managed, and Codex did not commit, tag, or push
-- Baseline: builds on stable `v0.4.8.1-delete-refresh-and-aggregate-consistency-hotfix`
+- Baseline: builds on stable `v0.5.0-rni-pilot-readiness`
+
+## v0.5.1 Pilot Stabilization Scope
+
+### 1. Discovery Result
+
+- Default `DatabaseSeeder` currently runs `UserSeeder`, `RolePermissionSeeder`, `CustomerSeeder`, `SupplierSeeder`, `UnitSeeder`, `CategorySeeder`, `PhysicalFormSeeder`, `TeamSeeder`, `ProductSeeder`, `FinanceCategorySeeder`, and `SettingSeeder`.
+- The seeded material stock/value drift came from `ProductSeeder`, which was directly creating random positive `products.quantity` values without creating matching batch rows.
+- No default seeder was intentionally creating batch-backed sample stock, opening stock, purchase transactions, sales transactions, finance transactions, or inventory movement history.
+- Finance master/reference data, module settings, role permission matrix, and other non-stock reference data were already part of the default base seed and remain preserved in v0.5.1.
+
+### 2. v0.5.1 Implementation
+
+- `ProductSeeder` now keeps the default material catalog available as zero-stock / zero-value master data only.
+- Default `php artisan migrate:fresh --seed` now creates admin login, role permission matrix, module settings, units, categories, physical forms, storage locations, suppliers, customers, finance categories, and zero-stock material masters without seeded stock/value drift.
+- Default seed creates no seeded batches, no seeded opening stock, no seeded inventory movement history, no seeded purchases/sales, no seeded finance transactions, and no seeded inventory adjustments.
+- `StorageLocationSeeder` is now part of the default base/reference seed so the existing storage-location master remains available in a fresh pilot database.
+- Optional stocked demo data is now explicit through `php artisan db:seed --class=DemoSeeder`.
+- `DemoSeeder` delegates stock creation to `DemoMaterialStockSeeder`, which creates valid batch-backed `opening_balance` demo stock instead of aggregate-only `products.quantity` drift.
+
+### 3. Preserved Baseline
+
+- v0.4.8 Stock Take remains existing-batch-only and still reconciles matched batches without rewriting stock or finance semantics.
+- v0.4.8.1 material delete guard remains preserved: delete still requires both zero active batch stock and `products.quantity = 0`.
+- v0.5.0 export permission hardening and non-admin valuation privacy remain preserved.
+- Finance remains its own authorized menu and finance master/reference data stays available in the default seed.
+- No migration, no new package, no Filament, and no UI framework change were introduced.
+- PHP `8.2` compatibility remains preserved.
 
 ## v0.5.0 Pilot Readiness Scope
 
@@ -160,7 +187,29 @@ The v0.4.8 implementation intentionally preserves:
 
 ## Validation Evidence
 
-Automation validation completed for v0.5.0:
+Automation validation completed for v0.5.1:
+
+- `composer validate`: passed
+- `composer install --dry-run`: passed
+- `php artisan optimize:clear`: passed
+- `php artisan migrate:fresh --seed`: passed
+- focused pilot-clean seed coverage passed: `php artisan test --filter=DefaultSeedPilotReadinessTest`
+- focused RNI regression pack passed: default seed, RNI role access, Material Receipt, Material Usage, Opening Stock, Stock Take, delete guard, visibility, export permission, and financial visibility suites
+- `php artisan test`: passed, `182` tests / `1423` assertions
+
+Focused v0.5.1 stabilization coverage includes:
+
+- default seed creates admin login
+- default seed creates role permission matrix
+- default seed keeps finance master/reference seed data available
+- default seed keeps units, categories, physical forms, storage locations, suppliers, and customers available
+- default seed creates no seeded material stock/value
+- default seed creates no seeded batch stock
+- default seed creates no seeded `products.quantity > 0` material drift without batches
+- explicit `DemoSeeder` creates valid batch-backed demo stock only when requested
+- preserved RNI role, receipt, usage, opening stock, Stock Take, delete guard, dashboard/report refresh, export permission, and finance visibility baselines
+
+Automation validation completed previously for v0.5.0:
 
 - `composer validate`: passed
 - `composer install --dry-run`: passed
@@ -233,6 +282,17 @@ Focused v0.4.8 baseline coverage still includes:
 
 Owner browser-UAT is still required before any release action.
 
+Recommended owner checks for v0.5.1:
+
+- run `php artisan migrate:fresh --seed` and confirm admin login still works with the default credentials
+- confirm roles/permissions and the role permission matrix remain usable
+- confirm `Finance` remains available for authorized users and finance categories/settings still exist
+- confirm default seeded materials, if present, all show zero stock and zero inventory value
+- confirm `Batch Monitoring`, `Stock Take`, and current inventory views start with no seeded batch-backed stock from the default seed
+- confirm a zero-stock default seeded material can still be soft-deleted without creating movement history
+- confirm default seed no longer leaves undeletable sample materials due only to seeded aggregate `products.quantity`
+- run `php artisan db:seed --class=DemoSeeder` only when demo stock is needed and confirm the created stock appears through valid batches rather than orphan aggregate quantity
+
 Recommended owner checks for v0.5.0:
 
 - confirm `Opening Stock`, `Material Receipt`, `Material Usage`, `Stock Take`, `Inventory & Expiry Monitoring`, `Inventory Movement History`, `Usage Report`, `Batch Monitoring`, `Inbound & Purchase Analysis`, `Sales Analysis`, and `Stock Movement Classification` are available for the intended pilot roles
@@ -265,13 +325,16 @@ Recommended owner checks for the preserved v0.4.8 baseline:
 - verify closed session no longer allows stock-impacting actions
 - verify non-admin users do not see valuation columns in Stock Take export/view
 
-## Guardrails Preserved In v0.5.0
+## Guardrails Preserved In v0.5.1
 
+- only default seeded material qty/value was cleaned
+- no stock engine rewrite
 - no Material Receipt rewrite
 - no Material Usage rewrite
 - no Opening Stock rewrite
 - no Stock Take rewrite
 - no finance posting change
+- no finance master/reference data removal
 - no batch creation from Stock Take
 - no batch unit-cost overwrite
 - no full valuation engine
